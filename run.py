@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, abort, Response
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, abort, Response, session, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import joinedload
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
@@ -14,12 +14,10 @@ import io
 app = Flask(__name__)
 
 # ==========================================================
-# == ▼▼▼ التعديل الأول: إعدادات مرنة للنشر ▼▼▼ ==
+# == إعدادات مرنة للنشر (متوافقة مع Render) ==
 # ==========================================================
-# استخدام متغيرات البيئة للمفاتيح السرية وقاعدة البيانات
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'a-very-secret-key-that-is-hard-to-guess'
 
-# جعل قاعدة البيانات متوافقة مع Render (PostgreSQL) والوضع المحلي (SQLite)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -30,16 +28,15 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['REPORTS_UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'reports_uploads')
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
 # ==========================================================
-# == ▲▲▲ نهاية التعديل الأول ▲▲▲ ==
-# ==========================================================
-
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
+login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات (بدون تغيير) ---
+
+# --- نماذج قاعدة البيانات ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -91,10 +88,10 @@ class Report(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
     uploaded_by = db.relationship('User', backref='reports')
 
-# --- بقية الكود (بدون أي تغيير على الإطلاق) ---
-# ... (جميع دوال الـ routes والـ API تبقى كما هي تماماً) ...
+# --- دوال ومسارات التطبيق ---
 @login_manager.user_loader
 def load_user(user_id): return User.query.get(int(user_id))
+
 def calculate_risk_level(probability, impact):
     score = int(probability) * int(impact)
     if score >= 20: return 'مرتفع جدا / كارثي'
@@ -102,24 +99,29 @@ def calculate_risk_level(probability, impact):
     if score >= 10: return 'متوسط'
     if score >= 5: return 'منخفض'
     return 'منخفض جدا'
+
 def calculate_residual_risk(effectiveness):
     if effectiveness in ['ممتاز', 'جيد']: return 'لا يوجد'
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
+
 @app.route('/')
 @login_required
 def home():
     if current_user.username == 'reporter': return redirect(url_for('risk_register'))
     return redirect(url_for('stats'))
+
 @app.route('/stats')
 @login_required
 def stats():
     if current_user.username == 'reporter': abort(403)
     return render_template('stats.html')
+
 @app.route('/risk-register')
 @login_required
 def risk_register():
     return render_template('dashboard.html')
+
 @app.route('/reports')
 @login_required
 def reports():
@@ -132,35 +134,62 @@ def reports():
             db.session.rollback()
             print(f"Error marking reports as read: {e}")
     return render_template('reports.html')
+
 @app.route('/audit_log')
 @login_required
 def audit_log():
     if current_user.username != 'admin': abort(403)
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     return render_template('audit_log.html', logs=logs)
+
 @app.route('/uploads/<filename>')
 @login_required
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 @app.route('/reports_uploads/<report_type>/<filename>')
 @login_required
 def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
+
+# ==========================================================
+# == ▼▼▼ هذا هو التعديل الوحيد الذي تم ▼▼▼ ==
+# ==========================================================
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated: return redirect(url_for('home'))
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    
     if request.method == 'POST':
-        user = User.query.filter_by(username=request.form['username']).first()
-        if user and user.check_password(request.form['password']):
-            login_user(user); return redirect(url_for('home'))
-        return render_template('login.html', error="اسم المستخدم أو كلمة المرور غير صحيحة")
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            
+            # هذا هو السطر الذي تم تعديله ليطابق المنطق الصحيح
+            session['is_admin'] = (user.username == 'admin')
+            
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('home'))
+        else:
+            flash('فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور.', 'danger')
+            
     return render_template('login.html')
+# ==========================================================
+# == ▲▲▲ نهاية التعديل ▲▲▲ ==
+# ==========================================================
+
 @app.route('/logout')
 @login_required
 def logout():
+    # إزالة مفتاح is_admin عند تسجيل الخروج
+    session.pop('is_admin', None)
     logout_user()
     return redirect(url_for('login'))
+
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -192,6 +221,8 @@ def download_risk_log():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment;filename=risk_log.csv"}
     )
+
+# --- واجهات API (بدون تغيير) ---
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
 def get_report_files():
@@ -215,6 +246,7 @@ def get_report_files():
             if report.report_type in files_by_type:
                 files_by_type[report.report_type].append(file_data)
     return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
+
 @app.route('/api/reports/upload', methods=['POST'])
 @login_required
 def upload_report():
@@ -239,6 +271,7 @@ def upload_report():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
+
 @app.route('/api/reports/<int:report_id>/archive', methods=['POST'])
 @login_required
 def archive_report(report_id):
@@ -248,6 +281,7 @@ def archive_report(report_id):
     report.is_archived = True
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت أرشفة الملف بنجاح'})
+
 @app.route('/api/reports/<int:report_id>/restore', methods=['POST'])
 @login_required
 def restore_report(report_id):
@@ -256,6 +290,7 @@ def restore_report(report_id):
     report.is_archived = False
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت استعادة الملف بنجاح'})
+
 @app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
 @login_required
 def delete_report(report_id):
@@ -270,6 +305,7 @@ def delete_report(report_id):
     db.session.delete(report)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم حذف الملف نهائياً'})
+
 @app.route('/api/reports/unread_status', methods=['GET'])
 @login_required
 def get_unread_reports_status():
@@ -277,6 +313,7 @@ def get_unread_reports_status():
         return jsonify({'has_unread': False})
     unread_count = Report.query.filter_by(is_read=False, is_archived=False).count()
     return jsonify({'has_unread': unread_count > 0})
+
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
@@ -285,6 +322,7 @@ def get_risks():
         query = query.filter_by(user_id=current_user.id)
     risks = query.order_by(Risk.created_at.desc()).all()
     return jsonify({'success': True, 'risks': [{'id': r.id, 'risk_code': r.risk_code, 'title': r.title, 'description': r.description, 'category': r.category, 'probability': r.probability, 'impact': r.impact, 'risk_level': r.risk_level, 'owner': r.owner, 'risk_location': r.risk_location, 'proactive_actions': r.proactive_actions, 'immediate_actions': r.immediate_actions, 'action_effectiveness': r.action_effectiveness, 'status': r.status, 'created_at': r.created_at.isoformat(), 'residual_risk': r.residual_risk, 'attachment_filename': r.attachment_filename, 'user_id': r.user_id, 'lessons_learned': r.lessons_learned, 'is_read': r.is_read, 'was_modified': r.was_modified} for r in risks]})
+
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -326,6 +364,7 @@ def add_risk():
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
 def update_risk(risk_id):
@@ -357,6 +396,7 @@ def update_risk(risk_id):
     db.session.add(log_entry)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
+
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
 def delete_risk(risk_id):
@@ -368,6 +408,7 @@ def delete_risk(risk_id):
     db.session.add(log_entry)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم حذف الخطر (أرشفته) بنجاح'})
+
 @app.route('/api/risks/<int:risk_id>/restore', methods=['POST'])
 @login_required
 def restore_risk(risk_id):
@@ -381,6 +422,7 @@ def restore_risk(risk_id):
     db.session.add(restore_log)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت استعادة الخطر بنجاح'})
+
 @app.route('/api/risks/<int:risk_id>/permanent', methods=['DELETE'])
 @login_required
 def permanent_delete_risk(risk_id):
@@ -394,6 +436,7 @@ def permanent_delete_risk(risk_id):
     db.session.delete(risk)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم حذف الخطر نهائياً من النظام.'})
+
 @app.route('/api/risks/<int:risk_id>/delete_attachment', methods=['DELETE'])
 @login_required
 def delete_attachment(risk_id):
@@ -408,6 +451,7 @@ def delete_attachment(risk_id):
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
+
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
@@ -424,6 +468,7 @@ def get_stats_api():
     [by_level.update({r.risk_level: by_level.get(r.risk_level, 0) + 1}) for r in risks if r.risk_level]
     stats_data = {'total_risks': total, 'active_risks': active, 'closed_risks': closed, 'by_category': by_category, 'by_level': by_level}
     return jsonify({'success': True, 'stats': stats_data})
+
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
@@ -441,6 +486,7 @@ def get_notifications():
             'timestamp': r.created_at.isoformat()
         })
     return jsonify({'success': True, 'notifications': notifications, 'count': len(unread_risks)})
+
 @app.route('/api/notifications/mark-as-read', methods=['POST'])
 @login_required
 def mark_as_read():
@@ -455,26 +501,6 @@ def mark_as_read():
     db.session.commit()
     return jsonify({'success': True})
 
-
-# ==========================================================
-# == ▼▼▼ التعديل الثاني: قسم تشغيل التطبيق للنشر ▼▼▼ ==
-# ==========================================================
+# هذا الجزء مخصص للتشغيل المحلي فقط ولا يتم استخدامه على Render
 if __name__ == '__main__':
-    # هذا الجزء مخصص للتشغيل المحلي فقط
-    with app.app_context():
-        if not os.path.exists(app.config['REPORTS_UPLOAD_FOLDER']): os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'])
-        if not os.path.exists(app.config['UPLOAD_FOLDER']): os.makedirs(app.config['UPLOAD_FOLDER'])
-        db.create_all()
-        # إنشاء المستخدمين الافتراضيين إذا لم يكونوا موجودين
-        users_to_create = {'admin': 'Admin@2025', 'testuser': 'Test@1234', 'reporter': 'Reporter@123'}
-        for username, password in users_to_create.items():
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                new_user = User(username=username)
-                new_user.set_password(password)
-                db.session.add(new_user)
-        db.session.commit()
-    app.run(debug=True) # وضع التصحيح يعمل فقط عند التشغيل المحلي
-# ==========================================================
-# == ▲▲▲ نهاية التعديل الثاني ▲▲▲ ==
-# ==========================================================
+    app.run(debug=True)
