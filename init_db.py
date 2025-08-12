@@ -1,41 +1,39 @@
-# هذا الملف مخصص لتهيئة قاعدة البيانات على Render
+# --- الكود الكامل والنهائي لملف init_db.py ---
+
 import os
 from run import app, db, User
-from werkzeug.security import generate_password_hash
-from sqlalchemy import inspect
 
-print(">>>> SCRIPT init_db.py: STARTING DATABASE INITIALIZATION...")
+# --- بيانات المستخدمين الافتراضيين ---
+# هام: تأكد من أن بريد المدير (admin) هو بريد حقيقي لتستقبل عليه الإشعارات
+users_to_create = {
+    'admin': {'password': 'Admin@2025', 'email': 'twag1212@gmail.com'},
+    'testuser': {'password': 'Test@1234', 'email': 'testuser@example.com'},
+    'reporter': {'password': 'Reporter@123', 'email': 'reporter@example.com'}
+}
 
-db_url = os.environ.get('DATABASE_URL')
-if not db_url:
-    print("!!!! SCRIPT init_db.py: ERROR - DATABASE_URL not found.")
-    exit(1)
+with app.app_context():
+    print("Starting database initialization...")
+    
+    # إنشاء جميع الجداول إذا لم تكن موجودة
+    db.create_all()
+    print("Tables created (if they didn't exist).")
 
-try:
-    with app.app_context():
-        inspector = inspect(db.engine)
-        
-        if not inspector.has_table("user"):
-            print(">>>> SCRIPT init_db.py: 'user' table not found. Creating all tables...")
-            db.create_all()
-            print(">>>> SCRIPT init_db.py: Tables created successfully.")
+    # إنشاء المستخدمين الافتراضيين
+    for username, data in users_to_create.items():
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            new_user = User(username=username, email=data['email'])
+            new_user.set_password(data['password'])
+            db.session.add(new_user)
+            print(f"User '{username}' created.")
         else:
-            print(">>>> SCRIPT init_db.py: 'user' table already exists. Skipping table creation.")
+            # تحديث البريد الإلكتروني إذا كان المستخدم موجوداً بالفعل
+            if user.email != data['email']:
+                user.email = data['email']
+                print(f"User '{username}' email updated.")
+            else:
+                print(f"User '{username}' already exists.")
 
-        users_to_create = {'admin': 'Admin@2025', 'testuser': 'Test@1234', 'reporter': 'Reporter@123'}
-        for username, password in users_to_create.items():
-            if not User.query.filter_by(username=username).first():
-                new_user = User(username=username, password_hash=generate_password_hash(password))
-                db.session.add(new_user)
-                print(f">>>> SCRIPT init_db.py: Creating user '{username}'...")
-        
-        db.session.commit()
-        print(">>>> SCRIPT init_db.py: Default users checked/created. Commit successful.")
-
-except Exception as e:
-    print(f"!!!! SCRIPT init_db.py: AN ERROR OCCURRED: {e}")
-    import traceback
-    traceback.print_exc()
-    exit(1)
-
-print(">>>> SCRIPT init_db.py: DATABASE INITIALIZATION COMPLETE.")
+    # حفظ التغييرات في قاعدة البيانات
+    db.session.commit()
+    print("Database initialization complete.")
