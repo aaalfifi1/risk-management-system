@@ -153,9 +153,6 @@ def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
 
-# ==========================================================
-# == ▼▼▼ هذا هو التعديل الوحيد الذي تم ▼▼▼ ==
-# ==========================================================
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -168,24 +165,17 @@ def login():
         
         if user and user.check_password(password):
             login_user(user)
-            
-            # هذا هو السطر الذي تم تعديله ليطابق المنطق الصحيح
             session['is_admin'] = (user.username == 'admin')
-            
             next_page = request.args.get('next')
             return redirect(next_page or url_for('home'))
         else:
             flash('فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور.', 'danger')
             
     return render_template('login.html')
-# ==========================================================
-# == ▲▲▲ نهاية التعديل ▲▲▲ ==
-# ==========================================================
 
 @app.route('/logout')
 @login_required
 def logout():
-    # إزالة مفتاح is_admin عند تسجيل الخروج
     session.pop('is_admin', None)
     logout_user()
     return redirect(url_for('login'))
@@ -222,7 +212,7 @@ def download_risk_log():
         headers={"Content-Disposition": "attachment;filename=risk_log.csv"}
     )
 
-# --- واجهات API (بدون تغيير) ---
+# --- واجهات API ---
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
 def get_report_files():
@@ -255,9 +245,11 @@ def upload_report():
     report_type = request.form.get('report_type')
     if file.filename == '' or not report_type: return jsonify({'success': False, 'message': 'بيانات الطلب ناقصة'}), 400
     try:
-        filename = secure_filename(file.filename)
+        # التأكد من وجود مجلد الرفع الخاص بالتقارير
         report_type_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
         if not os.path.exists(report_type_path): os.makedirs(report_type_path)
+        
+        filename = secure_filename(file.filename)
         file.save(os.path.join(report_type_path, filename))
         new_report = Report(
             filename=filename,
@@ -341,6 +333,16 @@ def add_risk():
             prob = int(data.get('probability', 1)); imp = int(data.get('impact', 1))
             effectiveness = data.get('action_effectiveness'); residual = calculate_residual_risk(effectiveness)
             new_risk = Risk(title=data['title'], description=data.get('description'), category=data['category'], probability=prob, impact=imp, risk_level=calculate_risk_level(prob, imp), owner=data.get('owner'), risk_location=data.get('risk_location'), proactive_actions=data.get('proactive_actions'), immediate_actions=data.get('immediate_actions'), action_effectiveness=effectiveness, user_id=current_user.id, status=data.get('status', 'نشط'), residual_risk=residual, is_read=is_read_status, lessons_learned=data.get('lessons_learned'))
+        
+        # ==========================================================
+        # == ▼▼▼ هذا هو التعديل الأول ▼▼▼ ==
+        # ==========================================================
+        # التأكد من وجود مجلد الرفع وإنشائه إذا لم يكن موجوداً
+        upload_folder = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+        # ==========================================================
+
         if 'attachment' in request.files:
             file = request.files['attachment']
             if file and file.filename != '':
@@ -386,6 +388,16 @@ def update_risk(risk_id):
         risk.was_modified = True
     else:
         risk.is_read = True
+    
+    # ==========================================================
+    # == ▼▼▼ هذا هو التعديل الثاني ▼▼▼ ==
+    # ==========================================================
+    # التأكد من وجود مجلد الرفع وإنشائه إذا لم يكن موجوداً
+    upload_folder = app.config['UPLOAD_FOLDER']
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+    # ==========================================================
+
     if 'attachment' in request.files:
         file = request.files['attachment']
         if file.filename != '':
