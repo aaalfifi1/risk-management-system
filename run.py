@@ -44,6 +44,7 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(150), nullable=False)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
+    reports = db.relationship('Report', backref='uploaded_by', lazy=True)
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -91,7 +92,6 @@ class Report(db.Model):
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
-    uploaded_by = db.relationship('User', backref='reports')
 
 # --- الدوال المساعدة ---
 def send_email(to_email, subject, html_content):
@@ -200,7 +200,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تحميل سجل المخاطر (تمت إعادتها) ---
+# --- دالة تحميل سجل المخاطر ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -307,6 +307,26 @@ def update_risk(risk_id):
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+
+@app.route('/api/reports/upload', methods=['POST'])
+@login_required
+def upload_report():
+    if 'report_file' not in request.files: return jsonify({'success': False, 'message': 'لم يتم العثور على ملف'}), 400
+    file = request.files['report_file']
+    report_type = request.form.get('report_type')
+    if file.filename == '' or not report_type: return jsonify({'success': False, 'message': 'بيانات الطلب ناقصة'}), 400
+    try:
+        filename = secure_filename(file.filename)
+        report_type_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
+        if not os.path.exists(report_type_path): os.makedirs(report_type_path)
+        file.save(os.path.join(report_type_path, filename))
+        new_report = Report(filename=filename, report_type=report_type, uploaded_by_id=current_user.id, is_read=False)
+        db.session.add(new_report)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
 
 @app.route('/api/risks', methods=['GET'])
 @login_required
@@ -428,6 +448,89 @@ def mark_as_read():
         print(f"Error in mark_as_read: {e}")
         return jsonify({'success': False, 'message': 'An error occurred'}), 500
 
-# --- تشغيل التطبيق (للتطوير المحلي فقط) ---
+@app.route('/api/reports/files', methods=['GET'])
+@login_required
+def get_report_files():
+    query = Report.query
+    if current_user.username == 'testuser':
+        query = query.filter_by(uploaded_by_id=current_user.id)
+    all_reports = query.order_by(Report.uploaded_at.desc()).all()
+    files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
+    archived_files = []
+    for report in all_reports:
+        file_data = {'id': report.id, 'name': report.filename, 'type': report.report_type, 'modified_date': report.uploaded_at.strftime('%Y-%m-%d %H:%M')}
+        if report.is_archived:
+            if current_user.username == 'admin': archived_files.append(file_data)
+        else:
+            if report.report_type in files_by_type: files_by_type[report.report_type].append(file_data)
+    return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
+
+@app.route('/api/reports/<int:report_id>/archive', methods=['POST'])
+@login_required
+def archive_report(report_id):
+    report = Report.query.get_or_404(report_id)
+    if current_user.username != 'admin' and report.uploaded_by_id != current_user.id:
+        return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
+    report.is_archived = True
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تمت أرشفة الملف بنجاح'})
+
+@app.route('/api/reports/<int:report_id>/restore', methods=['POST'])
+@login_required
+def restore_report(report_id):
+    if current_user.username != 'admin': return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
+    report = Report.query.get_or_404(report_id)
+    report.is_archived = False
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تمت استعادة الملف بنجاح'})
+
+@app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
+@login_required
+def delete_report(report_id):
+    if current_user.username != 'admin': return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
+    report = Report.query.get_or_404
+# ... (الكود السابق) ...
+
+@app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
+@login_required
+def delete_report(report_id):
+    if current_user.username != 'admin': return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
+    report = Report.query.get_or_404(report_id)
+    try:
+        file_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report.report_type, report.filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        db.session.delete(report)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'تم حذف الملف نهائياً'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting report file: {e}")
+        return jsonify({'success': False, 'message': f'خطأ أثناء حذف الملف: {e}'}), 500
+
+@app.route('/api/reports/unread_status', methods=['GET'])
+@login_required
+def get_unread_reports_status():
+    if current_user.username != 'admin':
+        return jsonify({'has_unread': False})
+    unread_count = Report.query.filter_by(is_read=False, is_archived=False).count()
+    return jsonify({'has_unread': unread_count > 0})
+
+# --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
-    app.run(debug=True)
+    # هذا الجزء لا يعمل على Render، بل فقط عند تشغيل الملف مباشرة على جهازك
+    with app.app_context():
+        # التأكد من وجود مجلدات الرفع
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+        if not os.path.exists(app.config['REPORTS_UPLOAD_FOLDER']):
+            os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'])
+        
+        # إنشاء الجداول (إذا لم تكن موجودة)
+        db.create_all()
+        
+        # يمكنك إضافة مستخدمين افتراضيين هنا للاختبار المحلي
+        # ... (تم حذف كود إنشاء المستخدمين من هنا ليعتمد على init_db.py) ...
+
+    app.run(debug=True, port=5001)
+
