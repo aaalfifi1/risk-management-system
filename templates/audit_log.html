@@ -3,51 +3,51 @@
 {% block title %}سجل التغييرات - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
-<style>
-    /* هذه الأنماط خاصة بجدول هذه الصفحة فقط */
-    .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
-    .table { color: var(--light-text); background-color: var(--light-text); }
-    .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
-    .table thead th { background-color: var(--dark-blue); color: var(--light-text); }
-    .table tbody td { color: var(--dark-blue); }
-    .table-hover tbody tr:hover { background-color: #e9ecef; color: var(--dark-blue); }
-    .action-icon { cursor: pointer; font-size: 1.1rem; margin: 0 5px; }
-    .action-icon.restore { color: #198754; }
-    .action-icon.delete { color: #dc3545; }
-</style>
+    <style>
+        /* الأنماط الخاصة بصفحة سجل التغييرات فقط */
+        .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
+        .table { color: var(--light-text); background-color: var(--light-text); }
+        .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
+        .table thead th { background-color: var(--dark-blue); color: var(--light-text); }
+        .table tbody td { color: var(--dark-blue); }
+        .table-hover tbody tr:hover { background-color: #e9ecef; color: var(--dark-blue); }
+        .action-icon { cursor: pointer; font-size: 1.1rem; margin: 0 5px; }
+        .action-icon.restore { color: #198754; }
+        .action-icon.delete { color: #dc3545; }
+    </style>
 {% endblock %}
 
 {% block content %}
-<h2 class="mb-4">سجل التغييرات</h2>
-<div class="table-responsive table-wrapper">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>الوقت والتاريخ</th>
-                <th>المستخدم</th>
-                <th>الحدث</th>
-                <th>التفاصيل</th>
-                <th>إجراء</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in logs %}
-            <tr id="log-row-{{ log.id }}">
-                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                <td>{{ log.user.username }}</td>
-                <td>{{ log.action }}</td>
-                <td>{{ log.details }}</td>
-                <td>
-                    {% if log.action == 'حذف' %}
-                    <i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الخطر" onclick="confirmRestore({{ log.id }}, {{ log.risk_id }})"></i>
-                    <i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmPermanentDelete({{ log.id }}, {{ log.risk_id }})"></i>
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+    <h2 class="mb-4">سجل التغييرات</h2>
+    <div class="table-responsive table-wrapper">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>الوقت والتاريخ</th>
+                    <th>المستخدم</th>
+                    <th>الحدث</th>
+                    <th>التفاصيل</th>
+                    <th>إجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr id="log-row-{{ log.id }}">
+                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ log.user.username }}</td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.details }}</td>
+                    <td>
+                        {% if log.action == 'حذف' %}
+                        <i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الخطر" onclick="confirmRestore({{ log.id }}, {{ log.risk_id }})"></i>
+                        <i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmPermanentDelete({{ log.id }}, {{ log.risk_id }})"></i>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 {% endblock %}
 
 {% block scripts %}
