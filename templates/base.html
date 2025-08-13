@@ -4,135 +4,142 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}نظام إدارة المخاطر{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        /* هذا هو الـ CSS الأصلي لموقعك للحفاظ على التصميم */
         body {
             font-family: 'Cairo', sans-serif;
-            background-color: #f8f9fa;
+            background-color: #f4f6f9;
         }
         .navbar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #dee2e6;
+            background-color: #2c3e50; /* اللون الكحلي الأصلي */
+            padding: 0.5rem 1rem;
         }
-        .navbar-brand img {
-            max-height: 40px;
-        }
-        .nav-link {
-            color: #495057;
+        .navbar-brand, .nav-link, .dropdown-toggle {
+            color: #ecf0f1 !important; /* اللون الأبيض الفاتح للنصوص */
             font-weight: bold;
         }
-        .nav-link.active, .nav-link:hover {
-            color: #007bff;
+        .navbar-brand:hover, .nav-link:hover, .dropdown-toggle:hover {
+            color: #f1c40f !important; /* اللون الأصفر عند التأشير */
         }
-        .main-container {
-            display: flex;
-            min-height: 100vh;
+        .navbar-brand {
+            font-size: 1.5rem;
+        }
+        .nav-link.active {
+            color: #f1c40f !important; /* اللون الأصفر للرابط النشط */
+            border-bottom: 2px solid #f1c40f;
+        }
+        .dropdown-menu {
+            background-color: #34495e;
+            border: none;
+        }
+        .dropdown-item {
+            color: #ecf0f1;
+        }
+        .dropdown-item:hover {
+            background-color: #4a627a;
+            color: #f1c40f;
         }
         .content {
-            flex-grow: 1;
             padding: 20px;
         }
+        .card-header {
+            background-color: #34495e;
+            color: white;
+        }
         .notification-badge {
-            position: absolute;
-            top: 10px;
-            right: 10px;
             height: 10px;
             width: 10px;
-            background-color: red;
+            background-color: #e74c3c;
             border-radius: 50%;
-            display: none; /* Hidden by default */
+            position: absolute;
+            top: 5px;
+            right: -5px;
+            display: none;
         }
     </style>
     {% block head_extra %}{% endblock %}
 </head>
 <body>
-    <div class="main-container">
-        <main class="content">
-            {% if current_user.is_authenticated %}
-            <nav class="navbar navbar-expand-lg navbar-light mb-4">
-                <div class="container-fluid">
-                    <a class="navbar-brand" href="{{ url_for('home' ) }}">
-                        <img src="{{ url_for('static', filename='najran_logo.png') }}" alt="شعار جامعة نجران">
-                        نظام إدارة المخاطر
-                    </a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                            
-                            <!-- الرابط 1: لوحة التحكم (للأدمن ورائد المخاطر) -->
-                            {% if current_user.username in ['admin', 'testuser'] %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint == 'stats' %}active{% endif %}" href="{{ url_for('stats') }}"><i class="bi bi-bar-chart-line-fill"></i> لوحة التحكم</a>
-                            </li>
-                            {% endif %}
 
-                            <!-- الرابط 2: سجل المخاطر (يُخفى عن المُبلّغ فقط) -->
-                            {% if current_user.username != 'reporter' %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint == 'risk_register' %}active{% endif %}" href="{{ url_for('risk_register') }}"><i class="bi bi-shield-fill-exclamation"></i> سجل المخاطر</a>
-                            </li>
-                            {% endif %}
-
-                            <!-- الرابط 3: سجل التدقيق (للأدمن فقط) -->
-                            {% if current_user.username == 'admin' %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint == 'audit_log' %}active{% endif %}" href="{{ url_for('audit_log') }}"><i class="bi bi-journal-text"></i> سجل التدقيق</a>
-                            </li>
-                            {% endif %}
-
-                            <!-- الرابط 4: التقارير (للأدمن ورائد المخاطر) -->
-                            {% if current_user.username in ['admin', 'testuser'] %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}" style="position: relative;">
-                                    <i class="bi bi-file-earmark-text-fill"></i> التقارير
-                                    {% if current_user.username == 'admin' %}
-                                    <span id="reports-notification-badge" class="notification-badge"></span>
-                                    {% endif %}
-                                </a>
-                            </li>
-                            {% endif %}
-                            
-                            <!-- يمكنك إضافة روابط "خطة إدارة المخاطر" و "تواصل معنا" هنا إذا كانت صفحات ثابتة -->
-
-                        </ul>
-                        <ul class="navbar-nav">
-                            <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="bi bi-person-circle"></i> مرحباً, {{ current_user.username }}
-                                </a>
-                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                    <li><a class="dropdown-item" href="{{ url_for('logout') }}">تسجيل الخروج</a></li>
-                                </ul>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </nav>
-            {% endif %}
-            
-            <div class="container-fluid">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
+    {% if current_user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('home' ) }}">نظام إدارة المخاطر</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    
+                    <!-- الرابط 1: لوحة التحكم (للأدمن ورائد المخاطر) -->
+                    {% if current_user.username in ['admin', 'testuser'] %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'stats' %}active{% endif %}" href="{{ url_for('stats') }}">لوحة التحكم</a>
+                    </li>
                     {% endif %}
-                {% endwith %}
-                {% block content %}{% endblock %}
-            </div>
-        </main>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+                    <!-- الرابط 2: سجل المخاطر (يُخفى عن المُبلّغ فقط) -->
+                    {% if current_user.username != 'reporter' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'risk_register' %}active{% endif %}" href="{{ url_for('risk_register') }}">سجل المخاطر</a>
+                    </li>
+                    {% endif %}
+
+                    <!-- الرابط 3: سجل التدقيق (للأدمن فقط) -->
+                    {% if current_user.username == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'audit_log' %}active{% endif %}" href="{{ url_for('audit_log') }}">سجل التدقيق</a>
+                    </li>
+                    {% endif %}
+
+                    <!-- الرابط 4: التقارير (للأدمن ورائد المخاطر) -->
+                    {% if current_user.username in ['admin', 'testuser'] %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}" style="position: relative;">
+                            التقارير
+                            {% if current_user.username == 'admin' %}
+                            <span id="reports-notification-badge" class="notification-badge"></span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> مرحباً, {{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">تسجيل الخروج</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <main class="container-fluid content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
