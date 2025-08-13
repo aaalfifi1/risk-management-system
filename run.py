@@ -12,10 +12,6 @@ import os
 import csv
 import io
 
-# --- مكتبات إرسال البريد ---
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
-
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
 
@@ -37,10 +33,10 @@ login_manager.login_message = 'الرجاء تسجيل الدخول للوصول
 login_manager.login_message_category = 'info'
 
 # --- نماذج قاعدة البيانات (Models) ---
+# ملاحظة: تم حذف عمود email من نموذج User للعودة للاستقرار
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
@@ -94,20 +90,6 @@ class Report(db.Model):
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
 # --- الدوال المساعدة ---
-def send_email(to_email, subject, html_content):
-    api_key = os.environ.get('SENDGRID_API_KEY')
-    sender_email = os.environ.get('SENDER_EMAIL')
-    if not api_key or not sender_email:
-        print("ERROR: Email environment variables not set. Email not sent.")
-        return
-    message = Mail(from_email=sender_email, to_emails=to_email, subject=subject, html_content=html_content)
-    try:
-        sg = SendGridAPIClient(api_key)
-        response = sg.send(message)
-        print(f"Email sent to {to_email}, Status Code: {response.status_code}")
-    except Exception as e:
-        print(f"Error sending email: {e}")
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -250,19 +232,10 @@ def add_risk():
         log_entry = AuditLog(user_id=current_user.id, action='إضافة', details=f"إضافة خطر جديد بكود: '{new_risk.risk_code}'", risk_id=new_risk.id)
         db.session.add(log_entry)
         db.session.commit()
-
-        if user_role != 'admin':
-            admin_user = User.query.filter_by(username='admin').first()
-            if admin_user and admin_user.email:
-                subject = f"بلاغ خطر جديد: {new_risk.risk_code}"
-                html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بنشاط جديد في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>تم تسجيل نشاط جديد من قبل المستخدم: <strong>{current_user.username}</strong></p><hr><h3>تفاصيل الخطر:</h3><ul><li><strong>كود الخطر:</strong> {new_risk.risk_code}</li><li><strong>الوصف:</strong> {new_risk.description}</li><li><strong>الموقع:</strong> {new_risk.risk_location}</li></ul><hr><p>الرجاء الدخول إلى النظام لمراجعة التفاصيل واتخاذ الإجراء اللازم.</p><p>شكراً لك.</p></div>"
-                send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
-
         message = 'تم إرسال بلاغك بنجاح. شكراً لك!' if user_role == 'reporter' else 'تمت إضافة الخطر بنجاح'
         return jsonify({'success': True, 'message': message}), 201
     except Exception as e:
         db.session.rollback()
-        print(f"An error occurred in add_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
@@ -273,7 +246,6 @@ def update_risk(risk_id):
         if current_user.username != 'admin' and risk.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
         data = request.form
-        was_modified_before = risk.was_modified
         risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
         risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
@@ -296,16 +268,9 @@ def update_risk(risk_id):
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
-        if current_user.username != 'admin' and not was_modified_before:
-            admin_user = User.query.filter_by(username='admin').first()
-            if admin_user and admin_user.email:
-                subject = f"تحديث على الخطر: {risk.risk_code}"
-                html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
-                send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
         return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
     except Exception as e:
         db.session.rollback()
-        print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
 @app.route('/api/reports/upload', methods=['POST'])
@@ -488,13 +453,6 @@ def restore_report(report_id):
 @login_required
 def delete_report(report_id):
     if current_user.username != 'admin': return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
-    report = Report.query.get_or_404
-# ... (الكود السابق) ...
-
-@app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
-@login_required
-def delete_report(report_id):
-    if current_user.username != 'admin': return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
     report = Report.query.get_or_404(report_id)
     try:
         file_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report.report_type, report.filename)
@@ -518,19 +476,4 @@ def get_unread_reports_status():
 
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
-    # هذا الجزء لا يعمل على Render، بل فقط عند تشغيل الملف مباشرة على جهازك
-    with app.app_context():
-        # التأكد من وجود مجلدات الرفع
-        if not os.path.exists(app.config['UPLOAD_FOLDER']):
-            os.makedirs(app.config['UPLOAD_FOLDER'])
-        if not os.path.exists(app.config['REPORTS_UPLOAD_FOLDER']):
-            os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'])
-        
-        # إنشاء الجداول (إذا لم تكن موجودة)
-        db.create_all()
-        
-        # يمكنك إضافة مستخدمين افتراضيين هنا للاختبار المحلي
-        # ... (تم حذف كود إنشاء المستخدمين من هنا ليعتمد على init_db.py) ...
-
     app.run(debug=True, port=5001)
-
