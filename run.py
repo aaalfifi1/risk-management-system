@@ -308,9 +308,6 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-# =================================================================
-# == ▼▼▼ [المرحلة الأولى] تعديل دالة رفع التقرير فقط ▼▼▼ ==
-# =================================================================
 @app.route('/api/reports/upload', methods=['POST'])
 @login_required
 def upload_report():
@@ -325,22 +322,15 @@ def upload_report():
         file.save(os.path.join(report_type_path, filename))
         new_report = Report(filename=filename, report_type=report_type, uploaded_by_id=current_user.id, is_read=False)
         db.session.add(new_report)
-        
-        # --- الإضافة الوحيدة في هذه المرحلة ---
         report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report_type, report_type)
         log_details = f"رفع الملف '{filename}' إلى قسم '{report_type_arabic}'."
         log_entry = AuditLog(user_id=current_user.id, action='رفع تقرير', details=log_details, risk_id=None)
         db.session.add(log_entry)
-        # --- نهاية الإضافة ---
-        
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
-# =================================================================
-# == ▲▲▲ نهاية تعديل المرحلة الأولى ▲▲▲ ==
-# =================================================================
 
 @app.route('/api/risks', methods=['GET'])
 @login_required
@@ -479,13 +469,23 @@ def get_report_files():
             if report.report_type in files_by_type: files_by_type[report.report_type].append(file_data)
     return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
 
+# =================================================================
+# == ▼▼▼ [المرحلة الثانية] تعديل دالات الأرشفة والاستعادة والحذف ▼▼▼ ==
+# =================================================================
 @app.route('/api/reports/<int:report_id>/archive', methods=['POST'])
 @login_required
 def archive_report(report_id):
     report = Report.query.get_or_404(report_id)
     if current_user.username != 'admin' and report.uploaded_by_id != current_user.id:
         return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
+    
     report.is_archived = True
+    
+    # تسجيل الحدث في سجل التغييرات
+    log_details = f"أرشفة الملف '{report.filename}'."
+    log_entry = AuditLog(user_id=current_user.id, action='أرشفة تقرير', details=log_details, risk_id=None)
+    db.session.add(log_entry)
+    
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت أرشفة الملف بنجاح'})
 
@@ -494,10 +494,16 @@ def archive_report(report_id):
 def restore_report(report_id):
     if current_user.username != 'admin': 
         return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
+    
     report = Report.query.get_or_404(report_id)
     report.is_archived = False
+    
+    # تسجيل الحدث في سجل التغييرات
+    log_details = f"استعادة الملف المؤرشف '{report.filename}'."
+    log_entry = AuditLog(user_id=current_user.id, action='استعادة تقرير', details=log_details, risk_id=None)
+    db.session.add(log_entry)
+    
     db.session.commit()
-       
     return jsonify({'success': True, 'message': 'تمت استعادة الملف بنجاح'})
 
 @app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
@@ -505,13 +511,22 @@ def restore_report(report_id):
 def delete_report(report_id):
     if current_user.username != 'admin': 
         return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
+    
     report = Report.query.get_or_404(report_id)
+    
     try:
+        # تسجيل الحدث قبل الحذف
+        log_details = f"حذف الملف المؤرشف '{report.filename}' بشكل نهائي."
+        log_entry = AuditLog(user_id=current_user.id, action='حذف تقرير نهائي', details=log_details, risk_id=None)
+        db.session.add(log_entry)
+
         file_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report.report_type, report.filename)
         if os.path.exists(file_path):
             os.remove(file_path)
+            
         db.session.delete(report)
         db.session.commit()
+        
         return jsonify({'success': True, 'message': 'تم حذف الملف نهائياً'})
     except Exception as e:
         db.session.rollback()
