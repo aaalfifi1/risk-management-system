@@ -477,15 +477,13 @@ def archive_report(report_id):
 
 @app.route('/api/reports/<int:report_id>/restore', methods=['POST'])
 @login_required
-def restore
-@app.route('/api/reports/<int:report_id>/restore', methods=['POST'])
-@login_required
 def restore_report(report_id):
     if current_user.username != 'admin': 
         return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
     report = Report.query.get_or_404(report_id)
     report.is_archived = False
     db.session.commit()
+       
     return jsonify({'success': True, 'message': 'تمت استعادة الملف بنجاح'})
 
 @app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
@@ -517,3 +515,4 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
