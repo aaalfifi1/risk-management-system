@@ -34,6 +34,21 @@
         .lessons-learned-field { display: none; }
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
+
+        /* ================================================================= */
+        /* == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به ▼▼▼ == */
+        /* ================================================================= */
+        .table .col-description,
+        .table .col-proactive,
+        .table .col-actions,
+        .table .col-lessons {
+            min-width: 300px; /* زيادة العرض الأدنى بشكل ملحوظ */
+            word-wrap: break-word; /* ضمان التفاف النص الطويل */
+        }
+        /* ================================================================= */
+        /* == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ == */
+        /* ================================================================= */
+
     </style>
 {% endblock %}
 
@@ -62,7 +77,29 @@
                 <div class="col-md-3"><label for="sort-by" class="form-label">ترتيب حسب</label><select id="sort-by" class="form-select"><option value="newest">الأحدث أولاً</option><option value="severity">الأعلى خطورة</option></select></div>
             </div>
         </div>
-        <div class="table-responsive table-wrapper"><table class="table table-hover"><thead><tr><th>كود الخطر</th><th>تاريخ الإنشاء</th><th>عنوان الخطر</th><th>وصف الخطر</th><th>موقع الخطر</th><th>الفئة</th><th>مستوى الخطورة</th><th>مالك الخطر</th><th>الإجراءات الإستباقية</th><th>الإجراءات الفورية</th><th>فعالية الإجراءات</th><th>الحالة</th><th>المرفق</th><th>الدروس المستفادة</th></tr></thead><tbody id="risks-table-body"></tbody></table></div>
+        <div class="table-responsive table-wrapper">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>كود الخطر</th>
+                        <th>تاريخ الإنشاء</th>
+                        <th>عنوان الخطر</th>
+                        <th class="col-description">وصف الخطر</th>
+                        <th>موقع الخطر</th>
+                        <th>الفئة</th>
+                        <th>مستوى الخطورة</th>
+                        <th>مالك الخطر</th>
+                        <th class="col-proactive">الإجراءات الإستباقية</th>
+                        <th class="col-actions">الإجراءات الفورية</th>
+                        <th>فعالية الإجراءات</th>
+                        <th>الحالة</th>
+                        <th>المرفق</th>
+                        <th class="col-lessons">الدروس المستفادة</th>
+                    </tr>
+                </thead>
+                <tbody id="risks-table-body"></tbody>
+            </table>
+        </div>
     {% else %}
         <div class="reporter-welcome-box text-center" role="alert"><h4 class="alert-heading">مرحباً بك في نظام الإبلاغ عن المخاطر!</h4><p>يمكنك استخدام زر <strong>"الإبلاغ عن خطر"</strong> أعلاه للإبلاغ عن أي خطر محتمل تلاحظه. شكراً لمساهمتك في جعل بيئتنا أكثر أمناً.</p></div>
     {% endif %}
@@ -152,7 +189,24 @@
             if (risk.title && risk.title.startsWith('(خطر ثانوي)')) { codeCellClass += ' cell-secondary-risk'; }
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
             else if (risk.was_modified) { codeCellClass += ' cell-modified'; }
-            row.innerHTML = `<td class="${codeCellClass}">${risk.risk_code || risk.id}</td><td>${hijriDate}</td><td>${risk.title || 'بلاغ'}</td><td>${risk.description || ''}</td><td>${risk.risk_location || ''}</td><td>${risk.category || ''}</td><td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td><td>${risk.owner || ''}</td><td>${risk.proactive_actions || ''}</td><td>${risk.immediate_actions || ''}</td><td>${risk.action_effectiveness || ''}</td><td>${risk.status || ''}</td><td>${attachmentHtml}</td><td>${risk.lessons_learned || ''}</td>`;
+            
+            // إضافة الكلاسات إلى خلايا الأعمدة لتطبيق التوسيع
+            row.innerHTML = `
+                <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
+                <td>${hijriDate}</td>
+                <td>${risk.title || 'بلاغ'}</td>
+                <td class="col-description">${risk.description || ''}</td>
+                <td>${risk.risk_location || ''}</td>
+                <td>${risk.category || ''}</td>
+                <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
+                <td>${risk.owner || ''}</td>
+                <td class="col-proactive">${risk.proactive_actions || ''}</td>
+                <td class="col-actions">${risk.immediate_actions || ''}</td>
+                <td>${risk.action_effectiveness || ''}</td>
+                <td>${risk.status || ''}</td>
+                <td>${attachmentHtml}</td>
+                <td class="col-lessons">${risk.lessons_learned || ''}</td>
+            `;
             risksTableBody.appendChild(row);
         });
     }
@@ -303,6 +357,7 @@
                 }, true],
                 ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
             ]
+        
         });
     }
 </script>
