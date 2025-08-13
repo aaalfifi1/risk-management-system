@@ -24,7 +24,7 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-default-fallback-secr
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
+app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL or 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'risk_management.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['REPORTS_UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'reports_uploads')
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
@@ -308,6 +308,9 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
+# =================================================================
+# == ▼▼▼ [المرحلة الأولى] تعديل دالة رفع التقرير فقط ▼▼▼ ==
+# =================================================================
 @app.route('/api/reports/upload', methods=['POST'])
 @login_required
 def upload_report():
@@ -322,11 +325,22 @@ def upload_report():
         file.save(os.path.join(report_type_path, filename))
         new_report = Report(filename=filename, report_type=report_type, uploaded_by_id=current_user.id, is_read=False)
         db.session.add(new_report)
+        
+        # --- الإضافة الوحيدة في هذه المرحلة ---
+        report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report_type, report_type)
+        log_details = f"رفع الملف '{filename}' إلى قسم '{report_type_arabic}'."
+        log_entry = AuditLog(user_id=current_user.id, action='رفع تقرير', details=log_details, risk_id=None)
+        db.session.add(log_entry)
+        # --- نهاية الإضافة ---
+        
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
+# =================================================================
+# == ▲▲▲ نهاية تعديل المرحلة الأولى ▲▲▲ ==
+# =================================================================
 
 @app.route('/api/risks', methods=['GET'])
 @login_required
@@ -514,5 +528,29 @@ def get_unread_reports_status():
 
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
+    with app.app_context():
+        # إنشاء المجلدات إذا لم تكن موجودة
+        if not os.path.exists(app.config['REPORTS_UPLOAD_FOLDER']):
+            os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'])
+        if not os.path.exists(app.config['UPLOAD_FOLDER']):
+            os.makedirs(app.config['UPLOAD_FOLDER'])
+        
+        # إنشاء قاعدة البيانات والجداول
+        db.create_all()
+        
+        # إنشاء المستخدمين الافتراضيين إذا لم يكونوا موجودين
+        users_to_create = {
+            'admin': ('Admin@2025', 'twag1212@gmail.com'),
+            'testuser': ('Test@1234', 'testuser@example.com'),
+            'reporter': ('Reporter@123', 'reporter@example.com')
+        }
+        for username, (password, email) in users_to_create.items():
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                new_user = User(username=username, email=email)
+                new_user.set_password(password)
+                db.session.add(new_user)
+        db.session.commit()
+        
     app.run(debug=True, port=5001)
 
