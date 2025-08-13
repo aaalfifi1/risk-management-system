@@ -20,19 +20,12 @@ from sendgrid.helpers.mail import Mail
 app = Flask(__name__)
 
 # --- إعدادات التطبيق ومتغيرات البيئة ---
-# هام: هذه الإعدادات تعتمد على متغيرات البيئة في Render
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-default-fallback-secret-key-for-local-dev')
-
-# إعداد رابط قاعدة البيانات (متوافق مع Render PostgreSQL)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
-
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# --- إعدادات مجلدات الرفع ---
-# ملاحظة: في Render، هذه المجلدات مؤقتة. للرفع الدائم، ستحتاج لخدمة مثل S3 في المستقبل.
 app.config['REPORTS_UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'reports_uploads')
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'uploads')
 
@@ -47,7 +40,7 @@ login_manager.login_message_category = 'info'
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False) # حقل البريد الإلكتروني
+    email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
@@ -102,19 +95,12 @@ class Report(db.Model):
 
 # --- الدوال المساعدة ---
 def send_email(to_email, subject, html_content):
-    """دالة لإرسال البريد الإلكتروني باستخدام SendGrid."""
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
-
     if not api_key or not sender_email:
-        print("ERROR: متغيرات البيئة لإرسال البريد (SENDGRID_API_KEY, SENDER_EMAIL) غير موجودة. لم يتم إرسال البريد.")
+        print("ERROR: Email environment variables not set. Email not sent.")
         return
-
-    message = Mail(
-        from_email=sender_email,
-        to_emails=to_email,
-        subject=subject,
-        html_content=html_content)
+    message = Mail(from_email=sender_email, to_emails=to_email, subject=subject, html_content=html_content)
     try:
         sg = SendGridAPIClient(api_key)
         response = sg.send(message)
@@ -214,9 +200,24 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- مسارات واجهة برمجة التطبيقات (API) ---
+# --- دالة تحميل سجل المخاطر (تمت إعادتها) ---
+@app.route('/download-risk-log')
+@login_required
+def download_risk_log():
+    if current_user.username not in ['admin', 'testuser']:
+        abort(403)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    headers = ['Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Action Effectiveness', 'Residual Risk', 'Lessons Learned', 'Created At', 'Reporter']
+    writer.writerow(headers)
+    risks = Risk.query.filter_by(is_deleted=False).order_by(Risk.created_at.asc()).all()
+    for risk in risks:
+        reporter_username = risk.user.username if risk.user else 'N/A'
+        writer.writerow([risk.risk_code or risk.id, risk.title, risk.description, risk.category, risk.probability, risk.impact, risk.risk_level, risk.status, risk.owner, risk.risk_location, risk.proactive_actions, risk.immediate_actions, risk.action_effectiveness, risk.residual_risk, risk.lessons_learned, risk.created_at.strftime('%Y-%m-%d %H:%M:%S'), reporter_username])
+    output.seek(0)
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# API للمخاطر
+# --- مسارات واجهة برمجة التطبيقات (API) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -224,22 +225,17 @@ def add_risk():
         data = request.form
         user_role = current_user.username
         is_read_status = (user_role == 'admin')
-        
         if user_role == 'reporter':
             if not data.get('description') or not data.get('risk_location'):
                 return jsonify({'success': False, 'message': 'وصف الخطر وموقعه حقول مطلوبة.'}), 400
             new_risk = Risk(title="", description=data['description'], category="", probability=1, impact=1, risk_level="", owner=data.get('owner', 'لم يتم توفيره'), risk_location=data['risk_location'], user_id=current_user.id, status='جديد', is_read=is_read_status)
         else:
-            prob = int(data.get('probability', 1))
-            imp = int(data.get('impact', 1))
-            effectiveness = data.get('action_effectiveness')
-            residual = calculate_residual_risk(effectiveness)
+            prob = int(data.get('probability', 1)); imp = int(data.get('impact', 1))
+            effectiveness = data.get('action_effectiveness'); residual = calculate_residual_risk(effectiveness)
             new_risk = Risk(title=data['title'], description=data.get('description'), category=data['category'], probability=prob, impact=imp, risk_level=calculate_risk_level(prob, imp), owner=data.get('owner'), risk_location=data.get('risk_location'), proactive_actions=data.get('proactive_actions'), immediate_actions=data.get('immediate_actions'), action_effectiveness=effectiveness, user_id=current_user.id, status=data.get('status', 'نشط'), residual_risk=residual, is_read=is_read_status, lessons_learned=data.get('lessons_learned'))
         
         upload_folder = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder)
-        
+        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
             file = request.files['attachment']
             if file and file.filename != '':
@@ -249,15 +245,12 @@ def add_risk():
         
         db.session.add(new_risk)
         db.session.flush()
-        
         source_code = {'admin': 'ADM', 'testuser': 'RPN'}.get(user_role, 'REP')
         new_risk.risk_code = f"{source_code}_{new_risk.created_at.year}_{new_risk.id:04d}"
-        
         log_entry = AuditLog(user_id=current_user.id, action='إضافة', details=f"إضافة خطر جديد بكود: '{new_risk.risk_code}'", risk_id=new_risk.id)
         db.session.add(log_entry)
         db.session.commit()
 
-        # إرسال البريد الإلكتروني للمدير
         if user_role != 'admin':
             admin_user = User.query.filter_by(username='admin').first()
             if admin_user and admin_user.email:
@@ -267,13 +260,10 @@ def add_risk():
 
         message = 'تم إرسال بلاغك بنجاح. شكراً لك!' if user_role == 'reporter' else 'تمت إضافة الخطر بنجاح'
         return jsonify({'success': True, 'message': message}), 201
-
     except Exception as e:
         db.session.rollback()
-        print(f"An error occurred in add_risk: {e}") # طباعة الخطأ في السجلات
+        print(f"An error occurred in add_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
-
-# ... (بقية دوال الـ API تبقى كما هي) ...
 
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
@@ -282,89 +272,42 @@ def update_risk(risk_id):
         risk = Risk.query.get_or_404(risk_id)
         if current_user.username != 'admin' and risk.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
-        
         data = request.form
         was_modified_before = risk.was_modified
-
         risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
         risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
-        prob = int(data.get('probability', risk.probability))
-        imp = int(data.get('impact', risk.impact))
-        effectiveness = data.get('action_effectiveness', risk.action_effectiveness)
-        residual = calculate_residual_risk(effectiveness)
-        risk.title = data.get('title', risk.title)
-        risk.description = data.get('description', risk.description)
-        risk.category = data.get('category', risk.category)
-        risk.probability = prob
-        risk.impact = imp
-        risk.risk_level = calculate_risk_level(prob, imp)
-        risk.owner = data.get('owner', risk.owner)
-        risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness
-        risk.status = data.get('status', risk.status)
-        risk.residual_risk = residual
-        risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
-        
+        prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
+        effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
+        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
+        risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         if current_user.username != 'admin':
             risk.is_read = False
             risk.was_modified = True
         else:
             risk.is_read = True
-        
         upload_folder = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder)
+        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
             file = request.files['attachment']
             if file.filename != '':
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(upload_folder, filename))
                 risk.attachment_filename = filename
-        
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
-
-        # إرسال بريد إلكتروني عند أول تعديل من قبل المستخدم العادي
         if current_user.username != 'admin' and not was_modified_before:
             admin_user = User.query.filter_by(username='admin').first()
             if admin_user and admin_user.email:
                 subject = f"تحديث على الخطر: {risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
                 send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
-
         return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
     except Exception as e:
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-# --- الدالة الصحيحة والمعدلة ---
-@app.route('/api/notifications/mark-as-read', methods=['POST'])
-@login_required
-def mark_as_read():
-    if current_user.username != 'admin':
-        abort(403)
-    
-    data = request.get_json()
-    risk_id = data.get('risk_id')
-    
-    try:
-        if risk_id:
-            risk = Risk.query.get(risk_id)
-            if risk:
-                risk.is_read = True
-        else:
-            Risk.query.filter_by(is_read=False, is_deleted=False).update({'is_read': True})
-            
-        db.session.commit()
-        return jsonify({'success': True})
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error in mark_as_read: {e}")
-        return jsonify({'success': False, 'message': 'An error occurred'}), 500
-
-# --- بقية دوال الـ API (بدون تغيير) ---
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
@@ -446,12 +389,10 @@ def get_stats_api():
     closed = total - active
     by_category = {}
     for r in risks:
-        if r.category:
-            by_category[r.category] = by_category.get(r.category, 0) + 1
+        if r.category: by_category[r.category] = by_category.get(r.category, 0) + 1
     by_level = {}
     for r in risks:
-        if r.risk_level:
-            by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
+        if r.risk_level: by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
     stats_data = {'total_risks': total, 'active_risks': active, 'closed_risks': closed, 'by_category': by_category, 'by_level': by_level}
     return jsonify({'success': True, 'stats': stats_data})
 
@@ -464,15 +405,28 @@ def get_notifications():
     notifications = []
     for r in unread_risks:
         title = r.title or 'بلاغ جديد'
-        if r.was_modified:
-            title = f"(تعديل) {title}"
-        notifications.append({
-            'id': r.id, 
-            'title': title, 
-            'user': r.user.username, 
-            'timestamp': r.created_at.isoformat()
-        })
+        if r.was_modified: title = f"(تعديل) {title}"
+        notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()})
     return jsonify({'success': True, 'notifications': notifications, 'count': len(unread_risks)})
+
+@app.route('/api/notifications/mark-as-read', methods=['POST'])
+@login_required
+def mark_as_read():
+    if current_user.username != 'admin': abort(403)
+    data = request.get_json()
+    risk_id = data.get('risk_id')
+    try:
+        if risk_id:
+            risk = Risk.query.get(risk_id)
+            if risk: risk.is_read = True
+        else:
+            Risk.query.filter_by(is_read=False, is_deleted=False).update({'is_read': True})
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in mark_as_read: {e}")
+        return jsonify({'success': False, 'message': 'An error occurred'}), 500
 
 # --- تشغيل التطبيق (للتطوير المحلي فقط) ---
 if __name__ == '__main__':
