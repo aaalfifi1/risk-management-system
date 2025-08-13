@@ -1,141 +1,99 @@
-<!-- المسار: templates/audit_log.html - الكود الكامل والنهائي مع أزرار التحكم -->
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>سجل التغييرات - نظام إدارة المخاطر</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast/dist/css/iziToast.min.css">
-    <style>
-        :root { --dark-blue: #1a2a45; --medium-blue: #273c5e; --light-text: #f8f9fa; --border-color: #4f5f7d; --accent-yellow: #ffc107; }
-        body { background-color: var(--dark-blue  ); color: var(--light-text); font-family: 'Tajawal', sans-serif; }
-        .navbar-custom { background-color: var(--medium-blue); }
-        .navbar-brand { color: var(--accent-yellow) !important; font-weight: bold; }
-        .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
-        .table { color: var(--light-text); background-color: var(--light-text); }
-        .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
-        .table thead th { background-color: var(--dark-blue); color: var(--light-text); }
-        .table tbody td { color: var(--dark-blue); }
-        .table-hover tbody tr:hover { background-color: #e9ecef; color: var(--dark-blue); }
-        .action-icon { cursor: pointer; font-size: 1.1rem; margin: 0 5px; }
-        .action-icon.restore { color: #198754; }
-        .action-icon.delete { color: #dc3545; }
-        .iziToast.custom-toast, .iziToast.custom-toast-question { background-color: var(--dark-blue); border: 1px solid var(--accent-yellow); }
-        .iziToast.custom-toast .iziToast-title, .iziToast.custom-toast-question .iziToast-title { color: var(--light-text); }
-        .iziToast.custom-toast .iziToast-message, .iziToast.custom-toast-question .iziToast-message { color: var(--light-text); font-size: 14px; text-align: right; }
-        .iziToast.custom-toast-question .iziToast-buttons button { background-color: var(--medium-blue); color: var(--light-text); border: 1px solid var(--border-color); }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="{{ url_for('home') }}">نظام إدارة المخاطر</a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('stats') }}">لوحة التحكم</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('risk_register') }}">سجل المخاطر</a></li>
-                    <li class="nav-item"><a class="nav-link active" href="{{ url_for('audit_log') }}">سجل التغييرات</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('reports') }}">التقارير</a></li>
-                    <li class="nav-item"><a class="nav-link" href="{{ url_for('static', filename='risk_management_plan_2025.pdf') }}" target="_blank"><i class="bi bi-file-earmark-text-fill"></i> خطة إدارة المخاطر</a></li>
-                    <li class="nav-item"><a class="nav-link" href="mailto:Grc@nu.edu.sa"><i class="bi bi-envelope-fill"></i> تواصل معنا</a></li>
-                </ul>
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">مرحباً, {{ current_user.username }}</a>
-                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">تسجيل الخروج</a></li>
-                        </ul>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+{% extends "base.html" %}
 
-    <div class="container">
-        <h2 class="mb-4">سجل التغييرات</h2>
-        <div class="table-responsive table-wrapper">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>الوقت والتاريخ</th>
-                        <th>المستخدم</th>
-                        <th>الحدث</th>
-                        <th>التفاصيل</th>
-                        <th>إجراء</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for log in logs %}
-                    <tr id="log-row-{{ log.id }}">
-                        <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                        <td>{{ log.user.username }}</td>
-                        <td>{{ log.action }}</td>
-                        <td>{{ log.details }}</td>
-                        <td>
-                            {% if log.action == 'حذف' %}
-                            <i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الخطر" onclick="confirmRestore({{ log.id }}, {{ log.risk_id }})"></i>
-                            <i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmPermanentDelete({{ log.id }}, {{ log.risk_id }})"></i>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/izitoast/dist/js/iziToast.min.js"></script>
-    <script>
-        function showToast(message, type = 'success'  ) {
-            iziToast[type]({ title: 'تنبيه', message: message, position: 'bottomLeft', rtl: true, class: 'custom-toast' });
-        }
+{% block title %}سجل التغييرات - نظام إدارة المخاطر{% endblock %}
 
-        function confirmRestore(logId, riskId) {
-            iziToast.question({
-                timeout: 20000, title: 'تأكيد الاستعادة', message: 'هل أنت متأكد من استعادة هذا الخطر؟', position: 'center', rtl: true, class: 'custom-toast-question',
-                buttons: [
-                    ['<button><b>نعم</b></button>', async function (instance, toast) {
-                        instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
-                        await restoreRisk(logId, riskId);
-                    }, true],
-                    ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
-                ]
-            });
-        }
+{% block styles %}
+<style>
+    /* هذه الأنماط خاصة بجدول هذه الصفحة فقط */
+    .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
+    .table { color: var(--light-text); background-color: var(--light-text); }
+    .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
+    .table thead th { background-color: var(--dark-blue); color: var(--light-text); }
+    .table tbody td { color: var(--dark-blue); }
+    .table-hover tbody tr:hover { background-color: #e9ecef; color: var(--dark-blue); }
+    .action-icon { cursor: pointer; font-size: 1.1rem; margin: 0 5px; }
+    .action-icon.restore { color: #198754; }
+    .action-icon.delete { color: #dc3545; }
+</style>
+{% endblock %}
 
-        function confirmPermanentDelete(logId, riskId) {
-            iziToast.question({
-                timeout: 20000, title: 'تأكيد الحذف النهائي', message: 'تحذير! سيتم حذف هذا الخطر بشكل دائم. لا يمكن التراجع عن هذا الإجراء.', position: 'center', rtl: true, class: 'custom-toast-question',
-                buttons: [
-                    ['<button><b>نعم، أحذف نهائياً</b></button>', async function (instance, toast) {
-                        instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
-                        await permanentDeleteRisk(logId, riskId);
-                    }, true],
-                    ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
-                ]
-            });
-        }
+{% block content %}
+<h2 class="mb-4">سجل التغييرات</h2>
+<div class="table-responsive table-wrapper">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>الوقت والتاريخ</th>
+                <th>المستخدم</th>
+                <th>الحدث</th>
+                <th>التفاصيل</th>
+                <th>إجراء</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr id="log-row-{{ log.id }}">
+                <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>{{ log.user.username }}</td>
+                <td>{{ log.action }}</td>
+                <td>{{ log.details }}</td>
+                <td>
+                    {% if log.action == 'حذف' %}
+                    <i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الخطر" onclick="confirmRestore({{ log.id }}, {{ log.risk_id }})"></i>
+                    <i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmPermanentDelete({{ log.id }}, {{ log.risk_id }})"></i>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
 
-        async function restoreRisk(logId, riskId) {
-            const response = await fetch(`/api/risks/${riskId}/restore`, { method: 'POST' });
-            const result = await response.json();
-            showToast(result.message, result.success ? 'success' : 'error');
-            if (result.success) {
-                document.getElementById(`log-row-${logId}`).style.display = 'none';
-            }
-        }
+{% block scripts %}
+<script>
+    function confirmRestore(logId, riskId) {
+        iziToast.question({
+            timeout: 20000, title: 'تأكيد الاستعادة', message: 'هل أنت متأكد من استعادة هذا الخطر؟', position: 'center', rtl: true, class: 'custom-toast-question',
+            buttons: [
+                ['<button><b>نعم</b></button>', async function (instance, toast) {
+                    instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+                    await restoreRisk(logId, riskId);
+                }, true],
+                ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
+            ]
+        });
+    }
 
-        async function permanentDeleteRisk(logId, riskId) {
-            const response = await fetch(`/api/risks/${riskId}/permanent`, { method: 'DELETE' });
-            const result = await response.json();
-            showToast(result.message, result.success ? 'success' : 'error');
-            if (result.success) {
-                document.getElementById(`log-row-${logId}`).style.display = 'none';
-            }
+    function confirmPermanentDelete(logId, riskId) {
+        iziToast.question({
+            timeout: 20000, title: 'تأكيد الحذف النهائي', message: 'تحذير! سيتم حذف هذا الخطر بشكل دائم. لا يمكن التراجع عن هذا الإجراء.', position: 'center', rtl: true, class: 'custom-toast-question',
+            buttons: [
+                ['<button><b>نعم، أحذف نهائياً</b></button>', async function (instance, toast) {
+                    instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+                    await permanentDeleteRisk(logId, riskId);
+                }, true],
+                ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
+            ]
+        });
+    }
+
+    async function restoreRisk(logId, riskId) {
+        const response = await fetch(`/api/risks/${riskId}/restore`, { method: 'POST' });
+        const result = await response.json();
+        showToast(result.message, result.success ? 'success' : 'error');
+        if (result.success) {
+            document.getElementById(`log-row-${logId}`).style.display = 'none';
         }
-    </script>
-</body>
-</html>
+    }
+
+    async function permanentDeleteRisk(logId, riskId) {
+        const response = await fetch(`/api/risks/${riskId}/permanent`, { method: 'DELETE' });
+        const result = await response.json();
+        showToast(result.message, result.success ? 'success' : 'error');
+        if (result.success) {
+            document.getElementById(`log-row-${logId}`).style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}
