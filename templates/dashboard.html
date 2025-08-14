@@ -35,20 +35,19 @@
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
 
-        /* ================================================================= */
-        /* == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به ▼▼▼ == */
-        /* ================================================================= */
+        /* --- [تعديل] توسيع الأعمدة القديمة والجديدة --- */
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
+        .table .col-bcp, /* عمود خطة استعادة العمل */
         .table .col-lessons {
-            min-width: 300px; /* زيادة العرض الأدنى بشكل ملحوظ */
-            word-wrap: break-word; /* ضمان التفاف النص الطويل */
+            min-width: 300px;
+            word-wrap: break-word;
         }
-        /* ================================================================= */
-        /* == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ == */
-        /* ================================================================= */
-
+        .table .col-completion-date, /* عمود تاريخ الإكمال */
+        .table .col-linked-risk {   /* عمود ارتباط الخطر */
+            min-width: 150px;
+        }
     </style>
 {% endblock %}
 
@@ -80,6 +79,7 @@
         <div class="table-responsive table-wrapper">
             <table class="table table-hover">
                 <thead>
+                    <!-- --- [تعديل] تحديث ترويسات الجدول --- -->
                     <tr>
                         <th>كود الخطر</th>
                         <th>تاريخ الإنشاء</th>
@@ -91,9 +91,12 @@
                         <th>مالك الخطر</th>
                         <th class="col-proactive">الإجراءات الإستباقية</th>
                         <th class="col-actions">الإجراءات الفورية</th>
+                        <th class="col-completion-date">تاريخ إكمال الإجراءات</th>
                         <th>فعالية الإجراءات</th>
+                        <th class="col-linked-risk">ارتباط الخطر</th>
                         <th>الحالة</th>
                         <th>المرفق</th>
+                        <th class="col-bcp">خطة استعادة العمل</th>
                         <th class="col-lessons">الدروس المستفادة</th>
                     </tr>
                 </thead>
@@ -111,8 +114,11 @@
 
 {% block scripts %}
 <script>
+    // --- [تعديل] إضافة متغير لتخزين أكواد المخاطر ---
     let allRisks = [];
+    let allRiskCodes = []; // لتعبئة قائمة الارتباط
     let statusOptions = ['جديد', 'قيد المعالجة', 'محدث', 'مغلق']; 
+
     document.addEventListener('DOMContentLoaded', function() {
         const riskForm = document.getElementById('riskForm');
         const riskModalElement = document.getElementById('riskModal');
@@ -150,15 +156,19 @@
             document.getElementById('search-all').addEventListener('input', () => applyFilters());
             document.getElementById('filter-category').addEventListener('change', () => applyFilters());
             document.getElementById('sort-by').addEventListener('change', () => applyFilters());
+            
+            // --- [تعديل] تحديث دالة جلب البيانات ---
             fetchRisks().then(data => {
                 if (data) {
                     allRisks = data.risks;
+                    allRiskCodes = data.all_risk_codes || []; // تخزين قائمة الأكواد
                     if (data.status_options) { statusOptions = data.status_options; }
                     applyFilters();
                 }
             });
         }
     });
+
     async function fetchRisks() {
         try {
             const response = await fetch('/api/risks');
@@ -168,6 +178,8 @@
             return null;
         } catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
     }
+
+    // --- [تعديل] تحديث دالة عرض البيانات في الجدول ---
     function renderRisks(risksToRender) {
         const risksTableBody = document.getElementById('risks-table-body');
         risksTableBody.innerHTML = '';
@@ -190,7 +202,6 @@
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
             else if (risk.was_modified) { codeCellClass += ' cell-modified'; }
             
-            // إضافة الكلاسات إلى خلايا الأعمدة لتطبيق التوسيع
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
                 <td>${hijriDate}</td>
@@ -202,14 +213,18 @@
                 <td>${risk.owner || ''}</td>
                 <td class="col-proactive">${risk.proactive_actions || ''}</td>
                 <td class="col-actions">${risk.immediate_actions || ''}</td>
+                <td class="col-completion-date">${risk.target_completion_date || ''}</td>
                 <td>${risk.action_effectiveness || ''}</td>
+                <td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td>
                 <td>${risk.status || ''}</td>
                 <td>${attachmentHtml}</td>
+                <td class="col-bcp">${risk.business_continuity_plan || ''}</td>
                 <td class="col-lessons">${risk.lessons_learned || ''}</td>
             `;
             risksTableBody.appendChild(row);
         });
     }
+
     function applyFilters() {
         const searchTerm = document.getElementById('search-all').value.toLowerCase();
         const filterCategory = document.getElementById('filter-category').value;
@@ -224,6 +239,8 @@
         else { filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); }
         renderRisks(filtered);
     }
+
+    // --- [تعديل] تحديث دالة إنشاء حقول النموذج ---
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
         let fieldsHtml = '';
@@ -236,8 +253,37 @@
             const impactOptions = [{v:1, t:'ضئيل'}, {v:2, t:'محدود'}, {v:3, t:'مؤثر'}, {v:4, t:'حرج'}, {v:5, t:'كارثي'}].map(i => `<option value="${i.v}" ${risk.impact == i.v ? 'selected' : ''}>${i.t}</option>`).join('');
             const effectivenessOptions = ['ممتاز', 'جيد', 'متوسط', 'ضعيف', 'غير مرضي'].map(e => `<option value="${e}" ${risk.action_effectiveness === e ? 'selected' : ''}>${e}</option>`).join('');
             const statusOptionsHtml = statusOptions.map(s => `<option value="${s}" ${risk.status === s ? 'selected' : ''}>${s}</option>`).join('');
+            
+            // إنشاء خيارات قائمة ارتباط الخطر
+            const linkedRiskOptions = allRiskCodes
+                .filter(code => !risk.risk_code || code !== risk.risk_code) // استثناء الخطر الحالي من قائمته
+                .map(code => `<option value="${code}" ${risk.linked_risk_id === code ? 'selected' : ''}>${code}</option>`).join('');
+
             const riskCodeInput = risk.risk_code ? `<input type="hidden" name="risk_code" value="${risk.risk_code}">` : '';
-            fieldsHtml = `${riskCodeInput}<div class="col-md-6"><label class="form-label">عنوان الخطر</label><input type="text" class="form-control" name="title" value="${risk.title || ''}" required></div><div class="col-md-6"><label class="form-label">فئة الخطر</label><select class="form-select" name="category" required><option value="" disabled>اختر فئة...</option>${categoryOptions}</select></div><div class="col-md-6"><label class="form-label">الاحتمالية</label><select class="form-select" name="probability" required>${probabilityOptions}</select></div><div class="col-md-6"><label class="form-label">التأثير</label><select class="form-select" name="impact" required>${impactOptions}</select></div><div class="col-12"><label class="form-label">وصف الخطر</label><textarea class="form-control" name="description" rows="2">${risk.description || ''}</textarea></div><div class="col-md-6"><label class="form-label">مالك الخطر</label><input type="text" class="form-control" name="owner" value="${risk.owner || ''}"></div><div class="col-md-6"><label class="form-label">موقع الخطر</label><input type="text" class="form-control" name="risk_location" value="${risk.risk_location || ''}"></div><div class="col-12"><label class="form-label">الإجراءات الإستباقية</label><textarea class="form-control" name="proactive_actions" rows="2">${risk.proactive_actions || ''}</textarea></div><div class="col-12"><label class="form-label">الإجراءات الفورية</label><textarea class="form-control" name="immediate_actions" rows="2">${risk.immediate_actions || ''}</textarea></div><div class="col-md-6"><label class="form-label">فعالية الإجراءات</label><select class="form-select" name="action_effectiveness"><option value="">اختر...</option>${effectivenessOptions}</select></div><div class="col-md-6"><label class="form-label">الحالة</label><select class="form-select" name="status">${statusOptionsHtml}</select></div><div class="col-12 secondary-risk-button-container" id="secondary-risk-container"></div><div class="col-12"><label class="form-label">إرفاق ملف (اختياري)</label><input class="form-control" type="file" name="attachment"></div><div class="col-12 lessons-learned-field"><label class="form-label">الدروس المستفادة</label><textarea class="form-control" name="lessons_learned" rows="3">${risk.lessons_learned || ''}</textarea></div>`;
+            
+            fieldsHtml = `
+                ${riskCodeInput}
+                <div class="col-md-6"><label class="form-label">عنوان الخطر</label><input type="text" class="form-control" name="title" value="${risk.title || ''}" required></div>
+                <div class="col-md-6"><label class="form-label">فئة الخطر</label><select class="form-select" name="category" required><option value="" disabled>اختر فئة...</option>${categoryOptions}</select></div>
+                <div class="col-md-6"><label class="form-label">الاحتمالية</label><select class="form-select" name="probability" required>${probabilityOptions}</select></div>
+                <div class="col-md-6"><label class="form-label">التأثير</label><select class="form-select" name="impact" required>${impactOptions}</select></div>
+                <div class="col-12"><label class="form-label">وصف الخطر</label><textarea class="form-control" name="description" rows="2">${risk.description || ''}</textarea></div>
+                <div class="col-md-6"><label class="form-label">مالك الخطر</label><input type="text" class="form-control" name="owner" value="${risk.owner || ''}"></div>
+                <div class="col-md-6"><label class="form-label">موقع الخطر</label><input type="text" class="form-control" name="risk_location" value="${risk.risk_location || ''}"></div>
+                <div class="col-12"><label class="form-label">الإجراءات الإستباقية</label><textarea class="form-control" name="proactive_actions" rows="2">${risk.proactive_actions || ''}</textarea></div>
+                <div class="col-12"><label class="form-label">الإجراءات الفورية</label><textarea class="form-control" name="immediate_actions" rows="2">${risk.immediate_actions || ''}</textarea></div>
+                
+                <!-- الحقول الجديدة -->
+                <div class="col-md-6"><label class="form-label">تاريخ إكمال الإجراءات</label><input type="date" class="form-control" name="target_completion_date" value="${risk.target_completion_date || ''}"></div>
+                <div class="col-md-6"><label class="form-label">فعالية الإجراءات</label><select class="form-select" name="action_effectiveness"><option value="">اختر...</option>${effectivenessOptions}</select></div>
+                <div class="col-md-6"><label class="form-label">ارتباط الخطر</label><select class="form-select" name="linked_risk_id"><option value="لا يوجد">لا يوجد</option>${linkedRiskOptions}</select></div>
+                <div class="col-md-6"><label class="form-label">الحالة</label><select class="form-select" name="status">${statusOptionsHtml}</select></div>
+                <div class="col-12"><label class="form-label">خطة استعادة العمل</label><textarea class="form-control" name="business_continuity_plan" rows="3">${risk.business_continuity_plan || ''}</textarea></div>
+                
+                <div class="col-12 secondary-risk-button-container" id="secondary-risk-container"></div>
+                <div class="col-12"><label class="form-label">إرفاق ملف (اختياري)</label><input class="form-control" type="file" name="attachment"></div>
+                <div class="col-12 lessons-learned-field"><label class="form-label">الدروس المستفادة</label><textarea class="form-control" name="lessons_learned" rows="3">${risk.lessons_learned || ''}</textarea></div>
+            `;
         }
         formFieldsContainer.innerHTML = fieldsHtml;
         const effectivenessSelect = formFieldsContainer.querySelector('select[name="action_effectiveness"]');
@@ -245,6 +291,7 @@
         const lessonsField = formFieldsContainer.querySelector('.lessons-learned-field');
         if (effectivenessSelect) setupEventListeners(effectivenessSelect, statusSelect, lessonsField);
     }
+
     function setupEventListeners(effectivenessSelect, statusSelect, lessonsField) {
         function toggleControls() {
             const effectivenessValue = effectivenessSelect.value;
@@ -270,6 +317,7 @@
             toggleLessonsField();
         }
     }
+
     function prepareAddModal(modalInstance, riskData = {}) {
         document.getElementById('riskForm').reset();
         let title = 'إضافة خطر جديد';
@@ -280,6 +328,7 @@
         generateFormFields(userRole, riskData);
         modalInstance.show();
     }
+
     function prepareEditModal(riskId, modalInstance) {
         const risk = allRisks.find(r => r.id == riskId);
         if (risk) {
@@ -290,6 +339,7 @@
             modalInstance.show();
         }
     }
+
     function handleCreateResidualRisk(originalRiskId) {
         const originalRisk = allRisks.find(r => r.id == originalRiskId);
         if (!originalRisk) { showToast('لم يتم العثور على الخطر الأصلي.', 'error'); return; }
@@ -298,6 +348,7 @@
         riskModal.hide();
         setTimeout(() => prepareAddModal(riskModal, residualRiskData), 500);
     }
+
     function handleCreateSecondaryRisk(originalRiskId) {
         const originalRisk = allRisks.find(r => r.id == originalRiskId);
         if (!originalRisk) { showToast('لم يتم العثور على الخطر الأصلي.', 'error'); return; }
@@ -306,6 +357,7 @@
         riskModal.hide();
         setTimeout(() => prepareAddModal(riskModal, secondaryRiskData), 500);
     }
+
     async function handleFormSubmit(event, modalInstance) {
         event.preventDefault();
         const id = document.getElementById('riskId').value;
@@ -319,12 +371,19 @@
                 modalInstance.hide();
                 showToast(result.message || 'تم الحفظ بنجاح');
                 if (userRole !== "reporter") {
+                    // [تعديل] تحديث قائمة المخاطر والأكواد بعد الحفظ
                     const data = await fetchRisks();
-                    if (data) { allRisks = data.risks; if (data.status_options) { statusOptions = data.status_options; } applyFilters(); }
+                    if (data) { 
+                        allRisks = data.risks; 
+                        allRiskCodes = data.all_risk_codes || [];
+                        if (data.status_options) { statusOptions = data.status_options; } 
+                        applyFilters(); 
+                    }
                 }
             } else { showToast(result.message || 'حدث خطأ', 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); }
     }
+
     function confirmArchive(riskId) {
         iziToast.question({
             timeout: 20000, title: 'تأكيد الحذف (الأرشفة)', message: 'هل أنت متأكد من حذف هذا الخطر؟ سيتم نقله إلى سجل التغييرات.', position: 'center', rtl: true, class: 'custom-toast-question',
@@ -334,12 +393,21 @@
                     const response = await fetch(`/api/risks/${riskId}`, { method: 'DELETE' });
                     const result = await response.json();
                     showToast(result.message, result.success ? 'success' : 'error');
-                    if (result.success) { allRisks = allRisks.filter(r => r.id != riskId); applyFilters(); }
+                    if (result.success) { 
+                        // [تعديل] تحديث القوائم بعد الحذف
+                        const data = await fetchRisks();
+                        if (data) {
+                            allRisks = data.risks;
+                            allRiskCodes = data.all_risk_codes || [];
+                            applyFilters();
+                        }
+                    }
                 }, true],
                 ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
             ]
         });
     }
+
     async function confirmDeleteAttachment(event, riskId) {
         event.stopPropagation();
         iziToast.question({
@@ -351,8 +419,14 @@
                     const result = await response.json();
                     showToast(result.message, result.success ? 'success' : 'error');
                     if (result.success) {
+                        // [تعديل] تحديث القوائم بعد حذف المرفق
                         const data = await fetchRisks();
-                        if (data) { allRisks = data.risks; if (data.status_options) { statusOptions = data.status_options; } applyFilters(); }
+                        if (data) { 
+                            allRisks = data.risks; 
+                            allRiskCodes = data.all_risk_codes || [];
+                            if (data.status_options) { statusOptions = data.status_options; } 
+                            applyFilters(); 
+                        }
                     }
                 }, true],
                 ['<button>لا</button>', function (instance, toast) { instance.hide({ transitionOut: 'fadeOut' }, toast, 'button'); }]
@@ -362,3 +436,4 @@
     }
 </script>
 {% endblock %}
+
