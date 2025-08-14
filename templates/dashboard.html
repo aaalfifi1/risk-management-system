@@ -35,7 +35,7 @@
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
 
-        /* --- توسيع الأعمدة القديمة والجديدة --- */
+        /* --- توسيع الأعمدة --- */
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
@@ -45,11 +45,13 @@
             word-wrap: break-word;
         }
         
-        /* --- [تعديل 1] زيادة عرض عمود عنوان الخطر --- */
+        /* --- [تعديل 1] ضبط عرض عمود عنوان الخطر --- */
         .table .col-title {
-            min-width: 250px;
+            min-width: 220px; /* قيمة متوازنة */
         }
 
+        /* --- [تعديل 2] توحيد حجم أعمدة التاريخ --- */
+        .table .col-creation-date,
         .table .col-completion-date,
         .table .col-linked-risk {
             min-width: 150px;
@@ -87,7 +89,7 @@
                 <thead>
                     <tr>
                         <th>كود الخطر</th>
-                        <th>تاريخ الإنشاء</th>
+                        <th class="col-creation-date">تاريخ الإنشاء</th>
                         <th class="col-title">عنوان الخطر</th>
                         <th class="col-description">وصف الخطر</th>
                         <th>موقع الخطر</th>
@@ -198,9 +200,8 @@
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
             
-            // --- [تعديل 2] تغيير عرض التاريخ إلى ميلادي ---
             const date = new Date(risk.created_at);
-            const gregorianDate = date.toISOString().split('T')[0]; // صيغة YYYY-MM-DD
+            const gregorianDate = date.toISOString().split('T')[0];
 
             let codeCellClass = 'risk-code-cell';
             if (risk.title && risk.title.startsWith('(خطر ثانوي)')) { codeCellClass += ' cell-secondary-risk'; }
@@ -209,7 +210,7 @@
             
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
-                <td>${gregorianDate}</td>
+                <td class="col-creation-date">${gregorianDate}</td>
                 <td class="col-title">${risk.title || 'بلاغ'}</td>
                 <td class="col-description">${risk.description || ''}</td>
                 <td>${risk.risk_location || ''}</td>
@@ -360,7 +361,8 @@
         setTimeout(() => prepareAddModal(riskModal, secondaryRiskData), 500);
     }
 
-    async function handleFormSubmit(event, modalInstance) {
+    async function handleFormSubmit
+(event, modalInstance) {
         event.preventDefault();
         const id = document.getElementById('riskId').value;
         const formData = new FormData(event.target);
@@ -408,8 +410,7 @@
         });
     }
 
-    async
- function confirmDeleteAttachment(event, riskId) {
+    async function confirmDeleteAttachment(event, riskId) {
         event.stopPropagation();
         iziToast.question({
             timeout: 20000, title: 'تأكيد حذف المرفق', message: 'هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذا الإجراء.', position: 'center', rtl: true, class: 'custom-toast-question',
