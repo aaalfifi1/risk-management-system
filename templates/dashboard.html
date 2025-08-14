@@ -35,17 +35,23 @@
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
 
-        /* --- [تعديل] توسيع الأعمدة القديمة والجديدة --- */
+        /* --- توسيع الأعمدة القديمة والجديدة --- */
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
-        .table .col-bcp, /* عمود خطة استعادة العمل */
+        .table .col-bcp,
         .table .col-lessons {
             min-width: 300px;
             word-wrap: break-word;
         }
-        .table .col-completion-date, /* عمود تاريخ الإكمال */
-        .table .col-linked-risk {   /* عمود ارتباط الخطر */
+        
+        /* --- [تعديل 1] زيادة عرض عمود عنوان الخطر --- */
+        .table .col-title {
+            min-width: 250px;
+        }
+
+        .table .col-completion-date,
+        .table .col-linked-risk {
             min-width: 150px;
         }
     </style>
@@ -79,11 +85,10 @@
         <div class="table-responsive table-wrapper">
             <table class="table table-hover">
                 <thead>
-                    <!-- --- [تعديل] تحديث ترويسات الجدول --- -->
                     <tr>
                         <th>كود الخطر</th>
                         <th>تاريخ الإنشاء</th>
-                        <th>عنوان الخطر</th>
+                        <th class="col-title">عنوان الخطر</th>
                         <th class="col-description">وصف الخطر</th>
                         <th>موقع الخطر</th>
                         <th>الفئة</th>
@@ -114,10 +119,9 @@
 
 {% block scripts %}
 <script>
-    // --- [تعديل] إضافة متغير لتخزين أكواد المخاطر ---
     let allRisks = [];
-    let allRiskCodes = []; // لتعبئة قائمة الارتباط
-   let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
+    let allRiskCodes = [];
+    let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
 
     document.addEventListener('DOMContentLoaded', function() {
         const riskForm = document.getElementById('riskForm');
@@ -157,11 +161,10 @@
             document.getElementById('filter-category').addEventListener('change', () => applyFilters());
             document.getElementById('sort-by').addEventListener('change', () => applyFilters());
             
-            // --- [تعديل] تحديث دالة جلب البيانات ---
             fetchRisks().then(data => {
                 if (data) {
                     allRisks = data.risks;
-                    allRiskCodes = data.all_risk_codes || []; // تخزين قائمة الأكواد
+                    allRiskCodes = data.all_risk_codes || [];
                     if (data.status_options) { statusOptions = data.status_options; }
                     applyFilters();
                 }
@@ -179,7 +182,6 @@
         } catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
     }
 
-    // --- [تعديل] تحديث دالة عرض البيانات في الجدول ---
     function renderRisks(risksToRender) {
         const risksTableBody = document.getElementById('risks-table-body');
         risksTableBody.innerHTML = '';
@@ -195,8 +197,11 @@
                 const deleteIcon = canDelete ? `<i class="bi bi-trash3-fill delete-attachment-icon" onclick="confirmDeleteAttachment(event, ${risk.id})"></i>` : '';
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
+            
+            // --- [تعديل 2] تغيير عرض التاريخ إلى ميلادي ---
             const date = new Date(risk.created_at);
-            const hijriDate = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-nu-latn', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date).replace('هـ', '').trim();
+            const gregorianDate = date.toISOString().split('T')[0]; // صيغة YYYY-MM-DD
+
             let codeCellClass = 'risk-code-cell';
             if (risk.title && risk.title.startsWith('(خطر ثانوي)')) { codeCellClass += ' cell-secondary-risk'; }
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
@@ -204,8 +209,8 @@
             
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
-                <td>${hijriDate}</td>
-                <td>${risk.title || 'بلاغ'}</td>
+                <td>${gregorianDate}</td>
+                <td class="col-title">${risk.title || 'بلاغ'}</td>
                 <td class="col-description">${risk.description || ''}</td>
                 <td>${risk.risk_location || ''}</td>
                 <td>${risk.category || ''}</td>
@@ -240,7 +245,6 @@
         renderRisks(filtered);
     }
 
-    // --- [تعديل] تحديث دالة إنشاء حقول النموذج ---
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
         let fieldsHtml = '';
@@ -254,9 +258,8 @@
             const effectivenessOptions = ['ممتاز', 'جيد', 'متوسط', 'ضعيف', 'غير مرضي'].map(e => `<option value="${e}" ${risk.action_effectiveness === e ? 'selected' : ''}>${e}</option>`).join('');
             const statusOptionsHtml = statusOptions.map(s => `<option value="${s}" ${risk.status === s ? 'selected' : ''}>${s}</option>`).join('');
             
-            // إنشاء خيارات قائمة ارتباط الخطر
             const linkedRiskOptions = allRiskCodes
-                .filter(code => !risk.risk_code || code !== risk.risk_code) // استثناء الخطر الحالي من قائمته
+                .filter(code => !risk.risk_code || code !== risk.risk_code)
                 .map(code => `<option value="${code}" ${risk.linked_risk_id === code ? 'selected' : ''}>${code}</option>`).join('');
 
             const riskCodeInput = risk.risk_code ? `<input type="hidden" name="risk_code" value="${risk.risk_code}">` : '';
@@ -273,7 +276,6 @@
                 <div class="col-12"><label class="form-label">الإجراءات الإستباقية</label><textarea class="form-control" name="proactive_actions" rows="2">${risk.proactive_actions || ''}</textarea></div>
                 <div class="col-12"><label class="form-label">الإجراءات الفورية</label><textarea class="form-control" name="immediate_actions" rows="2">${risk.immediate_actions || ''}</textarea></div>
                 
-                <!-- الحقول الجديدة -->
                 <div class="col-md-6"><label class="form-label">تاريخ إكمال الإجراءات</label><input type="date" class="form-control" name="target_completion_date" value="${risk.target_completion_date || ''}"></div>
                 <div class="col-md-6"><label class="form-label">فعالية الإجراءات</label><select class="form-select" name="action_effectiveness"><option value="">اختر...</option>${effectivenessOptions}</select></div>
                 <div class="col-md-6"><label class="form-label">ارتباط الخطر</label><select class="form-select" name="linked_risk_id"><option value="لا يوجد">لا يوجد</option>${linkedRiskOptions}</select></div>
@@ -371,7 +373,6 @@
                 modalInstance.hide();
                 showToast(result.message || 'تم الحفظ بنجاح');
                 if (userRole !== "reporter") {
-                    // [تعديل] تحديث قائمة المخاطر والأكواد بعد الحفظ
                     const data = await fetchRisks();
                     if (data) { 
                         allRisks = data.risks; 
@@ -394,7 +395,6 @@
                     const result = await response.json();
                     showToast(result.message, result.success ? 'success' : 'error');
                     if (result.success) { 
-                        // [تعديل] تحديث القوائم بعد الحذف
                         const data = await fetchRisks();
                         if (data) {
                             allRisks = data.risks;
@@ -408,7 +408,8 @@
         });
     }
 
-    async function confirmDeleteAttachment(event, riskId) {
+    async
+ function confirmDeleteAttachment(event, riskId) {
         event.stopPropagation();
         iziToast.question({
             timeout: 20000, title: 'تأكيد حذف المرفق', message: 'هل أنت متأكد من حذف هذا المرفق؟ لا يمكن التراجع عن هذا الإجراء.', position: 'center', rtl: true, class: 'custom-toast-question',
@@ -419,7 +420,6 @@
                     const result = await response.json();
                     showToast(result.message, result.success ? 'success' : 'error');
                     if (result.success) {
-                        // [تعديل] تحديث القوائم بعد حذف المرفق
                         const data = await fetchRisks();
                         if (data) { 
                             allRisks = data.risks; 
@@ -436,5 +436,3 @@
     }
 </script>
 {% endblock %}
-
-
