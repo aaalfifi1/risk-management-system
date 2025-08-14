@@ -117,7 +117,7 @@
     // --- [تعديل] إضافة متغير لتخزين أكواد المخاطر ---
     let allRisks = [];
     let allRiskCodes = []; // لتعبئة قائمة الارتباط
-    let statusOptions = ['جديد', 'قيد المعالجة', 'محدث', 'مغلق']; 
+   let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
 
     document.addEventListener('DOMContentLoaded', function() {
         const riskForm = document.getElementById('riskForm');
@@ -436,4 +436,5 @@
     }
 </script>
 {% endblock %}
+
 
