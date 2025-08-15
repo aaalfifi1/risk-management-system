@@ -308,26 +308,6 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-@app.route('/api/reports/upload', methods=['POST'])
-@login_required
-def upload_report():
-    if 'report_file' not in request.files: return jsonify({'success': False, 'message': 'لم يتم العثور على ملف'}), 400
-    file = request.files['report_file']
-    report_type = request.form.get('report_type')
-    if file.filename == '' or not report_type: return jsonify({'success': False, 'message': 'بيانات الطلب ناقصة'}), 400
-    try:
-        filename = secure_filename(file.filename)
-        report_type_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
-        if not os.path.exists(report_type_path): os.makedirs(report_type_path)
-        file.save(os.path.join(report_type_path, filename))
-        new_report = Report(filename=filename, report_type=report_type, uploaded_by_id=current_user.id, is_read=False)
-        db.session.add(new_report)
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
-
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
@@ -397,49 +377,24 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
-# =================================================================
-# == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به في هذا الملف ▼▼▼ ==
-# =================================================================
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin':
         query = query.filter_by(user_id=current_user.id)
-    
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
-    
-    # حساب النسب المئوية للبطاقات
-    active_percentage = (active / total * 100) if total > 0 else 0
-    closed_percentage = (closed / total * 100) if total > 0 else 0
-    
     by_category = {}
     for r in risks:
-        if r.category: 
-            by_category[r.category] = by_category.get(r.category, 0) + 1
-            
+        if r.category: by_category[r.category] = by_category.get(r.category, 0) + 1
     by_level = {}
     for r in risks:
-        if r.risk_level: 
-            by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
-            
-    stats_data = {
-        'total_risks': total, 
-        'active_risks': active, 
-        'closed_risks': closed, 
-        'by_category': by_category, 
-        'by_level': by_level,
-        # إضافة النسب الجديدة إلى الرد
-        'active_risks_percentage': active_percentage,
-        'closed_risks_percentage': closed_percentage
-    }
+        if r.risk_level: by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
+    stats_data = {'total_risks': total, 'active_risks': active, 'closed_risks': closed, 'by_category': by_category, 'by_level': by_level}
     return jsonify({'success': True, 'stats': stats_data})
-# =================================================================
-# == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-# =================================================================
 
 @app.route('/api/notifications')
 @login_required
@@ -473,6 +428,38 @@ def mark_as_read():
         print(f"Error in mark_as_read: {e}")
         return jsonify({'success': False, 'message': 'An error occurred'}), 500
 
+# =================================================================
+# == ▼▼▼ هذا هو القسم الذي تم إصلاحه بالكامل ▼▼▼ ==
+# =================================================================
+
+@app.route('/api/reports/upload', methods=['POST'])
+@login_required
+def upload_report():
+    if 'report_file' not in request.files: return jsonify({'success': False, 'message': 'لم يتم العثور على ملف'}), 400
+    file = request.files['report_file']
+    report_type = request.form.get('report_type')
+    if file.filename == '' or not report_type: return jsonify({'success': False, 'message': 'بيانات الطلب ناقصة'}), 400
+    try:
+        filename = secure_filename(file.filename)
+        report_type_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
+        if not os.path.exists(report_type_path): os.makedirs(report_type_path)
+        file.save(os.path.join(report_type_path, filename))
+        
+        new_report = Report(filename=filename, report_type=report_type, uploaded_by_id=current_user.id, is_read=False)
+        db.session.add(new_report)
+        
+        # [إصلاح] إعادة سطر تسجيل الحدث
+        report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report_type, report_type)
+        log_details = f"رفع الملف '{filename}' إلى قسم '{report_type_arabic}'."
+        log_entry = AuditLog(user_id=current_user.id, action='رفع تقرير', details=log_details, risk_id=None)
+        db.session.add(log_entry)
+        
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': f'حدث خطأ: {str(e)}'}), 500
+
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
 def get_report_files():
@@ -489,7 +476,6 @@ def get_report_files():
         else:
             if report.report_type in files_by_type: files_by_type[report.report_type].append(file_data)
     return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
-
 @app.route('/api/reports/<int:report_id>/archive', methods=['POST'])
 @login_required
 def archive_report(report_id):
@@ -497,6 +483,13 @@ def archive_report(report_id):
     if current_user.username != 'admin' and report.uploaded_by_id != current_user.id:
         return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
     report.is_archived = True
+    
+    # [إصلاح] إعادة سطر تسجيل حدث الأرشفة
+    report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report.report_type, report.report_type)
+    log_details = f"أرشفة الملف '{report.filename}' من قسم '{report_type_arabic}'."
+    log_entry = AuditLog(user_id=current_user.id, action='أرشفة تقرير', details=log_details, risk_id=None)
+    db.session.add(log_entry)
+    
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت أرشفة الملف بنجاح'})
 
@@ -507,8 +500,14 @@ def restore_report(report_id):
         return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
     report = Report.query.get_or_404(report_id)
     report.is_archived = False
+    
+    # [إصلاح] إعادة سطر تسجيل حدث الاستعادة
+    report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report.report_type, report.report_type)
+    log_details = f"استعادة الملف '{report.filename}' إلى قسم '{report_type_arabic}'."
+    log_entry = AuditLog(user_id=current_user.id, action='استعادة تقرير', details=log_details, risk_id=None)
+    db.session.add(log_entry)
+    
     db.session.commit()
-       
     return jsonify({'success': True, 'message': 'تمت استعادة الملف بنجاح'})
 
 @app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
@@ -518,10 +517,22 @@ def delete_report(report_id):
         return jsonify({'success': False, 'message': 'غير مصرح لك بالحذف النهائي'}), 403
     report = Report.query.get_or_404(report_id)
     try:
+        # حفظ المعلومات قبل الحذف لتسجيلها
+        filename = report.filename
+        report_type = report.report_type
+        
         file_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report.report_type, report.filename)
         if os.path.exists(file_path):
             os.remove(file_path)
+        
         db.session.delete(report)
+        
+        # [إصلاح] إعادة سطر تسجيل حدث الحذف النهائي
+        report_type_arabic = {'quarterly': 'تقارير ربع سنوية', 'semi_annual': 'تقارير نصف سنوية', 'annual': 'تقارير سنوية', 'risk_champion': 'تقارير رائد المخاطر'}.get(report_type, report_type)
+        log_details = f"حذف الملف '{filename}' نهائياً من قسم '{report_type_arabic}'."
+        log_entry = AuditLog(user_id=current_user.id, action='حذف تقرير نهائي', details=log_details, risk_id=None)
+        db.session.add(log_entry)
+        
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم حذف الملف نهائياً'})
     except Exception as e:
@@ -540,4 +551,5 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
 
