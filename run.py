@@ -186,12 +186,22 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
+# =================================================================
+# == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا الملف ▼▼▼ ==
+# =================================================================
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
-    output = io.StringIO()
-    writer = csv.writer(output)
+    
+    # استخدام io.BytesIO بدلاً من StringIO للتعامل مع الترميز بشكل صحيح
+    output = io.BytesIO()
+    # إضافة علامة BOM (Byte Order Mark) لترميز UTF-8
+    output.write(b'\xef\xbb\xbf') 
+    
+    # استخدام io.TextIOWrapper لتحديد الترميز بشكل صريح
+    writer = csv.writer(io.TextIOWrapper(output, 'utf-8'))
+    
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
         'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Target Completion Date', 
@@ -210,8 +220,13 @@ def download_risk_log():
             risk.residual_risk, risk.linked_risk_id, risk.business_continuity_plan, risk.lessons_learned, 
             risk.created_at.strftime('%Y-%m-%d %H:%M:%S'), reporter_username
         ])
+    
+    # التأكد من أن المؤشر في بداية الملف قبل إرساله
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+# =================================================================
+# == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
+# =================================================================
 
 @app.route('/api/risks', methods=['POST'])
 @login_required
