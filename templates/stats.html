@@ -177,19 +177,23 @@
                                     }
                                 }
                             },
-                            datalabels: {
-                                // ▼▼▼ هذا هو السطر الذي يضمن بقاء النسبة داخل الدائرة ▼▼▼
-                                anchor: 'center',
-                                align: 'center',
+                                                       datalabels: {
+                                // ▼▼▼ هذا هو الكود الجديد الذي يحل المشكلة بدقة ▼▼▼
+                                anchor: 'end',      // اجعل النقطة المرجعية هي نهاية الشريحة
+                                align: 'start',     // ابدأ الرسم من النقطة المرجعية إلى الداخل
+                                offset: -25,        // ادفع النص إلى الداخل بمقدار 25 بكسل
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
                                     const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
-                                font: { weight: 'bold', size: 14 }
+                                font: {
+                                    weight: 'bold',
+                                    size: 14,
+                                }
                             }
-                        }
+
                     }
                 });
             }
@@ -198,3 +202,4 @@
         });
     </script>
 {% endblock %}
+
