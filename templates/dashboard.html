@@ -1,10 +1,12 @@
+<!-- ======================================================================= -->
+<!-- == dashboard.html - الكود الكامل والنهائي مع تعديل التوقيت == -->
+<!-- ======================================================================= -->
 {% extends "base.html" %}
 
 {% block title %}سجل المخاطر - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
     <style>
-        /* الأنماط الخاصة بصفحة سجل المخاطر فقط */
         .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
         .table { color: var(--light-text); background-color: var(--light-text); }
         .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
@@ -35,7 +37,6 @@
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
 
-        /* --- توسيع الأعمدة --- */
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
@@ -45,12 +46,10 @@
             word-wrap: break-word;
         }
         
-        /* --- [تعديل 1] ضبط عرض عمود عنوان الخطر --- */
         .table .col-title {
-            min-width: 220px; /* قيمة متوازنة */
+            min-width: 220px;
         }
 
-        /* --- [تعديل 2] توحيد حجم أعمدة التاريخ --- */
         .table .col-creation-date,
         .table .col-completion-date,
         .table .col-linked-risk {
@@ -200,8 +199,8 @@
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
             
-            const date = new Date(risk.created_at);
-            const gregorianDate = date.toISOString().split('T')[0];
+            // --- [التعديل الوحيد هنا] ---
+            const gregorianDate = toKsaTime(risk.created_at);
 
             let codeCellClass = 'risk-code-cell';
             if (risk.title && risk.title.startsWith('(خطر ثانوي)')) { codeCellClass += ' cell-secondary-risk'; }
@@ -355,14 +354,13 @@
     function handleCreateSecondaryRisk(originalRiskId) {
         const originalRisk = allRisks.find(r => r.id == originalRiskId);
         if (!originalRisk) { showToast('لم يتم العثور على الخطر الأصلي.', 'error'); return; }
-        const secondaryRiskData = { title: `(خطر ثانوي) - ${originalRisk.title}`, description: `هذا خطر ثانوي ناتج عن الإجراءات المتخذة لمعالجة الخطر الأصلي ذي الكود [${originalRisk.risk_code}]. الوصف الأصلي كان: "${originalRisk.description}"`, category: originalRisk.category, risk_location: originalRisk.risk_location, isSecondary: true };
+        const secondaryRiskData = { title: `(خطر ثانوي) - ${originalRisk.title.substring(0, 70)}`, description: `هذا خطر ثانوي ناتج عن الإجراءات المتخذة لمعالجة الخطر الأصلي ذي الكود [${originalRisk.risk_code}]. الوصف الأصلي كان: "${originalRisk.description}"`, category: originalRisk.category, risk_location: originalRisk.risk_location, isSecondary: true };
         const riskModal = bootstrap.Modal.getInstance(document.getElementById('riskModal'));
         riskModal.hide();
         setTimeout(() => prepareAddModal(riskModal, secondaryRiskData), 500);
     }
 
-    async function handleFormSubmit
-(event, modalInstance) {
+    async function handleFormSubmit(event, modalInstance) {
         event.preventDefault();
         const id = document.getElementById('riskId').value;
         const formData = new FormData(event.target);
@@ -437,3 +435,4 @@
     }
 </script>
 {% endblock %}
+
