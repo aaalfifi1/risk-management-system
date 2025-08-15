@@ -192,17 +192,21 @@ def logout():
 # =================================================================
 # == ▼▼▼ النسخة النهائية والمصححة 100% لهذه الدالة ▼▼▼ ==
 # =================================================================
+# =================================================================
+# == ▼▼▼ النسخة النهائية مع الفاصلة المنقوطة (;) ▼▼▼ ==
+# =================================================================
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
     
-    # استخدام StringIO البسيط والمباشر
     output = io.StringIO()
     
-    # لا نستخدم TextIOWrapper، بل نكتب مباشرة
-    writer = csv.writer(output)
-    
+    # --- [التعديل الوحيد والدقيق] ---
+    # نخبر الـ writer باستخدام الفاصلة المنقوطة (;) كفاصل
+    writer = csv.writer(output, delimiter=';')
+    # ---------------------------------
+
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
         'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Target Completion Date', 
@@ -222,12 +226,15 @@ def download_risk_log():
             risk.created_at.strftime('%Y-%m-%d %H:%M:%S'), reporter_username
         ])
     
-    # تحويل المحتوى إلى بايتات مع ترميز UTF-8 وإضافة علامة BOM
-    final_output = output.getvalue().encode('utf-8-sig')
-    
-    output.close() # إغلاق ملف الذاكرة بعد الانتهاء من القراءة منه
+    # نعود للطريقة البسيطة التي لا تسبب انهيار الخادم
+    final_output = output.getvalue()
+    output.close()
     
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+# =================================================================
+# == ▲▲▲ نهاية النسخة النهائية ▲▲▲ ==
+# =================================================================
+
 # =================================================================
 # == ▲▲▲ نهاية النسخة النهائية ▲▲▲ ==
 # =================================================================
@@ -640,5 +647,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
