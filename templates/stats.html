@@ -1,4 +1,4 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُصحّحة ومستقرة) -->
+<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مؤكدة) -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
@@ -10,29 +10,12 @@
         .stat-icon { font-size: 3rem; opacity: 0.6; }
         .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
         .card-title-white { color: #ffffff; font-weight: bold; }
-
-        /* ================================================================= */
-        /* == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا القسم ▼▼▼ == */
-        /* ================================================================= */
-        /* نمط النسبة المئوية مع الهامش الصحيح */
-        .percentage-text {
-            color: var(--accent-yellow);
-            font-weight: bold;
-            font-size: 0.9rem;
-            margin-right: 8px; /* إضافة مسافة فاصلة */
-        }
-        .stat-value-container {
-            display: flex;
-            align-items: baseline;
-        }
-        /* ================================================================= */
-        /* == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ == */
-        /* ================================================================= */
     </style>
 {% endblock %}
 
 {% block content %}
     <div class="row g-4 mb-4">
+        <!-- ▼▼▼ هذا هو الإصلاح الجذري للون الخلفية ▼▼▼ -->
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
@@ -41,19 +24,10 @@
                 </div>
             </div>
         </div>
-        <!-- ================================================================= */
-        /* == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا القسم ▼▼▼ == */
-        /* ================================================================= */
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">المخاطر النشطة</h5>
-                        <div class="stat-value-container" id="active-risks-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
-                        </div>
-                    </div>
+                    <div><h5 class="card-title-white">المخاطر النشطة</h5><h2 class="fw-bold text-white" id="active-risks">0</h2></div>
                     <i class="bi bi-activity stat-icon text-warning"></i>
                 </div>
             </div>
@@ -61,20 +35,11 @@
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">المخاطر المغلقة</h5>
-                        <div class="stat-value-container" id="closed-risks-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
-                        </div>
-                    </div>
+                    <div><h5 class="card-title-white">المخاطر المغلقة</h5><h2 class="fw-bold text-white" id="closed-risks">0</h2></div>
                     <i class="bi bi-check-circle-fill stat-icon text-success"></i>
                 </div>
             </div>
         </div>
-        <!-- ================================================================= */
-        /* == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ == */
-        /* ================================================================= */
     </div>
     <div class="row g-4">
         <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
@@ -84,13 +49,8 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- إضافة مكتبة عرض النسب على الرسم البياني -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function (  ) {
-            // تسجيل المكتبة الإضافية
-            Chart.register(ChartDataLabels);
-
+        document.addEventListener('DOMContentLoaded', function ( ) {
             let categoryChartInstance, levelChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
@@ -107,63 +67,25 @@
 
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
-                
-                // =================================================================
-                // == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا القسم ▼▼▼ ==
-                // =================================================================
-                
-                // تحديث البطاقات العلوية بالقيم والنسب
-                const activeContainer = document.getElementById('active-risks-container');
-                activeContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
-                    <small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>
-                `;
-
-                const closedContainer = document.getElementById('closed-risks-container');
-                closedContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2>
-                    <small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>
-                `;
+                document.getElementById('active-risks').textContent = stats.active_risks;
+                document.getElementById('closed-risks').textContent = stats.closed_risks;
 
                 const riskLevelOrder = ['منخفض جدا', 'منخفض', 'متوسط', 'مرتفع', 'مرتفع جدا / كارثي'];
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
-                const totalRisks = stats.total_risks;
-
-                // إنشاء التدرج اللوني للرسم البياني العمودي
-                const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
-                gradient.addColorStop(1, 'rgba(39, 60, 94, 0.5)');
 
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
                     data: {
                         labels: Object.keys(stats.by_category),
-                        datasets: [{
-                            label: 'عدد المخاطر',
-                            data: Object.values(stats.by_category),
-                            backgroundColor: gradient, // استخدام التدرج اللوني
-                            borderRadius: 5
-                        }]
+                        datasets: [{ label: 'عدد المخاطر', data: Object.values(stats.by_category), backgroundColor: '#0d6efd', borderRadius: 5 }]
                     },
                     options: {
                         scales: { 
                             y: { beginAtZero: true, ticks: { display: false } }, 
                             x: { ticks: { display: false } } 
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            // إضافة العدد والنسبة عند الوقوف بالمؤشر
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const count = context.raw;
-                                        const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0;
-                                        return `العدد: ${count} (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        }
+                        }, 
+                        plugins: { legend: { display: false } } 
                     }
                 });
 
@@ -179,43 +101,8 @@
                             borderColor: '#273c5e'
                         }]
                     },
-                    options: {
-                        cutout: '60%',
-                        plugins: {
-                            legend: {
-                                position: 'top', align: 'center', rtl: true,
-                                labels: { color: '#f8f9fa', usePointStyle: true, pointStyle: 'rectRounded', padding: 20, boxWidth: 15, font: { size: 14 } }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const count = context.raw;
-                                        const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0;
-                                        return `${label}: ${count} (${percentage}%)`;
-                                    }
-                                }
-                            },
-                            // إعدادات عرض النسب المئوية داخل الرسم الدائري
-                            datalabels: {
-                                anchor: 'end',
-                                align: 'end',
-                                offset: -40, // زيادة المسافة إلى الداخل لضمان عدم الخروج
-                                clamp: true, // خاصية مهمة لمنع النص من الخروج من حدود الرسم
-                                formatter: (value, ctx) => {
-                                    if (value === 0) return ''; // لا تعرض النسبة إذا كانت القيمة صفر
-                                    const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-                                    return `${percentage}%`;
-                                },
-                                color: '#fff',
-                                font: { weight: 'bold', size: 14 }
-                            }
-                        }
-                    }
+                    options: { cutout: '60%', plugins: { legend: { position: 'top', align: 'center', rtl: true, labels: { color: '#f8f9fa', usePointStyle: true, pointStyle: 'rectRounded', padding: 20, boxWidth: 15, font: { size: 14 } } } } }
                 });
-                // =================================================================
-                // == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-                // =================================================================
             }
 
             fetchStats();
