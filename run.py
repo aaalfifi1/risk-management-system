@@ -518,7 +518,7 @@ def get_notifications():
 def mark_as_read():
     if current_user.username != 'admin': abort(403)
     data = request.get_json()
-        risk_id = data.get('risk_id')
+    risk_id = data.get('risk_id')
     try:
         if risk_id:
             risk = Risk.query.get(risk_id)
@@ -661,3 +661,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
