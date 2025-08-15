@@ -1,4 +1,4 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُحسّنة) -->
+<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُصحّحة ومستقرة) -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
@@ -11,12 +11,12 @@
         .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
         .card-title-white { color: #ffffff; font-weight: bold; }
 
-        /* تعديل دقيق على نمط النسبة المئوية لإضافة الهامش */
+        /* نمط النسبة المئوية مع الهامش الصحيح */
         .percentage-text {
             color: var(--accent-yellow);
             font-weight: bold;
             font-size: 0.9rem;
-            margin-right: 8px; /* <-- هذا هو السطر الذي يضيف المسافة المطلوبة */
+            margin-right: 8px; /* إضافة مسافة فاصلة */
         }
         .stat-value-container {
             display: flex;
@@ -72,7 +72,7 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script> <!-- استخدام نسخة أحدث قليلاً قد تحسن التموضع -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
@@ -94,7 +94,6 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
-                // إصلاح ترتيب الرقم والنسبة
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
                     <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
@@ -111,7 +110,6 @@
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
                 const totalRisks = stats.total_risks;
 
-                // إنشاء التدرج اللوني للرسم البياني العمودي
                 const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
                 gradient.addColorStop(1, 'rgba(39, 60, 94, 0.5)');
@@ -124,7 +122,7 @@
                         datasets: [{
                             label: 'عدد المخاطر',
                             data: Object.values(stats.by_category),
-                            backgroundColor: gradient, // <-- تطبيق التدرج اللوني
+                            backgroundColor: gradient,
                             borderRadius: 5
                         }]
                     },
@@ -177,23 +175,26 @@
                                     }
                                 }
                             },
-                                                       datalabels: {
-                                // ▼▼▼ هذا هو الكود الجديد الذي يحل المشكلة بدقة ▼▼▼
-                                anchor: 'end',      // اجعل النقطة المرجعية هي نهاية الشريحة
-                                align: 'start',     // ابدأ الرسم من النقطة المرجعية إلى الداخل
-                                offset: -25,        // ادفع النص إلى الداخل بمقدار 25 بكسل
+                            // =================================================================
+                            // == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي تم في هذا القسم ▼▼▼ ==
+                            // =================================================================
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'end',
+                                offset: -40, // زيادة المسافة إلى الداخل لضمان عدم الخروج
+                                clamp: true, // خاصية مهمة لمنع النص من الخروج من حدود الرسم
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
                                     const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
-                                font: {
-                                    weight: 'bold',
-                                    size: 14,
-                                }
+                                font: { weight: 'bold', size: 14 }
                             }
-
+                            // =================================================================
+                            // == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
+                            // =================================================================
+                        }
                     }
                 });
             }
@@ -202,4 +203,3 @@
         });
     </script>
 {% endblock %}
-
