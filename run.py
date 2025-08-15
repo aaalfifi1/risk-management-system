@@ -397,24 +397,49 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
+# =================================================================
+# == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به في هذا الملف ▼▼▼ ==
+# =================================================================
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin':
         query = query.filter_by(user_id=current_user.id)
+    
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
+    
+    # حساب النسب المئوية للبطاقات
+    active_percentage = (active / total * 100) if total > 0 else 0
+    closed_percentage = (closed / total * 100) if total > 0 else 0
+    
     by_category = {}
     for r in risks:
-        if r.category: by_category[r.category] = by_category.get(r.category, 0) + 1
+        if r.category: 
+            by_category[r.category] = by_category.get(r.category, 0) + 1
+            
     by_level = {}
     for r in risks:
-        if r.risk_level: by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
-    stats_data = {'total_risks': total, 'active_risks': active, 'closed_risks': closed, 'by_category': by_category, 'by_level': by_level}
+        if r.risk_level: 
+            by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
+            
+    stats_data = {
+        'total_risks': total, 
+        'active_risks': active, 
+        'closed_risks': closed, 
+        'by_category': by_category, 
+        'by_level': by_level,
+        # إضافة النسب الجديدة إلى الرد
+        'active_risks_percentage': active_percentage,
+        'closed_risks_percentage': closed_percentage
+    }
     return jsonify({'success': True, 'stats': stats_data})
+# =================================================================
+# == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
+# =================================================================
 
 @app.route('/api/notifications')
 @login_required
@@ -515,3 +540,4 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
