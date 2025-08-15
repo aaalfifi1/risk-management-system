@@ -1,37 +1,17 @@
+<!-- ======================================================================= -->
+<!-- == reports.html - الكود الكامل والنهائي مع تعديل التوقيت == -->
+<!-- ======================================================================= -->
 {% extends "base.html" %}
 
 {% block title %}التقارير - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
     <style>
-        /* الأنماط الخاصة بصفحة التقارير فقط */
-        .card { 
-            background-color: var(--medium-blue); 
-            border: 1px solid var(--border-color); 
-        }
-        
-        .card .card-title, .card .card-text, .card h6 {
-            color: #0d6efd !important; /* لون أزرق مميز وواضح */
-        }
-
-        .card-title i { 
-            font-size: 2.5rem; 
-            color: var(--accent-yellow); /* الأيقونة الصفراء تبقى كما هي */
-        }
-        .btn-upload { 
-            background-color: var(--accent-yellow); 
-            color: var(--dark-blue); 
-            font-weight: bold; 
-            border: none; 
-        }
-        .list-group-item { 
-            background-color: var(--dark-blue); 
-            border-color: var(--border-color); 
-            color: var(--light-text); 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-        }
+        .card { background-color: var(--medium-blue); border: 1px solid var(--border-color); }
+        .card .card-title, .card .card-text, .card h6 { color: #0d6efd !important; }
+        .card-title i { font-size: 2.5rem; color: var(--accent-yellow); }
+        .btn-upload { background-color: var(--accent-yellow); color: var(--dark-blue); font-weight: bold; border: none; }
+        .list-group-item { background-color: var(--dark-blue); border-color: var(--border-color); color: var(--light-text); display: flex; justify-content: space-between; align-items: center; }
         .file-info a { color: var(--light-text); text-decoration: none; font-size: 1rem; }
         .file-info a:hover { color: var(--accent-yellow); }
         .file-date { font-size: 0.8rem; color: #adb5bd; }
@@ -98,7 +78,10 @@
                     let iconsHtml = '';
                     if (isArchivedList) { iconsHtml = `<i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الملف" onclick="confirmAction('restore', ${file.id})"></i><i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmAction('delete', ${file.id})"></i>`; }
                     else { if (isAdmin || userRole === "testuser") { iconsHtml = `<i class="bi bi-archive-fill action-icon archive" title="أرشفة الملف" onclick="confirmAction('archive', ${file.id})"></i>`; } }
-                    li.innerHTML = `<div class="file-info"><a href="/reports_uploads/${file.type}/${file.name}" target="_blank"><i class="bi bi-file-earmark-text"></i> ${file.name}</a><span class="file-date">تاريخ الرفع: ${file.modified_date}</span></div><div>${iconsHtml}</div>`;
+                    
+                    // --- [التعديل الوحيد هنا] ---
+                    li.innerHTML = `<div class="file-info"><a href="/reports_uploads/${file.type}/${file.name}" target="_blank"><i class="bi bi-file-earmark-text"></i> ${file.name}</a><span class="file-date">تاريخ الرفع: ${toKsaTime(file.modified_date)}</span></div><div>${iconsHtml}</div>`;
+                    
                     listElement.appendChild(li);
                 });
             } else { if (!isArchivedList) { listElement.innerHTML = '<li class="list-group-item">لا توجد ملفات حاليًا.</li>'; } }
