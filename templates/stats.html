@@ -11,12 +11,11 @@
         .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
         .card-title-white { color: #ffffff; font-weight: bold; }
 
-        /* تعديل دقيق على نمط النسبة المئوية لإضافة الهامش */
         .percentage-text {
             color: var(--accent-yellow);
             font-weight: bold;
             font-size: 0.9rem;
-            margin-right: 8px; /* <-- هذا هو السطر الذي يضيف المسافة المطلوبة */
+            margin-right: 8px;
         }
         .stat-value-container {
             display: flex;
@@ -26,17 +25,36 @@
 {% endblock %}
 
 {% block content %}
-    <div class="row g-4 mb-4">
-        <div class="col-md-4">
-            <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+    <!-- [التعديل الأول] تغيير هيكل الأعمدة ليستوعب 5 بطاقات -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
+        <div class="col">
+            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
                     <div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div>
                     <i class="bi bi-shield-check stat-icon text-primary"></i>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+        <!-- [التعديل الثاني] إضافة بطاقة التهديدات -->
+        <div class="col">
+            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                <div class="card-body">
+                    <div><h5 class="card-title-white">إجمالي التهديدات</h5><h2 class="fw-bold text-white" id="total-threats">0</h2></div>
+                    <i class="bi bi-graph-down-arrow stat-icon text-danger"></i>
+                </div>
+            </div>
+        </div>
+        <!-- [التعديل الثاني] إضافة بطاقة الفرص -->
+        <div class="col">
+            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                <div class="card-body">
+                    <div><h5 class="card-title-white">إجمالي الفرص</h5><h2 class="fw-bold text-white" id="total-opportunities">0</h2></div>
+                    <i class="bi bi-graph-up-arrow stat-icon text-success"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col">
+            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
                     <div>
                         <h5 class="card-title-white">المخاطر النشطة</h5>
@@ -49,8 +67,8 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+        <div class="col">
+            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
                     <div>
                         <h5 class="card-title-white">المخاطر المغلقة</h5>
@@ -72,7 +90,7 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script> <!-- استخدام نسخة أحدث قليلاً قد تحسن التموضع -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
@@ -92,9 +110,11 @@
             }
 
             function updateDashboard(stats) {
+                // [التعديل الثالث] تعبئة البطاقات الجديدة والقديمة
                 document.getElementById('total-risks').textContent = stats.total_risks;
+                document.getElementById('total-threats').textContent = stats.total_threats;
+                document.getElementById('total-opportunities').textContent = stats.total_opportunities;
                 
-                // إصلاح ترتيب الرقم والنسبة
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
                     <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
@@ -111,7 +131,6 @@
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
                 const totalRisks = stats.total_risks;
 
-                // إنشاء التدرج اللوني للرسم البياني العمودي
                 const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
                 gradient.addColorStop(1, 'rgba(39, 60, 94, 0.5)');
@@ -124,7 +143,7 @@
                         datasets: [{
                             label: 'عدد المخاطر',
                             data: Object.values(stats.by_category),
-                            backgroundColor: gradient, // <-- تطبيق التدرج اللوني
+                            backgroundColor: gradient,
                             borderRadius: 5
                         }]
                     },
@@ -178,7 +197,6 @@
                                 }
                             },
                             datalabels: {
-                                // ▼▼▼ هذا هو السطر الذي يضمن بقاء النسبة داخل الدائرة ▼▼▼
                                 anchor: 'center',
                                 align: 'center',
                                 formatter: (value, ctx) => {
