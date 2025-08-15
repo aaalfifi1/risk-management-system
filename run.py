@@ -468,9 +468,21 @@ def get_stats_api():
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
     
-    # --- الإضافة الجديدة تبدأ هنا ---
     threats = len([r for r in risks if r.risk_type == 'تهديد'])
     opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
+    
+    # --- الإضافة الجديدة تبدأ هنا ---
+    threats_percentage = (threats / total * 100) if total > 0 else 0
+    opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
+    
+    # تجهيز البيانات للخريطة الذكية
+    matrix_data = [{
+        'x': r.probability, 
+        'y': r.impact, 
+        'type': r.risk_type,
+        'title': r.title,
+        'code': r.risk_code
+    } for r in risks]
     # --- الإضافة الجديدة تنتهي هنا ---
 
     active_percentage = (active / total * 100) if total > 0 else 0
@@ -494,9 +506,12 @@ def get_stats_api():
         'by_level': by_level,
         'active_risks_percentage': active_percentage,
         'closed_risks_percentage': closed_percentage,
-        # --- إضافة البيانات الجديدة هنا ---
         'total_threats': threats,
-        'total_opportunities': opportunities
+        'total_opportunities': opportunities,
+        # --- إضافة البيانات الجديدة هنا ---
+        'threats_percentage': threats_percentage,
+        'opportunities_percentage': opportunities_percentage,
+        'matrix_data': matrix_data
     }
     return jsonify({'success': True, 'stats': stats_data})
 
