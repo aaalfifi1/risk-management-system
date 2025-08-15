@@ -1,4 +1,3 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُحسّنة) -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
@@ -8,7 +7,7 @@
         .stat-card:hover { transform: translateY(-5px); }
         .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
         .stat-icon { font-size: 3rem; opacity: 0.6; }
-        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
+        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 100%; }
         .card-title-white { color: #ffffff; font-weight: bold; }
 
         .percentage-text {
@@ -21,11 +20,17 @@
             display: flex;
             align-items: baseline;
         }
+        /* تنسيق خاص لخريطة المخاطر */
+        #matrixChart {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: calc(100% / 5) calc(100% / 5);
+        }
     </style>
 {% endblock %}
 
 {% block content %}
-    <!-- [التعديل الأول] تغيير هيكل الأعمدة ليستوعب 5 بطاقات -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
         <div class="col">
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
@@ -35,20 +40,32 @@
                 </div>
             </div>
         </div>
-        <!-- [التعديل الثاني] إضافة بطاقة التهديدات -->
         <div class="col">
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
-                    <div><h5 class="card-title-white">إجمالي التهديدات</h5><h2 class="fw-bold text-white" id="total-threats">0</h2></div>
+                    <div>
+                        <!-- [التعديل] تغيير العنوان وإضافة حاوية النسبة -->
+                        <h5 class="card-title-white">التهديدات</h5>
+                        <div class="stat-value-container" id="threats-container">
+                            <h2 class="fw-bold text-white mb-0">0</h2>
+                            <small class="percentage-text">(0.0%)</small>
+                        </div>
+                    </div>
                     <i class="bi bi-graph-down-arrow stat-icon text-danger"></i>
                 </div>
             </div>
         </div>
-        <!-- [التعديل الثاني] إضافة بطاقة الفرص -->
         <div class="col">
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
-                    <div><h5 class="card-title-white">إجمالي الفرص</h5><h2 class="fw-bold text-white" id="total-opportunities">0</h2></div>
+                    <div>
+                        <!-- [التعديل] تغيير العنوان وإضافة حاوية النسبة -->
+                        <h5 class="card-title-white">الفرص</h5>
+                        <div class="stat-value-container" id="opportunities-container">
+                            <h2 class="fw-bold text-white mb-0">0</h2>
+                            <small class="percentage-text">(0.0%)</small>
+                        </div>
+                    </div>
                     <i class="bi bi-graph-up-arrow stat-icon text-success"></i>
                 </div>
             </div>
@@ -82,9 +99,12 @@
             </div>
         </div>
     </div>
+    <!-- [التعديل] تغيير هيكل الأعمدة ليستوعب 3 رسوم بيانية -->
     <div class="row g-4">
-        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
-        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب مستوى الخطورة</h5><canvas id="levelChart"></canvas></div></div>
+        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
+        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى</h5><canvas id="levelChart"></canvas></div></div>
+        <!-- [التعديل] إضافة حاوية الخريطة الذكية -->
+        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">خريطة المخاطر والفرص</h5><canvas id="matrixChart"></canvas></div></div>
     </div>
 {% endblock %}
 
@@ -95,9 +115,10 @@
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
 
-            let categoryChartInstance, levelChartInstance;
+            let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
+            const matrixCtx = document.getElementById('matrixChart').getContext('2d'); // <-- إضافة سياق الخريطة
 
             async function fetchStats() {
                 try {
@@ -109,12 +130,81 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
+            // --- [التعديل] دالة جديدة لرسم الخريطة الذكية ---
+            function renderMatrixChart(matrixData) {
+                if (matrixChartInstance) matrixChartInstance.destroy();
+
+                const threatsData = matrixData.filter(d => d.type === 'تهديد').map(d => ({ x: d.x, y: d.y, label: d.code }));
+                const opportunitiesData = matrixData.filter(d => d.type === 'فرصة').map(d => ({ x: d.x, y: d.y, label: d.code }));
+
+                matrixChartInstance = new Chart(matrixCtx, {
+                    type: 'bubble',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'تهديد',
+                                data: threatsData,
+                                backgroundColor: 'rgba(220, 53, 69, 0.7)', // أحمر
+                                borderColor: 'rgba(220, 53, 69, 1)',
+                                radius: 8,
+                                hoverRadius: 12
+                            },
+                            {
+                                label: 'فرصة',
+                                data: opportunitiesData,
+                                backgroundColor: 'rgba(25, 135, 84, 0.7)', // أخضر
+                                borderColor: 'rgba(25, 135, 84, 1)',
+                                radius: 8,
+                                hoverRadius: 12
+                            }
+                        ]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                title: { display: true, text: 'التأثير', color: '#fff' },
+                                min: 0.5, max: 5.5,
+                                ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' }
+                            },
+                            x: {
+                                title: { display: true, text: 'الاحتمالية', color: '#fff' },
+                                min: 0.5, max: 5.5,
+                                ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.raw.label || context.dataset.label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
             function updateDashboard(stats) {
-                // [التعديل الثالث] تعبئة البطاقات الجديدة والقديمة
                 document.getElementById('total-risks').textContent = stats.total_risks;
-                document.getElementById('total-threats').textContent = stats.total_threats;
-                document.getElementById('total-opportunities').textContent = stats.total_opportunities;
                 
+                // --- [التعديل] تعبئة البطاقات الجديدة مع النسب المئوية ---
+                const threatsContainer = document.getElementById('threats-container');
+                threatsContainer.innerHTML = `
+                    <h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2>
+                    <small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>
+                `;
+
+                const opportunitiesContainer = document.getElementById('opportunities-container');
+                opportunitiesContainer.innerHTML = `
+                    <h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2>
+                    <small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>
+                `;
+
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
                     <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
@@ -210,6 +300,9 @@
                         }
                     }
                 });
+
+                // --- [التعديل] استدعاء دالة رسم الخريطة الذكية ---
+                renderMatrixChart(stats.matrix_data);
             }
 
             fetchStats();
