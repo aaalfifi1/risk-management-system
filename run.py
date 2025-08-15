@@ -7,7 +7,7 @@ from flask_login import (LoginManager, UserMixin, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta # [تعديل التوقيت] إضافة timedelta
+from datetime import datetime, timedelta # <-- سنبقيها من أجل audit_log.html
 import os
 import csv
 import io
@@ -155,6 +155,7 @@ def reports():
 @login_required
 def audit_log():
     if current_user.username != 'admin': abort(403)
+    # [تصحيح التوقيت] نرسل البيانات كما هي، والتحويل سيتم في الواجهة الأمامية
     logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     return render_template('audit_log.html', logs=logs)
 
@@ -188,7 +189,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV (مع تعديل التوقيت) ---
+# --- دالة تصدير CSV (مع تصحيح التوقيت) ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -209,7 +210,8 @@ def download_risk_log():
         reporter_username = risk.user.username if risk.user else 'N/A'
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
         
-        # [تعديل التوقيت] تحويل الوقت إلى توقيت السعودية (UTC+3)
+        # [تصحيح التوقيت] نستخدم الوقت المحول في الواجهة الأمامية، وهنا نرسله كما هو أو نحوله
+        # بما أن التصدير لا يمر على الواجهة، سنقوم بالتحويل هنا
         created_at_ksa = risk.created_at + timedelta(hours=3)
 
         writer.writerow([
@@ -226,7 +228,7 @@ def download_risk_log():
     
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API (مع تعديلات طفيفة) ---
+# --- دوال الـ API (بدون تغيير) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -353,7 +355,7 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-# --- دالة جلب المخاطر (مع تعديل التوقيت) ---
+# --- دالة جلب المخاطر (مع تصحيح التوقيت) ---
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
@@ -367,15 +369,14 @@ def get_risks():
     
     risk_list = []
     for r in risks:
-        # [تعديل التوقيت] تحويل الوقت إلى توقيت السعودية (UTC+3)
-        created_at_ksa = r.created_at + timedelta(hours=3)
+        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
         risk_data = {
             'id': r.id, 'risk_code': r.risk_code, 'title': r.title, 'description': r.description, 
             'category': r.category, 'probability': r.probability, 'impact': r.impact, 
             'risk_level': r.risk_level, 'owner': r.owner, 'risk_location': r.risk_location, 
             'proactive_actions': r.proactive_actions, 'immediate_actions': r.immediate_actions, 
             'action_effectiveness': r.action_effectiveness, 'status': r.status, 
-            'created_at': created_at_ksa.isoformat(), # <-- استخدام الوقت المحول
+            'created_at': r.created_at.isoformat(), # <-- إرسال الوقت الأصلي (UTC)
             'residual_risk': r.residual_risk, 
             'attachment_filename': r.attachment_filename, 'user_id': r.user_id, 
             'lessons_learned': r.lessons_learned, 'is_read': r.is_read, 'was_modified': r.was_modified,
@@ -387,7 +388,7 @@ def get_risks():
         
     return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
 
-# --- باقي دوال الـ API (بدون تغيير جوهري) ---
+# --- باقي دوال الـ API (مع تصحيح التوقيت) ---
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
 def delete_risk(risk_id):
@@ -476,7 +477,6 @@ def get_stats_api():
     }
     return jsonify({'success': True, 'stats': stats_data})
 
-# --- دالة جلب الإشعارات (مع تعديل التوقيت) ---
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
@@ -487,11 +487,9 @@ def get_notifications():
     for r in unread_risks:
         title = r.title or 'بلاغ جديد'
         if r.was_modified: title = f"(تعديل) {title}"
-               # [تعديل التوقيت] تحويل الوقت إلى توقيت السعودية (UTC+3)
-        created_at_ksa = r.created_at + timedelta(hours=3)
-        notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': created_at_ksa.isoformat()}) # <-- استخدام الوقت المحول
+        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
+        notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()}) # <-- إرسال الوقت الأصلي (UTC)
     return jsonify({'success': True,'notifications': notifications, 'count': len(unread_risks)})
-
 @app.route('/api/notifications/mark-as-read', methods=['POST'])
 @login_required
 def mark_as_read():
@@ -511,7 +509,7 @@ def mark_as_read():
         print(f"Error in mark_as_read: {e}")
         return jsonify({'success': False, 'message': 'An error occurred'}), 500
 
-# --- دالة جلب ملفات التقارير (مع تعديل التوقيت) ---
+# --- دالة جلب ملفات التقارير (مع تصحيح التوقيت) ---
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
 def get_report_files():
@@ -522,9 +520,8 @@ def get_report_files():
     files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
     archived_files = []
     for report in all_reports:
-        # [تعديل التوقيت] تحويل الوقت إلى توقيت السعودية (UTC+3)
-        uploaded_at_ksa = report.uploaded_at + timedelta(hours=3)
-        file_data = {'id': report.id, 'name': report.filename, 'type': report.report_type, 'modified_date': uploaded_at_ksa.strftime('%Y-%m-%d %H:%M')} # <-- استخدام الوقت المحول
+        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
+        file_data = {'id': report.id, 'name': report.filename, 'type': report.report_type, 'modified_date': report.uploaded_at.strftime('%Y-%m-%d %H:%M')}
         if report.is_archived:
             if current_user.username == 'admin': archived_files.append(file_data)
         else:
@@ -642,4 +639,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
