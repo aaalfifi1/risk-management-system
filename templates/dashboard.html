@@ -37,6 +37,12 @@
         .secondary-risk-button-container { display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding-top: 10px; }
         .btn-secondary-risk, .btn-residual-risk { display: none; font-size: 0.9rem; }
 
+        /* --- [تعديل جديد] تنسيق أيقونات نوع الخطر --- */
+        .risk-type-threat { color: #dc3545; font-weight: bold; }
+        .risk-type-opportunity { color: #198754; font-weight: bold; }
+        .risk-type-icon { margin-right: 5px; }
+        /* ------------------------------------------- */
+
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
@@ -91,6 +97,8 @@
                         <th class="col-creation-date">تاريخ الإنشاء</th>
                         <th class="col-title">عنوان الخطر</th>
                         <th class="col-description">وصف الخطر</th>
+                        <!-- [التعديل الأول] إضافة عمود نوع الخطر -->
+                        <th>نوع الخطر</th>
                         <th>موقع الخطر</th>
                         <th>الفئة</th>
                         <th>مستوى الخطورة</th>
@@ -117,7 +125,6 @@
     
     {% if current_user.username != 'reporter' %}<div id="contextMenu" class="context-menu"><div class="context-menu-item" id="edit-option"><i class="bi bi-pencil-square"></i> تعديل</div><div class="context-menu-item" id="delete-option"><i class="bi bi-trash-fill"></i> حذف (أرشفة)</div></div>{% endif %}
 {% endblock %}
-
 {% block scripts %}
 <script>
     let allRisks = [];
@@ -199,7 +206,6 @@
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
             
-            // --- [التعديل الوحيد هنا] ---
             const gregorianDate = toKsaTime(risk.created_at);
 
             let codeCellClass = 'risk-code-cell';
@@ -207,11 +213,20 @@
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
             else if (risk.was_modified) { codeCellClass += ' cell-modified'; }
             
+            // [التعديل الثاني] تجهيز عرض نوع الخطر
+            let riskTypeHtml = '';
+            if (risk.risk_type === 'فرصة') {
+                riskTypeHtml = `<span class="risk-type-opportunity"><i class="bi bi-graph-up-arrow risk-type-icon"></i>فرصة</span>`;
+            } else {
+                riskTypeHtml = `<span class="risk-type-threat"><i class="bi bi-graph-down-arrow risk-type-icon"></i>تهديد</span>`;
+            }
+
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
                 <td class="col-creation-date">${gregorianDate}</td>
                 <td class="col-title">${risk.title || 'بلاغ'}</td>
                 <td class="col-description">${risk.description || ''}</td>
+                <td>${riskTypeHtml}</td>
                 <td>${risk.risk_location || ''}</td>
                 <td>${risk.category || ''}</td>
                 <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
@@ -264,8 +279,25 @@
 
             const riskCodeInput = risk.risk_code ? `<input type="hidden" name="risk_code" value="${risk.risk_code}">` : '';
             
+            // [التعديل الثالث] إضافة حقل اختيار نوع الخطر
+            const riskTypeChecked = (risk.risk_type === 'فرصة') ? 'checked' : '';
+            const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : ''; // تهديد هو الافتراضي
+
             fieldsHtml = `
                 ${riskCodeInput}
+                <div class="col-12">
+                    <label class="form-label">نوع الخطر</label>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="risk_type" id="risk_type_threat" value="تهديد" ${threatTypeChecked}>
+                            <label class="form-check-label" for="risk_type_threat">تهديد</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="risk_type" id="risk_type_opportunity" value="فرصة" ${riskTypeChecked}>
+                            <label class="form-check-label" for="risk_type_opportunity">فرصة</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-6"><label class="form-label">عنوان الخطر</label><input type="text" class="form-control" name="title" value="${risk.title || ''}" required></div>
                 <div class="col-md-6"><label class="form-label">فئة الخطر</label><select class="form-select" name="category" required><option value="" disabled>اختر فئة...</option>${categoryOptions}</select></div>
                 <div class="col-md-6"><label class="form-label">الاحتمالية</label><select class="form-select" name="probability" required>${probabilityOptions}</select></div>
@@ -435,4 +467,3 @@
     }
 </script>
 {% endblock %}
-
