@@ -51,7 +51,6 @@ class Risk(db.Model):
     risk_code = db.Column(db.String(20), unique=True, nullable=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    # [التعديل الأول] إضافة حقل نوع الخطر
     risk_type = db.Column(db.String(20), default='تهديد', nullable=False)
     category = db.Column(db.String(100), nullable=False)
     probability = db.Column(db.Integer, nullable=False)
@@ -250,7 +249,6 @@ def add_risk():
             new_risk = Risk(
                 title=data['title'], 
                 description=data.get('description'), 
-                # [التعديل الثاني] حفظ قيمة نوع الخطر
                 risk_type=data.get('risk_type', 'تهديد'),
                 category=data['category'], 
                 probability=prob, 
@@ -317,7 +315,6 @@ def update_risk(risk_id):
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
         
-        # [التعديل الثاني] تحديث قيمة نوع الخطر
         risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
         risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
@@ -381,7 +378,6 @@ def get_risks():
             'risk_code': r.risk_code, 
             'title': r.title, 
             'description': r.description, 
-            # [التعديل الثالث] إرسال نوع الخطر للواجهة الأمامية
             'risk_type': r.risk_type,
             'category': r.category, 
             'probability': r.probability, 
@@ -503,6 +499,7 @@ def get_notifications():
         notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()})
     return jsonify({'success': True,'notifications': notifications, 'count': len(unread_risks)})
 
+# [الإصلاح] تم تصحيح المسافات البادئة في هذه الدالة
 @app.route('/api/notifications/mark-as-read', methods=['POST'])
 @login_required
 def mark_as_read():
@@ -512,7 +509,8 @@ def mark_as_read():
     try:
         if risk_id:
             risk = Risk.query.get(risk_id)
-                    if risk: risk.is_read = True
+            if risk:
+                risk.is_read = True
         else:
             Risk.query.filter_by(is_read=False, is_deleted=False).update({'is_read': True})
         db.session.commit()
@@ -522,7 +520,6 @@ def mark_as_read():
         print(f"Error in mark_as_read: {e}")
         return jsonify({'success': False, 'message': 'An error occurred'}), 500
 
-# --- دالة جلب ملفات التقارير (مع تصحيح التوقيت) ---
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
 def get_report_files():
