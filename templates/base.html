@@ -1,5 +1,5 @@
 <!-- ======================================================================= -->
-<!-- == base.html - الأساس الجديد والمثالي للموقع بأكمله == -->
+<!-- == base.html - الكود الكامل والنهائي مع دالة تحويل التوقيت == -->
 <!-- ======================================================================= -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast/dist/css/iziToast.min.css">
     <style>
         :root { --dark-blue: #1a2a45; --medium-blue: #273c5e; --light-text: #f8f9fa; --border-color: #4f5f7d; --accent-yellow: #ffc107; }
-        body { background-color: var(--dark-blue ); color: var(--light-text); font-family: 'Tajawal', sans-serif; }
+        body { background-color: var(--dark-blue  ); color: var(--light-text); font-family: 'Tajawal', sans-serif; }
         .navbar-custom { background-color: var(--medium-blue); }
         .navbar-brand { color: var(--accent-yellow) !important; font-weight: bold; }
         .modal-content { background-color: var(--medium-blue); color: var(--light-text); }
@@ -37,7 +37,6 @@
         .reports-notification { color: #ff4d4d !important; font-weight: bold; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
         
-        /* هذا سيسمح لكل صفحة بإضافة أنماطها الخاصة */
         {% block styles %}{% endblock %}
     </style>
 </head>
@@ -88,22 +87,46 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/izitoast/dist/js/iziToast.min.js"></script>
     <script>
+        // =================================================================
+        // == ▼▼▼ [الإضافة الوحيدة] دالة تحويل التوقيت إلى توقيت السعودية ▼▼▼ ==
+        // =================================================================
+        function toKsaTime(isoString ) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            date.setHours(date.getHours() + 3);
+            
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+        // =================================================================
+
         const userRole = "{{ current_user.username }}";
         const currentUserId = {{ current_user.id }};
         const isAdmin = userRole === "admin";
+
         function showToast(message, type = 'success', options = {} ) {
             iziToast.destroy();
             const toastOptions = { title: 'تنبيه', message: message, position: 'bottomLeft', rtl: true, class: 'custom-toast', ...options };
             iziToast[type](toastOptions);
         }
+
         if (isAdmin) {
             document.addEventListener('DOMContentLoaded', function() {
                 setupNotifications();
                 setupReportNotifications();
             });
+
             function setupNotifications() {
                 const badge = document.getElementById('notification-badge');
                 const menu = document.getElementById('notifications-menu');
+
                 async function fetchNotifications() {
                     try {
                         const response = await fetch('/api/notifications');
@@ -111,21 +134,31 @@
                         if (data.success) { updateBadge(data.count); updateMenu(data.notifications); }
                     } catch (error) { console.error("Failed to fetch notifications:", error); }
                 }
+
                 function updateBadge(count) { if (count > 0) { badge.textContent = count; badge.style.display = 'block'; } else { badge.style.display = 'none'; } }
+
                 function updateMenu(notifications) {
                     menu.innerHTML = '';
                     const header = `<li><div class="notification-header d-flex justify-content-between align-items-center"><span>التنبيهات الجديدة</span><a href="#" id="mark-all-as-read" class="small text-decoration-none">تعليم الكل كمقروء</a></div></li>`;
                     menu.insertAdjacentHTML('beforeend', header);
                     if (notifications.length === 0) { menu.insertAdjacentHTML('beforeend', '<li><a class="dropdown-item text-center" href="#">لا توجد تنبيهات جديدة</a></li>'); }
-                    else { notifications.forEach(n => { const itemHtml = `<li class="notification-item"><a href="#" data-risk-id="${n.id}" class="notification-link"><span class="notification-title">${n.title || 'بلاغ جديد'}</span><span class="notification-meta">بواسطة: ${n.user} - ${new Date(n.timestamp).toLocaleString('ar-SA')}</span></a></li>`; menu.insertAdjacentHTML('beforeend', itemHtml); }); }
+                    else { 
+                        notifications.forEach(n => { 
+                            // --- [التعديل الوحيد هنا] ---
+                            const itemHtml = `<li class="notification-item"><a href="#" data-risk-id="${n.id}" class="notification-link"><span class="notification-title">${n.title || 'بلاغ جديد'}</span><span class="notification-meta">بواسطة: ${n.user} - ${toKsaTime(n.timestamp)}</span></a></li>`; 
+                            menu.insertAdjacentHTML('beforeend', itemHtml); 
+                        }); 
+                    }
                     addMenuEventListeners();
                 }
+
                 async function markNotificationAsRead(riskId = null) {
                     try {
                         await fetch('/api/notifications/mark-as-read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ risk_id: riskId }) });
                         fetchNotifications();
                     } catch (error) { console.error("Failed to mark as read:", error); }
                 }
+
                 function addMenuEventListeners() {
                     const markAllReadLink = document.getElementById('mark-all-as-read');
                     if (markAllReadLink) { markAllReadLink.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); markNotificationAsRead(); }); }
@@ -143,6 +176,7 @@
                 }
                 fetchNotifications(); setInterval(fetchNotifications, 30000);
             }
+
             function setupReportNotifications() {
                 const reportsLink = document.getElementById('reports-nav-link');
                 if (!reportsLink) return;
@@ -159,7 +193,6 @@
         }
     </script>
     
-    <!-- هذا سيسمح لكل صفحة بإضافة سكريبتاتها الخاصة -->
     {% block scripts %}{% endblock %}
 </body>
 </html>
