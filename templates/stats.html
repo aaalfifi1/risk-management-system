@@ -1,12 +1,13 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مؤكدة) -->
+<!-- المسار: templates/stats.html - الكود الكامل والمُصحح -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
     <style>
+        /* إعادة الأنماط الأصلية للبطاقات مع إضافة نمط النسبة المئوية */
         .stat-card {
-            background-color: #273c5e !important;
+            background-color: #273c5e !important; /* <-- هذا هو السطر الذي يصلح لون الخلفية */
             border-radius: 15px;
             transition: transform 0.2s;
             border: none;
@@ -32,11 +33,16 @@
             color: #ffffff;
             font-weight: bold;
         }
-        /* ▼▼▼ هذا هو التعديل الوحيد في الأنماط ▼▼▼ */
         .percentage-text {
             color: var(--accent-yellow);
             font-weight: bold;
             font-size: 0.9rem;
+            margin-left: 5px; /* إضافة هامش بسيط للفصل */
+        }
+        /* حاوية جديدة لضمان ظهور الرقم والنسبة بجانب بعضهما */
+        .stat-value-container {
+            display: flex;
+            align-items: baseline; /* لمحاذاة الرقم والنسبة بشكل جميل */
         }
     </style>
 {% endblock %}
@@ -59,9 +65,9 @@
                 <div class="card-body">
                     <div>
                         <h5 class="card-title-white">المخاطر النشطة</h5>
-                        <!-- سيتم ملء هذا الحقل بواسطة الجافاسكريبت -->
-                        <div id="active-risks-container">
-                            <h2 class="fw-bold text-white">0</h2>
+                        <div class="stat-value-container" id="active-risks-container">
+                            <h2 class="fw-bold text-white mb-0">0</h2>
+                            <small class="percentage-text">(0.0%)</small>
                         </div>
                     </div>
                     <i class="bi bi-activity stat-icon text-warning"></i>
@@ -73,9 +79,9 @@
                 <div class="card-body">
                     <div>
                         <h5 class="card-title-white">المخاطر المغلقة</h5>
-                        <!-- سيتم ملء هذا الحقل بواسطة الجافاسكريبت -->
-                        <div id="closed-risks-container">
-                            <h2 class="fw-bold text-white">0</h2>
+                        <div class="stat-value-container" id="closed-risks-container">
+                            <h2 class="fw-bold text-white mb-0">0</h2>
+                            <small class="percentage-text">(0.0%)</small>
                         </div>
                     </div>
                     <i class="bi bi-check-circle-fill stat-icon text-success"></i>
@@ -101,14 +107,9 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- ▼▼▼ إضافة مكتبة الـ Plugin لعرض البيانات داخل الرسم البياني ▼▼▼ -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script>
-        // =================================================================
-        // == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به في هذا الملف ▼▼▼ ==
-        // =================================================================
         document.addEventListener('DOMContentLoaded', function ( ) {
-            // تسجيل الـ Plugin الجديد مع Chart.js
             Chart.register(ChartDataLabels);
 
             let categoryChartInstance, levelChartInstance;
@@ -126,18 +127,17 @@
             }
 
             function updateDashboard(stats) {
-                // تحديث البطاقات العلوية بالأرقام والنسب المئوية
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
-                    <h2 class="fw-bold text-white">${stats.active_risks}</h2>
+                    <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
                     <small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>
                 `;
 
                 const closedContainer = document.getElementById('closed-risks-container');
                 closedContainer.innerHTML = `
-                    <h2 class="fw-bold text-white">${stats.closed_risks}</h2>
+                    <h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2>
                     <small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>
                 `;
 
@@ -145,7 +145,6 @@
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
                 const totalRisks = stats.total_risks;
 
-                // تحديث الرسم البياني العمودي (حسب الفئة)
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
@@ -160,8 +159,9 @@
                     },
                     options: {
                         scales: { 
-                            y: { beginAtZero: true, ticks: { color: 'rgba(255, 255, 255, 0.7)' } }, 
-                            x: { ticks: { color: 'rgba(255, 255, 255, 0.7)' } } 
+                            // ▼▼▼ هذا هو السطر الذي يصلح مشكلة الأرقام في الرسم البياني العمودي ▼▼▼
+                            y: { beginAtZero: true, ticks: { display: false } }, 
+                            x: { ticks: { display: false } } 
                         },
                         plugins: {
                             legend: { display: false },
@@ -178,7 +178,6 @@
                     }
                 });
 
-                // تحديث الرسم البياني الدائري (حسب مستوى الخطورة)
                 if (levelChartInstance) levelChartInstance.destroy();
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
@@ -210,9 +209,9 @@
                                     }
                                 }
                             },
-                            datalabels: { // إعدادات عرض النسب داخل الدائرة
+                            datalabels: {
                                 formatter: (value, ctx) => {
-                                    if (value === 0) return ''; // لا تعرض شيئاً إذا كانت القيمة صفر
+                                    if (value === 0) return '';
                                     const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
@@ -229,8 +228,5 @@
 
             fetchStats();
         });
-        // =================================================================
-        // == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-        // =================================================================
     </script>
 {% endblock %}
