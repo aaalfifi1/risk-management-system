@@ -455,26 +455,37 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
+# --- [التعديل الوحيد في هذا الملف] ---
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
+    
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
+    
+    # --- الإضافة الجديدة تبدأ هنا ---
+    threats = len([r for r in risks if r.risk_type == 'تهديد'])
+    opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
+    # --- الإضافة الجديدة تنتهي هنا ---
+
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
+    
     by_category = {}
     for r in risks:
         if r.category: 
             by_category[r.category] = by_category.get(r.category, 0) + 1
+            
     by_level = {}
     for r in risks:
         if r.risk_level: 
             by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
+            
     stats_data = {
         'total_risks': total, 
         'active_risks': active, 
@@ -482,7 +493,10 @@ def get_stats_api():
         'by_category': by_category, 
         'by_level': by_level,
         'active_risks_percentage': active_percentage,
-        'closed_risks_percentage': closed_percentage
+        'closed_risks_percentage': closed_percentage,
+        # --- إضافة البيانات الجديدة هنا ---
+        'total_threats': threats,
+        'total_opportunities': opportunities
     }
     return jsonify({'success': True, 'stats': stats_data})
 
@@ -499,13 +513,12 @@ def get_notifications():
         notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()})
     return jsonify({'success': True,'notifications': notifications, 'count': len(unread_risks)})
 
-# [الإصلاح] تم تصحيح المسافات البادئة في هذه الدالة
 @app.route('/api/notifications/mark-as-read', methods=['POST'])
 @login_required
 def mark_as_read():
     if current_user.username != 'admin': abort(403)
     data = request.get_json()
-    risk_id = data.get('risk_id')
+        risk_id = data.get('risk_id')
     try:
         if risk_id:
             risk = Risk.query.get(risk_id)
