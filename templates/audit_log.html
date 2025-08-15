@@ -53,9 +53,10 @@
                             <span class="badge {{ badge_map.get(log.action, 'badge-secondary') }}">{{ log.action }}</span>
                         </td>
                         <td>{{ log.details }}</td>
-                        {# [الإصلاح] تم إزالة الكود الخاطئ من هنا. سيتم الاعتماد على الواجهة الأمامية للتحويل #}
-                        <td class="text-nowrap">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        {# [الإصلاح] عرض التوقيت الصحيح مباشرة كما يأتي من الخادم #}
+                        <td class="text-nowrap">{{ (log.timestamp + timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S') }}</td>
                         <td class="action-buttons">
+                            {# [الإصلاح] تصحيح منطق عرض الأزرار #}
                             {% if log.action == 'حذف' and log.risk_id %}
                                 <button class="btn btn-sm btn-outline-success" onclick="restoreRisk({{ log.risk_id }}, this)">
                                     <i class="bi bi-arrow-counterclockwise"></i> استعادة
@@ -74,16 +75,7 @@
 
 {% block scripts %}
 <script>
-// [الإصلاح] سنعتمد على دالة toKsaTime الموجودة في base.html لتحويل التوقيت
-document.addEventListener('DOMContentLoaded', function() {
-    const dateCells = document.querySelectorAll('#audit-log-table tbody .text-nowrap');
-    dateCells.forEach(cell => {
-        const utcDate = cell.textContent.trim();
-        if (utcDate && typeof toKsaTime === 'function') {
-            cell.textContent = toKsaTime(utcDate.replace(' ', 'T') + 'Z');
-        }
-    });
-});
+// تم إزالة كود الجافاسكريبت الذي كان يسبب مشكلة التوقيت
 
 function confirmAction(title, message, onConfirm) {
     iziToast.question({
@@ -121,7 +113,9 @@ async function restoreRisk(riskId, button) {
                 if (result.success) {
                     showToast(result.message, 'success');
                     const row = button.closest('tr');
-                    row.remove();
+                    // تغيير شكل الصف للإشارة إلى أنه تم التعامل معه بدلاً من حذفه
+                    row.style.opacity = '0.5';
+                    row.querySelector('.action-buttons').innerHTML = '<span class="text-success">تمت الاستعادة</span>';
                 } else {
                     showToast(result.message || 'فشلت عملية الاستعادة', 'error');
                 }
@@ -143,7 +137,10 @@ async function permanentDeleteRisk(riskId, button) {
                 if (result.success) {
                     showToast(result.message, 'success');
                     const row = button.closest('tr');
-                    row.remove();
+                     // تغيير شكل الصف للإشارة إلى أنه تم التعامل معه بدلاً من حذفه
+                    row.style.opacity = '0.5';
+                    row.style.textDecoration = 'line-through';
+                    row.querySelector('.action-buttons').innerHTML = '<span class="text-danger">تم الحذف نهائياً</span>';
                 } else {
                     showToast(result.message || 'فشلت عملية الحذف', 'error');
                 }
