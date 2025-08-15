@@ -1,4 +1,4 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مؤكدة) -->
+<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُحسّنة) -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
@@ -11,23 +11,22 @@
         .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
         .card-title-white { color: #ffffff; font-weight: bold; }
 
-        /* ▼▼▼ هذا هو التعديل الوحيد في الأنماط: إضافة نمط للنسبة المئوية ▼▼▼ */
+        /* تعديل دقيق على نمط النسبة المئوية لإضافة الهامش */
         .percentage-text {
             color: var(--accent-yellow);
             font-weight: bold;
             font-size: 0.9rem;
-            margin-left: 5px; /* إضافة هامش بسيط للفصل */
+            margin-right: 8px; /* <-- هذا هو السطر الذي يضيف المسافة المطلوبة */
         }
         .stat-value-container {
             display: flex;
-            align-items: baseline; /* لمحاذاة الرقم والنسبة بشكل جميل */
+            align-items: baseline;
         }
     </style>
 {% endblock %}
 
 {% block content %}
     <div class="row g-4 mb-4">
-        <!-- البطاقة الأولى: إجمالي المخاطر (تبقى كما هي) -->
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
@@ -36,7 +35,6 @@
                 </div>
             </div>
         </div>
-        <!-- البطاقة الثانية: المخاطر النشطة (مع إضافة حاوية للنسبة) -->
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
@@ -44,14 +42,13 @@
                         <h5 class="card-title-white">المخاطر النشطة</h5>
                         <div class="stat-value-container" id="active-risks-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
-                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
+                            <small class="percentage-text">(0.0%)</small>
                         </div>
                     </div>
                     <i class="bi bi-activity stat-icon text-warning"></i>
                 </div>
             </div>
         </div>
-        <!-- البطاقة الثالثة: المخاطر المغلقة (مع إضافة حاوية للنسبة) -->
         <div class="col-md-4">
             <div class="card stat-card" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
@@ -59,7 +56,7 @@
                         <h5 class="card-title-white">المخاطر المغلقة</h5>
                         <div class="stat-value-container" id="closed-risks-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
-                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
+                            <small class="percentage-text">(0.0%)</small>
                         </div>
                     </div>
                     <i class="bi bi-check-circle-fill stat-icon text-success"></i>
@@ -75,7 +72,7 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script> <!-- استخدام نسخة أحدث قليلاً قد تحسن التموضع -->
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
@@ -95,9 +92,9 @@
             }
 
             function updateDashboard(stats) {
-                // تحديث البطاقات العلوية بالأرقام والنسب المئوية
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
+                // إصلاح ترتيب الرقم والنسبة
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
                     <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
@@ -114,7 +111,11 @@
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
                 const totalRisks = stats.total_risks;
 
-                // تحديث الرسم البياني العمودي (حسب الفئة)
+                // إنشاء التدرج اللوني للرسم البياني العمودي
+                const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
+                gradient.addColorStop(1, 'rgba(39, 60, 94, 0.5)');
+
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
@@ -123,19 +124,17 @@
                         datasets: [{
                             label: 'عدد المخاطر',
                             data: Object.values(stats.by_category),
-                            backgroundColor: '#0d6efd',
+                            backgroundColor: gradient, // <-- تطبيق التدرج اللوني
                             borderRadius: 5
                         }]
                     },
                     options: {
-                        // التأكد من أن المحاور لا تعرض الأرقام
                         scales: { 
                             y: { beginAtZero: true, ticks: { display: false } }, 
                             x: { ticks: { display: false } } 
                         },
                         plugins: {
                             legend: { display: false },
-                            // إضافة النسبة المئوية إلى الـ Tooltip عند المرور بالفأرة
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -149,7 +148,6 @@
                     }
                 });
 
-                // تحديث الرسم البياني الدائري (حسب مستوى الخطورة)
                 if (levelChartInstance) levelChartInstance.destroy();
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
@@ -166,12 +164,9 @@
                         cutout: '60%',
                         plugins: {
                             legend: {
-                                position: 'top',
-                                align: 'center',
-                                rtl: true,
+                                position: 'top', align: 'center', rtl: true,
                                 labels: { color: '#f8f9fa', usePointStyle: true, pointStyle: 'rectRounded', padding: 20, boxWidth: 15, font: { size: 14 } }
                             },
-                            // إضافة النسبة المئوية إلى الـ Tooltip عند المرور بالفأرة
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -182,18 +177,17 @@
                                     }
                                 }
                             },
-                            // عرض النسبة المئوية مباشرة على الرسم البياني
                             datalabels: {
+                                // ▼▼▼ هذا هو السطر الذي يضمن بقاء النسبة داخل الدائرة ▼▼▼
+                                anchor: 'center',
+                                align: 'center',
                                 formatter: (value, ctx) => {
-                                    if (value === 0) return ''; // لا تعرض شيئاً إذا كانت القيمة صفر
+                                    if (value === 0) return '';
                                     const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
-                                font: {
-                                    weight: 'bold',
-                                    size: 14,
-                                }
+                                font: { weight: 'bold', size: 14 }
                             }
                         }
                     }
