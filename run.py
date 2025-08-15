@@ -195,18 +195,20 @@ def logout():
 # =================================================================
 # == ▼▼▼ النسخة النهائية مع الفاصلة المنقوطة (;) ▼▼▼ ==
 # =================================================================
+# =================================================================
+# == ▼▼▼ النسخة النهائية التي تجمع بين الفاصلة المنقوطة والترميز الصحيح ▼▼▼ ==
+# =================================================================
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
     
+    # نستخدم StringIO البسيط الذي لا يسبب مشاكل
     output = io.StringIO()
     
-    # --- [التعديل الوحيد والدقيق] ---
-    # نخبر الـ writer باستخدام الفاصلة المنقوطة (;) كفاصل
+    # نستخدم الفاصلة المنقوطة (;) التي يحبها Excel
     writer = csv.writer(output, delimiter=';')
-    # ---------------------------------
-
+    
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
         'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Target Completion Date', 
@@ -226,11 +228,19 @@ def download_risk_log():
             risk.created_at.strftime('%Y-%m-%d %H:%M:%S'), reporter_username
         ])
     
-    # نعود للطريقة البسيطة التي لا تسبب انهيار الخادم
-    final_output = output.getvalue()
+    # --- [الخطوة السحرية] ---
+    # نحصل على المحتوى كنص، ثم نقوم بترميزه إلى utf-8-sig
+    # هذا يضيف علامة BOM التي تجعل Excel يقرأ العربية بشكل صحيح
+    final_output = output.getvalue().encode('utf-8-sig')
+    # -------------------------
+    
     output.close()
     
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+# =================================================================
+# == ▲▲▲ نهاية النسخة النهائية ▲▲▲ ==
+# =================================================================
+
 # =================================================================
 # == ▲▲▲ نهاية النسخة النهائية ▲▲▲ ==
 # =================================================================
@@ -647,6 +657,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
