@@ -90,7 +90,6 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- الدوال المساعدة (بدون تغيير) ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -121,7 +120,6 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات الرئيسية (بدون تغيير) ---
 @app.route('/')
 @login_required
 def home():
@@ -168,7 +166,6 @@ def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
 
-# --- مسارات المصادقة (بدون تغيير) ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated: return redirect(url_for('home'))
@@ -189,7 +186,6 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تحميل سجل المخاطر (بدون تغيير) ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -217,7 +213,6 @@ def download_risk_log():
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- مسارات واجهة برمجة التطبيقات (API) (بدون تغيير في معظمها) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -426,9 +421,6 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
-# =================================================================
-# == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي قمت به في هذا الملف ▼▼▼ ==
-# =================================================================
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
@@ -441,7 +433,6 @@ def get_stats_api():
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
     
-    # حساب النسب المئوية للبطاقات
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
     
@@ -461,14 +452,10 @@ def get_stats_api():
         'closed_risks': closed, 
         'by_category': by_category, 
         'by_level': by_level,
-        # إضافة النسب الجديدة إلى الرد
         'active_risks_percentage': active_percentage,
         'closed_risks_percentage': closed_percentage
     }
     return jsonify({'success': True, 'stats': stats_data})
-# =================================================================
-# == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-# =================================================================
 
 @app.route('/api/notifications')
 @login_required
@@ -507,8 +494,7 @@ def mark_as_read():
 def get_report_files():
     query = Report.query
     if current_user.username == 'testuser':
-        query = query.filter_by
-(uploaded_by_id=current_user.id)
+        query = query.filter_by(uploaded_by_id=current_user.id)
     all_reports = query.order_by(Report.uploaded_at.desc()).all()
     files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
     archived_files = []
@@ -631,3 +617,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
