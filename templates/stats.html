@@ -20,7 +20,6 @@
             display: flex;
             align-items: baseline;
         }
-        /* تنسيق خاص لخريطة المخاطر */
         #matrixChart {
             background-image: 
                 linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
@@ -31,6 +30,7 @@
 {% endblock %}
 
 {% block content %}
+    <!-- الصف الأول: البطاقات الخمس (بدون تغيير) -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
         <div class="col">
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
@@ -44,7 +44,6 @@
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
                     <div>
-                        <!-- [التعديل] تغيير العنوان وإضافة حاوية النسبة -->
                         <h5 class="card-title-white">التهديدات</h5>
                         <div class="stat-value-container" id="threats-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
@@ -59,7 +58,6 @@
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
                 <div class="card-body">
                     <div>
-                        <!-- [التعديل] تغيير العنوان وإضافة حاوية النسبة -->
                         <h5 class="card-title-white">الفرص</h5>
                         <div class="stat-value-container" id="opportunities-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
@@ -99,12 +97,22 @@
             </div>
         </div>
     </div>
-    <!-- [التعديل] تغيير هيكل الأعمدة ليستوعب 3 رسوم بيانية -->
+
+    <!-- [التعديل] الصف الثاني: الخريطة الذكية بعرض كامل -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="chart-container">
+                <!-- [التعديل] تغيير العنوان -->
+                <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
+                <canvas id="matrixChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- [التعديل] الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4">
-        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
-        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى</h5><canvas id="levelChart"></canvas></div></div>
-        <!-- [التعديل] إضافة حاوية الخريطة الذكية -->
-        <div class="col-lg-4"><div class="chart-container"><h5 class="mb-3 card-title-white">خريطة المخاطر والفرص</h5><canvas id="matrixChart"></canvas></div></div>
+        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
+        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى</h5><canvas id="levelChart"></canvas></div></div>
     </div>
 {% endblock %}
 
@@ -118,7 +126,7 @@
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
-            const matrixCtx = document.getElementById('matrixChart').getContext('2d'); // <-- إضافة سياق الخريطة
+            const matrixCtx = document.getElementById('matrixChart').getContext('2d');
 
             async function fetchStats() {
                 try {
@@ -130,12 +138,11 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [التعديل] دالة جديدة لرسم الخريطة الذكية ---
             function renderMatrixChart(matrixData) {
                 if (matrixChartInstance) matrixChartInstance.destroy();
 
-                const threatsData = matrixData.filter(d => d.type === 'تهديد').map(d => ({ x: d.x, y: d.y, label: d.code }));
-                const opportunitiesData = matrixData.filter(d => d.type === 'فرصة').map(d => ({ x: d.x, y: d.y, label: d.code }));
+                const threatsData = matrixData.filter(d => d.type === 'تهديد').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
+                const opportunitiesData = matrixData.filter(d => d.type === 'فرصة').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
 
                 matrixChartInstance = new Chart(matrixCtx, {
                     type: 'bubble',
@@ -144,7 +151,7 @@
                             {
                                 label: 'تهديد',
                                 data: threatsData,
-                                backgroundColor: 'rgba(220, 53, 69, 0.7)', // أحمر
+                                backgroundColor: 'rgba(220, 53, 69, 0.7)',
                                 borderColor: 'rgba(220, 53, 69, 1)',
                                 radius: 8,
                                 hoverRadius: 12
@@ -152,7 +159,7 @@
                             {
                                 label: 'فرصة',
                                 data: opportunitiesData,
-                                backgroundColor: 'rgba(25, 135, 84, 0.7)', // أخضر
+                                backgroundColor: 'rgba(25, 135, 84, 0.7)',
                                 borderColor: 'rgba(25, 135, 84, 1)',
                                 radius: 8,
                                 hoverRadius: 12
@@ -175,14 +182,21 @@
                         plugins: {
                             legend: {
                                 position: 'top',
+                                // [التعديل] رفع وسيلة الإيضاح للأعلى
+                                padding: { bottom: 20 },
                                 labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' }
                             },
                             tooltip: {
                                 callbacks: {
+                                    // [التعديل] إظهار الكود والعنوان عند الضغط
                                     label: function(context) {
                                         return context.raw.label || context.dataset.label;
                                     }
                                 }
+                            },
+                            // [التعديل] تعطيل إظهار الأكواد بشكل دائم
+                            datalabels: {
+                                display: false
                             }
                         }
                     }
@@ -192,7 +206,6 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
-                // --- [التعديل] تعبئة البطاقات الجديدة مع النسب المئوية ---
                 const threatsContainer = document.getElementById('threats-container');
                 threatsContainer.innerHTML = `
                     <h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2>
@@ -301,7 +314,6 @@
                     }
                 });
 
-                // --- [التعديل] استدعاء دالة رسم الخريطة الذكية ---
                 renderMatrixChart(stats.matrix_data);
             }
 
