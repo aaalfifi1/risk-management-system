@@ -189,18 +189,19 @@ def logout():
 # =================================================================
 # == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا الملف ▼▼▼ ==
 # =================================================================
+# =================================================================
+# == ▼▼▼ النسخة النهائية والمصححة 100% لهذه الدالة ▼▼▼ ==
+# =================================================================
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
     
-    # استخدام io.BytesIO بدلاً من StringIO للتعامل مع الترميز بشكل صحيح
-    output = io.BytesIO()
-    # إضافة علامة BOM (Byte Order Mark) لترميز UTF-8
-    output.write(b'\xef\xbb\xbf') 
+    # استخدام StringIO البسيط والمباشر
+    output = io.StringIO()
     
-    # استخدام io.TextIOWrapper لتحديد الترميز بشكل صريح
-    writer = csv.writer(io.TextIOWrapper(output, 'utf-8'))
+    # لا نستخدم TextIOWrapper، بل نكتب مباشرة
+    writer = csv.writer(output)
     
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
@@ -221,9 +222,16 @@ def download_risk_log():
             risk.created_at.strftime('%Y-%m-%d %H:%M:%S'), reporter_username
         ])
     
-    # التأكد من أن المؤشر في بداية الملف قبل إرساله
-    output.seek(0)
-    return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+    # تحويل المحتوى إلى بايتات مع ترميز UTF-8 وإضافة علامة BOM
+    final_output = output.getvalue().encode('utf-8-sig')
+    
+    output.close() # إغلاق ملف الذاكرة بعد الانتهاء من القراءة منه
+    
+    return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+# =================================================================
+# == ▲▲▲ نهاية النسخة النهائية ▲▲▲ ==
+# =================================================================
+
 # =================================================================
 # == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
 # =================================================================
@@ -632,4 +640,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
