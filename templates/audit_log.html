@@ -53,10 +53,9 @@
                             <span class="badge {{ badge_map.get(log.action, 'badge-secondary') }}">{{ log.action }}</span>
                         </td>
                         <td>{{ log.details }}</td>
-                        {# [الإصلاح] عرض التوقيت الصحيح مباشرة كما يأتي من الخادم #}
-                        <td class="text-nowrap">{{ (log.timestamp + timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        {# [الإصلاح النهائي] عرض التاريخ كما هو بدون أي تعديل هنا #}
+                        <td class="text-nowrap">{{ log.timestamp_ksa }}</td>
                         <td class="action-buttons">
-                            {# [الإصلاح] تصحيح منطق عرض الأزرار #}
                             {% if log.action == 'حذف' and log.risk_id %}
                                 <button class="btn btn-sm btn-outline-success" onclick="restoreRisk({{ log.risk_id }}, this)">
                                     <i class="bi bi-arrow-counterclockwise"></i> استعادة
@@ -75,8 +74,6 @@
 
 {% block scripts %}
 <script>
-// تم إزالة كود الجافاسكريبت الذي كان يسبب مشكلة التوقيت
-
 function confirmAction(title, message, onConfirm) {
     iziToast.question({
         timeout: 20000,
@@ -113,7 +110,6 @@ async function restoreRisk(riskId, button) {
                 if (result.success) {
                     showToast(result.message, 'success');
                     const row = button.closest('tr');
-                    // تغيير شكل الصف للإشارة إلى أنه تم التعامل معه بدلاً من حذفه
                     row.style.opacity = '0.5';
                     row.querySelector('.action-buttons').innerHTML = '<span class="text-success">تمت الاستعادة</span>';
                 } else {
@@ -129,7 +125,7 @@ async function restoreRisk(riskId, button) {
 async function permanentDeleteRisk(riskId, button) {
     confirmAction(
         'تأكيد الحذف النهائي',
-        'تحذير: هذا الإجراء سيحذف الخطر وكل سجلاته نهائياً ولا يمكن التراجع عنه. هل أنت متأكد؟',
+        'تحذير: هذا الإجراء سيحذف الخطر وكل سجلاته نهائياً. هل أنت متأكد؟',
         async () => {
             try {
                 const response = await fetch(`/api/risks/${riskId}/permanent`, { method: 'DELETE' });
@@ -137,7 +133,6 @@ async function permanentDeleteRisk(riskId, button) {
                 if (result.success) {
                     showToast(result.message, 'success');
                     const row = button.closest('tr');
-                     // تغيير شكل الصف للإشارة إلى أنه تم التعامل معه بدلاً من حذفه
                     row.style.opacity = '0.5';
                     row.style.textDecoration = 'line-through';
                     row.querySelector('.action-buttons').innerHTML = '<span class="text-danger">تم الحذف نهائياً</span>';
