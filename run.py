@@ -154,10 +154,19 @@ def reports():
 @app.route('/audit_log')
 @login_required
 def audit_log():
-    if current_user.username != 'admin': abort(403)
-    # [تصحيح التوقيت] نرسل البيانات كما هي، والتحويل سيتم في الواجهة الأمامية
-    logs = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
-    return render_template('audit_log.html', logs=logs)
+    if current_user.username != 'admin':
+        abort(403)
+    
+    logs_from_db = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
+    
+    # [الإصلاح النهائي] نقوم بتحويل الوقت هنا في الخادم قبل إرساله للقالب
+    processed_logs = []
+    for log in logs_from_db:
+        # إضافة 3 ساعات للحصول على توقيت السعودية
+        log.timestamp_ksa = (log.timestamp + timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
+        processed_logs.append(log)
+        
+    return render_template('audit_log.html', logs=processed_logs)
 
 @app.route('/uploads/<filename>')
 @login_required
@@ -639,3 +648,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
