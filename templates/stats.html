@@ -51,7 +51,7 @@
                         <h5 class="card-title-white">المخاطر النشطة</h5>
                         <div class="stat-value-container" id="active-risks-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
+                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
                         </div>
                     </div>
                     <i class="bi bi-activity stat-icon text-warning"></i>
@@ -65,7 +65,7 @@
                         <h5 class="card-title-white">المخاطر المغلقة</h5>
                         <div class="stat-value-container" id="closed-risks-container">
                             <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
+                            <!-- سيتم ملء النسبة هنا بواسطة الجافاسكريبت -->
                         </div>
                     </div>
                     <i class="bi bi-check-circle-fill stat-icon text-success"></i>
@@ -108,6 +108,10 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
+                // =================================================================
+                // == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا القسم ▼▼▼ ==
+                // =================================================================
+                
                 // تحديث البطاقات العلوية بالقيم والنسب
                 const activeContainer = document.getElementById('active-risks-container');
                 activeContainer.innerHTML = `
@@ -125,9 +129,6 @@
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
                 const totalRisks = stats.total_risks;
 
-                // =================================================================
-                // == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا القسم ▼▼▼ ==
-                // =================================================================
                 // إنشاء التدرج اللوني للرسم البياني العمودي
                 const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
