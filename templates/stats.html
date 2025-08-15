@@ -1,4 +1,4 @@
-<!-- المسار: templates/stats.html - الكود الكامل والنهائي (نسخة مُصحّحة ومستقرة) -->
+<!-- المسار: templates/stats.html - الكود الكامل والنهائي مع خطوط المؤشر -->
 {% extends "base.html" %}
 
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
@@ -11,12 +11,11 @@
         .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; }
         .card-title-white { color: #ffffff; font-weight: bold; }
 
-        /* نمط النسبة المئوية مع الهامش الصحيح */
         .percentage-text {
             color: var(--accent-yellow);
             font-weight: bold;
             font-size: 0.9rem;
-            margin-right: 8px; /* إضافة مسافة فاصلة */
+            margin-right: 8px;
         }
         .stat-value-container {
             display: flex;
@@ -72,9 +71,11 @@
 
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- هذه المكتبة ضرورية جداً لعرض البيانات على الرسم البياني -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
+            // تسجيل المكتبة المساعدة مع Chart.js
             Chart.register(ChartDataLabels);
 
             let categoryChartInstance, levelChartInstance;
@@ -95,16 +96,10 @@
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 
                 const activeContainer = document.getElementById('active-risks-container');
-                activeContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
-                    <small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>
-                `;
+                activeContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
 
                 const closedContainer = document.getElementById('closed-risks-container');
-                closedContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2>
-                    <small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>
-                `;
+                closedContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
 
                 const riskLevelOrder = ['منخفض جدا', 'منخفض', 'متوسط', 'مرتفع', 'مرتفع جدا / كارثي'];
                 const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
@@ -119,33 +114,20 @@
                     type: 'bar',
                     data: {
                         labels: Object.keys(stats.by_category),
-                        datasets: [{
-                            label: 'عدد المخاطر',
-                            data: Object.values(stats.by_category),
-                            backgroundColor: gradient,
-                            borderRadius: 5
-                        }]
+                        datasets: [{ label: 'عدد المخاطر', data: Object.values(stats.by_category), backgroundColor: gradient, borderRadius: 5 }]
                     },
                     options: {
-                        scales: { 
-                            y: { beginAtZero: true, ticks: { display: false } }, 
-                            x: { ticks: { display: false } } 
-                        },
+                        scales: { y: { beginAtZero: true, ticks: { display: false } }, x: { ticks: { display: false } } },
                         plugins: {
                             legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const count = context.raw;
-                                        const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0;
-                                        return `العدد: ${count} (${percentage}%)`;
-                                    }
-                                }
-                            }
+                            tooltip: { callbacks: { label: function(context) { const count = context.raw; const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0; return `العدد: ${count} (${percentage}%)`; } } }
                         }
                     }
                 });
 
+                // =================================================================
+                // == ▼▼▼ هذا هو الكود الذي يحقق رؤيتك الفنية لخطوط المؤشر ▼▼▼ ==
+                // =================================================================
                 if (levelChartInstance) levelChartInstance.destroy();
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
@@ -159,6 +141,8 @@
                         }]
                     },
                     options: {
+                        // زيادة المساحة حول الرسم البياني لإعطاء مساحة لخطوط المؤشر
+                        layout: { padding: 30 },
                         cutout: '60%',
                         plugins: {
                             legend: {
@@ -175,28 +159,33 @@
                                     }
                                 }
                             },
-                            // =================================================================
-                            // == ▼▼▼ هذا هو التعديل الوحيد والدقيق الذي تم في هذا القسم ▼▼▼ ==
-                            // =================================================================
                             datalabels: {
-                                anchor: 'end',
-                                align: 'end',
-                                offset: -40, // زيادة المسافة إلى الداخل لضمان عدم الخروج
-                                clamp: true, // خاصية مهمة لمنع النص من الخروج من حدود الرسم
+                                // هذا هو الجزء الأهم لتحقيق رؤيتك
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
                                     const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
-                                font: { weight: 'bold', size: 14 }
+                                font: { weight: 'bold', size: 14 },
+                                // إعدادات خطوط المؤشر
+                                anchor: 'end',
+                                align: 'end',
+                                offset: 10,
+                                borderWidth: 2,
+                                borderColor: 'white',
+                                borderRadius: 4,
+                                backgroundColor: (context) => {
+                                    // جعل خلفية النسبة بنفس لون الشريحة
+                                    return context.dataset.backgroundColor;
+                                }
                             }
-                            // =================================================================
-                            // == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-                            // =================================================================
                         }
                     }
                 });
+                // =================================================================
+                // == ▲▲▲ نهاية الكود الذي يحقق رؤيتك الفنية ▲▲▲ ==
+                // =================================================================
             }
 
             fetchStats();
