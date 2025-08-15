@@ -7,7 +7,7 @@ from flask_login import (LoginManager, UserMixin, login_user, logout_user,
                          login_required, current_user)
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta # <-- سنبقيها من أجل audit_log.html
+from datetime import datetime, timedelta
 import os
 import csv
 import io
@@ -34,7 +34,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات (بدون تغيير) ---
+# --- نماذج قاعدة البيانات ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -51,6 +51,8 @@ class Risk(db.Model):
     risk_code = db.Column(db.String(20), unique=True, nullable=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
+    # [التعديل الأول] إضافة حقل نوع الخطر
+    risk_type = db.Column(db.String(20), default='تهديد', nullable=False)
     category = db.Column(db.String(100), nullable=False)
     probability = db.Column(db.Integer, nullable=False)
     impact = db.Column(db.Integer, nullable=False)
@@ -90,7 +92,7 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- دوال مساعدة (بدون تغيير) ---
+# --- دوال مساعدة ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -121,7 +123,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات (بدون تغيير) ---
+# --- مسارات الصفحات ---
 @app.route('/')
 @login_required
 def home():
@@ -156,16 +158,11 @@ def reports():
 def audit_log():
     if current_user.username != 'admin':
         abort(403)
-    
     logs_from_db = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
-    
-    # [الإصلاح النهائي] نقوم بتحويل الوقت هنا في الخادم قبل إرساله للقالب
     processed_logs = []
     for log in logs_from_db:
-        # إضافة 3 ساعات للحصول على توقيت السعودية
         log.timestamp_ksa = (log.timestamp + timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S')
         processed_logs.append(log)
-        
     return render_template('audit_log.html', logs=processed_logs)
 
 @app.route('/uploads/<filename>')
@@ -198,15 +195,13 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV (مع تصحيح التوقيت) ---
+# --- دالة تصدير CSV ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
-    
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
-    
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
         'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Target Completion Date', 
@@ -218,26 +213,20 @@ def download_risk_log():
     for risk in risks:
         reporter_username = risk.user.username if risk.user else 'N/A'
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
-        
-        # [تصحيح التوقيت] نستخدم الوقت المحول في الواجهة الأمامية، وهنا نرسله كما هو أو نحوله
-        # بما أن التصدير لا يمر على الواجهة، سنقوم بالتحويل هنا
         created_at_ksa = risk.created_at + timedelta(hours=3)
-
         writer.writerow([
             risk.risk_code or risk.id, risk.title, risk.description, risk.category, risk.probability, 
             risk.impact, risk.risk_level, risk.status, risk.owner, risk.risk_location, 
             risk.proactive_actions, risk.immediate_actions, completion_date, risk.action_effectiveness, 
             risk.residual_risk, risk.linked_risk_id, risk.business_continuity_plan, risk.lessons_learned, 
-            created_at_ksa.strftime('%Y-%m-%d %H:%M:%S'), # <-- استخدام الوقت المحول
+            created_at_ksa.strftime('%Y-%m-%d %H:%M:%S'),
             reporter_username
         ])
-    
     final_output = output.getvalue().encode('utf-8-sig')
     output.close()
-    
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API (بدون تغيير) ---
+# --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -245,7 +234,6 @@ def add_risk():
         data = request.form
         user_role = current_user.username
         is_read_status = (user_role == 'admin')
-        
         target_date = None
         if data.get('target_completion_date'):
             try:
@@ -260,12 +248,24 @@ def add_risk():
             prob = int(data.get('probability', 1)); imp = int(data.get('impact', 1))
             effectiveness = data.get('action_effectiveness'); residual = calculate_residual_risk(effectiveness)
             new_risk = Risk(
-                title=data['title'], description=data.get('description'), category=data['category'], 
-                probability=prob, impact=imp, risk_level=calculate_risk_level(prob, imp), 
-                owner=data.get('owner'), risk_location=data.get('risk_location'), 
-                proactive_actions=data.get('proactive_actions'), immediate_actions=data.get('immediate_actions'), 
-                action_effectiveness=effectiveness, user_id=current_user.id, status=data.get('status', 'نشط'), 
-                residual_risk=residual, is_read=is_read_status, lessons_learned=data.get('lessons_learned'),
+                title=data['title'], 
+                description=data.get('description'), 
+                # [التعديل الثاني] حفظ قيمة نوع الخطر
+                risk_type=data.get('risk_type', 'تهديد'),
+                category=data['category'], 
+                probability=prob, 
+                impact=imp, 
+                risk_level=calculate_risk_level(prob, imp), 
+                owner=data.get('owner'), 
+                risk_location=data.get('risk_location'), 
+                proactive_actions=data.get('proactive_actions'), 
+                immediate_actions=data.get('immediate_actions'), 
+                action_effectiveness=effectiveness, 
+                user_id=current_user.id, 
+                status=data.get('status', 'نشط'), 
+                residual_risk=residual, 
+                is_read=is_read_status, 
+                lessons_learned=data.get('lessons_learned'),
                 target_completion_date=target_date,
                 business_continuity_plan=data.get('business_continuity_plan'),
                 linked_risk_id=data.get('linked_risk_id') if data.get('linked_risk_id') != 'لا يوجد' else None
@@ -316,7 +316,9 @@ def update_risk(risk_id):
         risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
-        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
+        
+        # [التعديل الثاني] تحديث قيمة نوع الخطر
+        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
         risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
         target_date = None
@@ -364,40 +366,47 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-# --- دالة جلب المخاطر (مع تصحيح التوقيت) ---
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
     all_risk_codes = [r.risk_code for r in Risk.query.filter(Risk.risk_code.isnot(None), Risk.is_deleted==False).all()]
-
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
-    
     risks = query.order_by(Risk.created_at.desc()).all()
-    
     risk_list = []
     for r in risks:
-        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
         risk_data = {
-            'id': r.id, 'risk_code': r.risk_code, 'title': r.title, 'description': r.description, 
-            'category': r.category, 'probability': r.probability, 'impact': r.impact, 
-            'risk_level': r.risk_level, 'owner': r.owner, 'risk_location': r.risk_location, 
-            'proactive_actions': r.proactive_actions, 'immediate_actions': r.immediate_actions, 
-            'action_effectiveness': r.action_effectiveness, 'status': r.status, 
-            'created_at': r.created_at.isoformat(), # <-- إرسال الوقت الأصلي (UTC)
+            'id': r.id, 
+            'risk_code': r.risk_code, 
+            'title': r.title, 
+            'description': r.description, 
+            # [التعديل الثالث] إرسال نوع الخطر للواجهة الأمامية
+            'risk_type': r.risk_type,
+            'category': r.category, 
+            'probability': r.probability, 
+            'impact': r.impact, 
+            'risk_level': r.risk_level, 
+            'owner': r.owner, 
+            'risk_location': r.risk_location, 
+            'proactive_actions': r.proactive_actions, 
+            'immediate_actions': r.immediate_actions, 
+            'action_effectiveness': r.action_effectiveness, 
+            'status': r.status, 
+            'created_at': r.created_at.isoformat(),
             'residual_risk': r.residual_risk, 
-            'attachment_filename': r.attachment_filename, 'user_id': r.user_id, 
-            'lessons_learned': r.lessons_learned, 'is_read': r.is_read, 'was_modified': r.was_modified,
+            'attachment_filename': r.attachment_filename, 
+            'user_id': r.user_id, 
+            'lessons_learned': r.lessons_learned, 
+            'is_read': r.is_read, 
+            'was_modified': r.was_modified,
             'target_completion_date': r.target_completion_date.strftime('%Y-%m-%d') if r.target_completion_date else None,
             'business_continuity_plan': r.business_continuity_plan,
             'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
-        
     return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
 
-# --- باقي دوال الـ API (مع تصحيح التوقيت) ---
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
 def delete_risk(risk_id):
@@ -456,25 +465,20 @@ def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
-    
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
-    
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
-    
     by_category = {}
     for r in risks:
         if r.category: 
             by_category[r.category] = by_category.get(r.category, 0) + 1
-            
     by_level = {}
     for r in risks:
         if r.risk_level: 
             by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
-            
     stats_data = {
         'total_risks': total, 
         'active_risks': active, 
@@ -496,9 +500,9 @@ def get_notifications():
     for r in unread_risks:
         title = r.title or 'بلاغ جديد'
         if r.was_modified: title = f"(تعديل) {title}"
-        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
-        notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()}) # <-- إرسال الوقت الأصلي (UTC)
+        notifications.append({'id': r.id, 'title': title, 'user': r.user.username, 'timestamp': r.created_at.isoformat()})
     return jsonify({'success': True,'notifications': notifications, 'count': len(unread_risks)})
+
 @app.route('/api/notifications/mark-as-read', methods=['POST'])
 @login_required
 def mark_as_read():
@@ -508,7 +512,7 @@ def mark_as_read():
     try:
         if risk_id:
             risk = Risk.query.get(risk_id)
-            if risk: risk.is_read = True
+                    if risk: risk.is_read = True
         else:
             Risk.query.filter_by(is_read=False, is_deleted=False).update({'is_read': True})
         db.session.commit()
@@ -529,7 +533,6 @@ def get_report_files():
     files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
     archived_files = []
     for report in all_reports:
-        # [تصحيح التوقيت] نرسل الوقت كما هو (UTC)، والتحويل يتم في الواجهة الأمامية
         file_data = {'id': report.id, 'name': report.filename, 'type': report.report_type, 'modified_date': report.uploaded_at.strftime('%Y-%m-%d %H:%M')}
         if report.is_archived:
             if current_user.username == 'admin': archived_files.append(file_data)
@@ -648,4 +651,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
