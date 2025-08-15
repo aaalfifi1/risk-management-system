@@ -59,7 +59,10 @@ class Risk(db.Model):
     risk_location = db.Column(db.String(100), nullable=True)
     proactive_actions = db.Column(db.Text, nullable=True)
     immediate_actions = db.Column(db.Text, nullable=True)
+    
+    # --- [تعديل] العمود الجديد رقم 1 ---
     target_completion_date = db.Column(db.DateTime, nullable=True)
+    
     action_effectiveness = db.Column(db.String(50), nullable=True)
     status = db.Column(db.String(50), default='جديد', nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -68,9 +71,14 @@ class Risk(db.Model):
     attachment_filename = db.Column(db.String(255), nullable=True)
     is_deleted = db.Column(db.Boolean, default=False, nullable=False)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
+    
+    # --- [تعديل] العمود الجديد رقم 2 ---
     business_continuity_plan = db.Column(db.Text, nullable=True)
+    
     lessons_learned = db.Column(db.Text, nullable=True)
     was_modified = db.Column(db.Boolean, default=False, nullable=False)
+    
+    # --- [تعديل] العمود الجديد رقم 3 ---
     linked_risk_id = db.Column(db.String(20), nullable=True)
 
 class AuditLog(db.Model):
@@ -189,13 +197,14 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تحميل سجل المخاطر (بدون تغيير) ---
+# --- [تعديل] دالة تحميل سجل المخاطر ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']: abort(403)
     output = io.StringIO()
     writer = csv.writer(output)
+    # إضافة الأعمدة الجديدة إلى الترويسات بالترتيب المطلوب
     headers = [
         'Risk Code', 'Title', 'Description', 'Category', 'Probability', 'Impact', 'Risk Level', 'Status', 
         'Owner', 'Risk Location', 'Proactive Actions', 'Immediate Actions', 'Target Completion Date', 
@@ -217,7 +226,7 @@ def download_risk_log():
     output.seek(0)
     return Response(output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- مسارات واجهة برمجة التطبيقات (API) ---
+# --- [تعديل] مسارات واجهة برمجة التطبيقات (API) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -225,12 +234,16 @@ def add_risk():
         data = request.form
         user_role = current_user.username
         is_read_status = (user_role == 'admin')
+        
+        # تحويل التاريخ من نص إلى كائن تاريخ
         target_date = None
         if data.get('target_completion_date'):
             try:
                 target_date = datetime.strptime(data.get('target_completion_date'), '%Y-%m-%d')
             except ValueError:
+                # تجاهل التاريخ إذا كان التنسيق خاطئاً
                 pass
+
         if user_role == 'reporter':
             if not data.get('description') or not data.get('risk_location'): return jsonify({'success': False, 'message': 'وصف الخطر وموقعه حقول مطلوبة.'}), 400
             new_risk = Risk(title="", description=data['description'], category="", probability=1, impact=1, risk_level="", owner=data.get('owner', 'لم يتم توفيره'), risk_location=data['risk_location'], user_id=current_user.id, status='جديد', is_read=is_read_status)
@@ -244,10 +257,12 @@ def add_risk():
                 proactive_actions=data.get('proactive_actions'), immediate_actions=data.get('immediate_actions'), 
                 action_effectiveness=effectiveness, user_id=current_user.id, status=data.get('status', 'نشط'), 
                 residual_risk=residual, is_read=is_read_status, lessons_learned=data.get('lessons_learned'),
+                # إضافة الحقول الجديدة
                 target_completion_date=target_date,
                 business_continuity_plan=data.get('business_continuity_plan'),
                 linked_risk_id=data.get('linked_risk_id') if data.get('linked_risk_id') != 'لا يوجد' else None
             )
+        
         upload_folder = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
@@ -256,6 +271,7 @@ def add_risk():
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(upload_folder, filename))
                 new_risk.attachment_filename = filename
+        
         db.session.add(new_risk)
         db.session.flush()
         source_code = {'admin': 'ADM', 'testuser': 'RPN'}.get(user_role, 'REP')
@@ -263,12 +279,14 @@ def add_risk():
         log_entry = AuditLog(user_id=current_user.id, action='إضافة', details=f"إضافة خطر جديد بكود: '{new_risk.risk_code}'", risk_id=new_risk.id)
         db.session.add(log_entry)
         db.session.commit()
+
         if user_role != 'admin':
             admin_user = User.query.filter_by(username='admin').first()
             if admin_user and admin_user.email:
                 subject = f"بلاغ خطر جديد: {new_risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بنشاط جديد في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>تم تسجيل نشاط جديد من قبل المستخدم: <strong>{current_user.username}</strong></p><hr><h3>تفاصيل الخطر:</h3><ul><li><strong>كود الخطر:</strong> {new_risk.risk_code}</li><li><strong>الوصف:</strong> {new_risk.description}</li><li><strong>الموقع:</strong> {new_risk.risk_location}</li></ul><hr><p>الرجاء الدخول إلى النظام لمراجعة التفاصيل واتخاذ الإجراء اللازم.</p><p>شكراً لك.</p></div>"
                 send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
+        
         message = 'تم إرسال بلاغك بنجاح. شكراً لك!' if user_role == 'reporter' else 'تمت إضافة الخطر بنجاح'
         return jsonify({'success': True, 'message': message}), 201
     except Exception as e:
@@ -282,14 +300,19 @@ def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
         if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
+        
         data = request.form
         was_modified_before = risk.was_modified
+        
+        # تحديث الحقول الأساسية
         risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
         risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
         risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
         risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
+        
+        # تحديث الحقول الجديدة
         target_date = None
         if data.get('target_completion_date'):
             try:
@@ -297,14 +320,18 @@ def update_risk(risk_id):
             except (ValueError, TypeError):
                 target_date = None
         risk.target_completion_date = target_date
+        
         risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
+        
         linked_risk_value = data.get('linked_risk_id')
         risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
+
         if current_user.username != 'admin':
             risk.is_read = False
             risk.was_modified = True
         else:
             risk.is_read = True
+            
         upload_folder = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
@@ -313,29 +340,37 @@ def update_risk(risk_id):
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(upload_folder, filename))
                 risk.attachment_filename = filename
+                
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
+        
         if current_user.username != 'admin' and not was_modified_before:
             admin_user = User.query.filter_by(username='admin').first()
             if admin_user and admin_user.email:
                 subject = f"تحديث على الخطر: {risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
                 send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
+                
         return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
     except Exception as e:
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
+# --- [تعديل] دالة جلب المخاطر ---
 @app.route('/api/risks', methods=['GET'])
 @login_required
 def get_risks():
+    # جلب كل أكواد المخاطر لتعبئة القائمة المنسدلة
     all_risk_codes = [r.risk_code for r in Risk.query.filter(Risk.risk_code.isnot(None), Risk.is_deleted==False).all()]
+
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
+    
     risks = query.order_by(Risk.created_at.desc()).all()
+    
     risk_list = []
     for r in risks:
         risk_data = {
@@ -347,13 +382,17 @@ def get_risks():
             'created_at': r.created_at.isoformat(), 'residual_risk': r.residual_risk, 
             'attachment_filename': r.attachment_filename, 'user_id': r.user_id, 
             'lessons_learned': r.lessons_learned, 'is_read': r.is_read, 'was_modified': r.was_modified,
+            # إضافة الحقول الجديدة إلى الرد
             'target_completion_date': r.target_completion_date.strftime('%Y-%m-%d') if r.target_completion_date else None,
             'business_continuity_plan': r.business_continuity_plan,
             'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
+        
     return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
 
+# --- (بقية دوال الـ API تبقى كما هي بدون تغيير) ---
+# ... (الكود من /api/risks/<int:risk_id> DELETE إلى النهاية) ...
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
 def delete_risk(risk_id):
@@ -364,7 +403,6 @@ def delete_risk(risk_id):
     db.session.add(log_entry)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم حذف الخطر (أرشفته) بنجاح'})
-
 @app.route('/api/risks/<int:risk_id>/restore', methods=['POST'])
 @login_required
 def restore_risk(risk_id):
@@ -377,7 +415,6 @@ def restore_risk(risk_id):
     db.session.add(restore_log)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تمت استعادة الخطر بنجاح'})
-
 @app.route('/api/risks/<int:risk_id>/permanent', methods=['DELETE'])
 @login_required
 def permanent_delete_risk(risk_id):
@@ -390,7 +427,6 @@ def permanent_delete_risk(risk_id):
     db.session.delete(risk)
     db.session.commit()
     return jsonify({'success': True, 'message': 'تم حذف الخطر نهائياً من النظام.'})
-
 @app.route('/api/risks/<int:risk_id>/delete_attachment', methods=['DELETE'])
 @login_required
 def delete_attachment(risk_id):
@@ -405,46 +441,23 @@ def delete_attachment(risk_id):
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
-
-# =================================================================
-# == ▼▼▼ هذا هو التعديل الوحيد والدقيق في هذا الملف ▼▼▼ ==
-# =================================================================
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
-    if current_user.username != 'admin':
-        query = query.filter_by(user_id=current_user.id)
+    if current_user.username != 'admin': query = query.filter_by(user_id=current_user.id)
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
-    
-    # حساب النسب المئوية وإضافتها للرد
-    active_percentage = (active / total * 100) if total > 0 else 0
-    closed_percentage = (closed / total * 100) if total > 0 else 0
-    
     by_category = {}
     for r in risks:
         if r.category: by_category[r.category] = by_category.get(r.category, 0) + 1
     by_level = {}
     for r in risks:
         if r.risk_level: by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
-        
-    stats_data = {
-        'total_risks': total, 
-        'active_risks': active, 
-        'closed_risks': closed,
-        'active_risks_percentage': active_percentage,
-        'closed_risks_percentage': closed_percentage,
-        'by_category': by_category, 
-        'by_level': by_level
-    }
+    stats_data = {'total_risks': total, 'active_risks': active, 'closed_risks': closed, 'by_category': by_category, 'by_level': by_level}
     return jsonify({'success': True, 'stats': stats_data})
-# =================================================================
-# == ▲▲▲ نهاية التعديل الوحيد ▲▲▲ ==
-# =================================================================
-
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
@@ -589,7 +602,10 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
+        # هذا السطر مهم جداً لإنشاء الأعمدة الجديدة في قاعدة البيانات لأول مرة
         db.create_all() 
+        
+        # إنشاء المستخدمين الافتراضيين إذا لم يكونوا موجودين
         users_to_create = {
             'admin': ('Admin@2025', 'twag1212@gmail.com'),
             'testuser': ('Test@1234', 'testuser@example.com'),
@@ -602,5 +618,6 @@ if __name__ == '__main__':
                 new_user.set_password(password)
                 db.session.add(new_user)
         db.session.commit()
+        
     app.run(debug=True, port=5001)
 
