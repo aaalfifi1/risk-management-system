@@ -1,6 +1,3 @@
-<!-- ======================================================================= -->
-<!-- == audit_log.html - الكود الكامل والنهائي مع تعديل التوقيت == -->
-<!-- ======================================================================= -->
 {% extends "base.html" %}
 
 {% block title %}سجل التغييرات - نظام إدارة المخاطر{% endblock %}
@@ -21,25 +18,27 @@
         .badge-upload { background-color: #6f42c1; }
         .badge-archive { background-color: #fd7e14; }
         .badge-final-delete { background-color: #6c757d; }
+        .action-buttons .btn { margin: 0 2px; }
     </style>
 {% endblock %}
 
 {% block content %}
     <h2 class="mb-4">سجل التغييرات والأنشطة</h2>
     <div class="table-responsive table-wrapper">
-        <table class="table table-hover">
+        <table class="table table-hover" id="audit-log-table">
             <thead>
                 <tr>
                     <th>المستخدم</th>
                     <th>النشاط</th>
                     <th>التفاصيل</th>
-                    <th>التوقيت</th>
+                    <th>التاريخ</th>
+                    <th>إجراء</th>
                 </tr>
             </thead>
             <tbody>
                 {% for log in logs %}
-                    <tr>
-                        <td>{{ log.user.username }}</td>
+                    <tr data-log-id="{{ log.id }}">
+                        <td>{{ log.user.username if log.user else 'مستخدم محذوف' }}</td>
                         <td>
                             {% set badge_map = {
                                 'إضافة': 'badge-add',
@@ -51,11 +50,20 @@
                                 'استعادة تقرير': 'badge-restore',
                                 'حذف تقرير نهائي': 'badge-final-delete'
                             } %}
-                            <span class="action-badge {{ badge_map.get(log.action, 'bg-secondary') }}">{{ log.action }}</span>
+                            <span class="badge {{ badge_map.get(log.action, 'badge-secondary') }}">{{ log.action }}</span>
                         </td>
                         <td>{{ log.details }}</td>
-                        <!-- --- [التعديل الوحيد هنا] --- -->
-                        <td class="timestamp-cell" data-timestamp="{{ log.timestamp.isoformat() }}"></td>
+                        <td class="text-nowrap">{{ (log.timestamp + timedelta(hours=3)).strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td class="action-buttons">
+                            {% if log.action == 'حذف' and log.risk_id %}
+                                <button class="btn btn-sm btn-outline-success" onclick="restoreRisk({{ log.risk_id }}, this)">
+                                    <i class="bi bi-arrow-counterclockwise"></i> استعادة
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" onclick="permanentDeleteRisk({{ log.risk_id }}, this)">
+                                    <i class="bi bi-trash-fill"></i> حذف نهائي
+                                </button>
+                            {% endif %}
+                        </td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -64,13 +72,76 @@
 {% endblock %}
 
 {% block scripts %}
-    <!-- --- [الإضافة الوحيدة هنا] --- -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            document.querySelectorAll('.timestamp-cell').forEach(cell => {
-                const isoString = cell.dataset.timestamp;
-                cell.textContent = toKsaTime(isoString);
-            });
-        });
-    </script>
+<script>
+function confirmAction(title, message, onConfirm) {
+    iziToast.question({
+        timeout: 20000,
+        close: false,
+        overlay: true,
+        displayMode: 'once',
+        id: 'question',
+        zindex: 999,
+        title: title,
+        message: message,
+        position: 'center',
+        rtl: true,
+        class: 'custom-toast-question',
+        buttons: [
+            ['<button><b>نعم</b></button>', function (instance, toast) {
+                instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+                onConfirm();
+            }, true],
+            ['<button>لا</button>', function (instance, toast) {
+                instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+            }],
+        ]
+    });
+}
+
+async function restoreRisk(riskId, button) {
+    confirmAction(
+        'تأكيد الاستعادة',
+        'هل أنت متأكد من استعادة هذا الخطر إلى السجل الرئيسي؟',
+        async () => {
+            try {
+                const response = await fetch(`/api/risks/${riskId}/restore`, { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    // إزالة الصف من الجدول بعد الاستعادة الناجحة
+                    const row = button.closest('tr');
+                    row.remove();
+                } else {
+                    showToast(result.message || 'فشلت عملية الاستعادة', 'error');
+                }
+            } catch (error) {
+                showToast('فشل الاتصال بالخادم', 'error');
+            }
+        }
+    );
+}
+
+async function permanentDeleteRisk(riskId, button) {
+    confirmAction(
+        'تأكيد الحذف النهائي',
+        'تحذير: هذا الإجراء سيحذف الخطر وكل سجلاته نهائياً ولا يمكن التراجع عنه. هل أنت متأكد؟',
+        async () => {
+            try {
+                const response = await fetch(`/api/risks/${riskId}/permanent`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) {
+                    showToast(result.message, 'success');
+                    // إزالة الصف من الجدول بعد الحذف الناجح
+                    const row = button.closest('tr');
+                    row.remove();
+                } else {
+                    showToast(result.message || 'فشلت عملية الحذف', 'error');
+                }
+            } catch (error) {
+                showToast('فشل الاتصال بالخادم', 'error');
+            }
+        }
+    );
+}
+</script>
 {% endblock %}
