@@ -112,7 +112,7 @@
     <!-- [التعديل] الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4">
         <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
-        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى</h5><canvas id="levelChart"></canvas></div></div>
+        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى والنوع</h5><canvas id="levelChart"></canvas></div></div>
     </div>
 {% endblock %}
 
@@ -123,10 +123,21 @@
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
 
+            // تعطيل إضافة datalabels بشكل عام، وتفعيلها عند الحاجة لكل رسم
+            Chart.defaults.plugins.datalabels.display = false;
+
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
+
+            const riskLevelColors = { 
+                'مرتفع جدا / كارثي': '#dc3545', 
+                'مرتفع': '#fd7e14', 
+                'متوسط': '#ffc107', 
+                'منخفض': '#90EE90', 
+                'منخفض جدا': '#198754' 
+            };
 
             async function fetchStats() {
                 try {
@@ -140,63 +151,96 @@
 
             function renderMatrixChart(matrixData) {
                 if (matrixChartInstance) matrixChartInstance.destroy();
-
                 const threatsData = matrixData.filter(d => d.type === 'تهديد').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
                 const opportunitiesData = matrixData.filter(d => d.type === 'فرصة').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
-
                 matrixChartInstance = new Chart(matrixCtx, {
                     type: 'bubble',
                     data: {
                         datasets: [
-                            {
-                                label: 'تهديد',
-                                data: threatsData,
-                                backgroundColor: 'rgba(220, 53, 69, 0.7)',
-                                borderColor: 'rgba(220, 53, 69, 1)',
-                                radius: 8,
-                                hoverRadius: 12
-                            },
-                            {
-                                label: 'فرصة',
-                                data: opportunitiesData,
-                                backgroundColor: 'rgba(25, 135, 84, 0.7)',
-                                borderColor: 'rgba(25, 135, 84, 1)',
-                                radius: 8,
-                                hoverRadius: 12
-                            }
+                            { label: 'تهديد', data: threatsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', radius: 8, hoverRadius: 12 },
+                            { label: 'فرصة', data: opportunitiesData, backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: 'rgba(25, 135, 84, 1)', radius: 8, hoverRadius: 12 }
                         ]
                     },
                     options: {
                         scales: {
-                            y: {
-                                title: { display: true, text: 'التأثير', color: '#fff' },
-                                min: 0.5, max: 5.5,
-                                ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' }
-                            },
-                            x: {
-                                title: { display: true, text: 'الاحتمالية', color: '#fff' },
-                                min: 0.5, max: 5.5,
-                                ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' }
-                            }
+                            y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } },
+                            x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } }
                         },
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                // [التعديل] رفع وسيلة الإيضاح للأعلى
-                                padding: { bottom: 20 },
-                                labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' }
+                            legend: { position: 'top', padding: { bottom: 20 }, labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' } },
+                            tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } }
+                        }
+                    }
+                });
+            }
+
+            function renderStackedBarChart(categoryData) {
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                const datasets = Object.keys(categoryData.datasets).map(level => ({
+                    label: level,
+                    data: categoryData.datasets[level],
+                    backgroundColor: riskLevelColors[level]
+                }));
+                categoryChartInstance = new Chart(categoryCtx, {
+                    type: 'bar',
+                    data: { labels: categoryData.labels, datasets: datasets },
+                    options: {
+                        scales: { y: { stacked: true, ticks: { color: '#fff' } }, x: { stacked: true, ticks: { color: '#fff' } } },
+                        plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
+                    }
+                });
+            }
+
+            function renderNestedDoughnutChart(levelData) {
+                if (levelChartInstance) levelChartInstance.destroy();
+                const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
+                levelChartInstance = new Chart(levelCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['تهديدات', 'فرص'],
+                        datasets: [
+                            {
+                                label: 'النوع',
+                                data: [
+                                    levelData.datasets.threats.reduce((a, b) => a + b, 0),
+                                    levelData.datasets.opportunities.reduce((a, b) => a + b, 0)
+                                ],
+                                backgroundColor: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'],
+                                borderWidth: 2,
+                                borderColor: '#273c5e'
                             },
+                            {
+                                label: 'المستوى',
+                                data: levelData.labels.map((level, index) => levelData.datasets.threats[index] + levelData.datasets.opportunities[index]),
+                                backgroundColor: levelData.labels.map(level => riskLevelColors[level]),
+                                borderWidth: 2,
+                                borderColor: '#273c5e'
+                            }
+                        ]
+                    },
+                    options: {
+                        cutout: '50%',
+                        plugins: {
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    // [التعديل] إظهار الكود والعنوان عند الضغط
                                     label: function(context) {
-                                        return context.raw.label || context.dataset.label;
+                                        const label = context.label || '';
+                                        const value = context.raw;
+                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+                                        return `${label}: ${value} (${percentage}%)`;
                                     }
                                 }
                             },
-                            // [التعديل] تعطيل إظهار الأكواد بشكل دائم
                             datalabels: {
-                                display: false
+                                display: true,
+                                formatter: (value, ctx) => {
+                                    if (value === 0) return '';
+                                    const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+                                    return `${percentage}%`;
+                                },
+                                color: '#fff',
+                                font: { weight: 'bold' }
                             }
                         }
                     }
@@ -205,116 +249,18 @@
 
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
-                
                 const threatsContainer = document.getElementById('threats-container');
-                threatsContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2>
-                    <small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>
-                `;
-
+                threatsContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
                 const opportunitiesContainer = document.getElementById('opportunities-container');
-                opportunitiesContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2>
-                    <small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>
-                `;
-
+                opportunitiesContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
                 const activeContainer = document.getElementById('active-risks-container');
-                activeContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2>
-                    <small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>
-                `;
-
+                activeContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 const closedContainer = document.getElementById('closed-risks-container');
-                closedContainer.innerHTML = `
-                    <h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2>
-                    <small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>
-                `;
-
-                const riskLevelOrder = ['منخفض جدا', 'منخفض', 'متوسط', 'مرتفع', 'مرتفع جدا / كارثي'];
-                const riskLevelColors = { 'منخفض جدا': '#198754', 'منخفض': '#90EE90', 'متوسط': '#ffc107', 'مرتفع': '#fd7e14', 'مرتفع جدا / كارثي': '#dc3545' };
-                const totalRisks = stats.total_risks;
-
-                const gradient = categoryCtx.createLinearGradient(0, 0, 0, 400);
-                gradient.addColorStop(0, 'rgba(13, 110, 253, 0.8)');
-                gradient.addColorStop(1, 'rgba(39, 60, 94, 0.5)');
-
-                if (categoryChartInstance) categoryChartInstance.destroy();
-                categoryChartInstance = new Chart(categoryCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(stats.by_category),
-                        datasets: [{
-                            label: 'عدد المخاطر',
-                            data: Object.values(stats.by_category),
-                            backgroundColor: gradient,
-                            borderRadius: 5
-                        }]
-                    },
-                    options: {
-                        scales: { 
-                            y: { beginAtZero: true, ticks: { display: false } }, 
-                            x: { ticks: { display: false } } 
-                        },
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const count = context.raw;
-                                        const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0;
-                                        return `العدد: ${count} (${percentage}%)`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                if (levelChartInstance) levelChartInstance.destroy();
-                levelChartInstance = new Chart(levelCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: riskLevelOrder,
-                        datasets: [{
-                            data: riskLevelOrder.map(level => stats.by_level[level] || 0),
-                            backgroundColor: riskLevelOrder.map(level => riskLevelColors[level]),
-                            borderWidth: 2,
-                            borderColor: '#273c5e'
-                        }]
-                    },
-                    options: {
-                        cutout: '60%',
-                        plugins: {
-                            legend: {
-                                position: 'top', align: 'center', rtl: true,
-                                labels: { color: '#f8f9fa', usePointStyle: true, pointStyle: 'rectRounded', padding: 20, boxWidth: 15, font: { size: 14 } }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const count = context.raw;
-                                        const percentage = totalRisks > 0 ? (count / totalRisks * 100).toFixed(1) : 0;
-                                        return `${label}: ${count} (${percentage}%)`;
-                                    }
-                                }
-                            },
-                            datalabels: {
-                                anchor: 'center',
-                                align: 'center',
-                                formatter: (value, ctx) => {
-                                    if (value === 0) return '';
-                                    const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-                                    return `${percentage}%`;
-                                },
-                                color: '#fff',
-                                font: { weight: 'bold', size: 14 }
-                            }
-                        }
-                    }
-                });
+                closedContainer.innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
 
                 renderMatrixChart(stats.matrix_data);
+                renderStackedBarChart(stats.by_category_stacked);
+                renderNestedDoughnutChart(stats.by_level_nested);
             }
 
             fetchStats();
