@@ -26,20 +26,13 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
-        .dual-doughnut-container {
+        .split-doughnut-container {
             display: flex;
-            justify-content: space-around;
             align-items: center;
-            width: 100%;
-            height: calc(100% - 40px); /* لحساب ارتفاع العنوان */
+            justify-content: center;
+            gap: 20px;
         }
-        .doughnut-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-        }
-        .doughnut-label {
+        .split-doughnut-label {
             font-size: 1.2rem;
             font-weight: bold;
             color: #fff;
@@ -119,33 +112,32 @@
     <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="chart-container" style="height: 400px;">
+            <div class="chart-container">
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- الصف الثالث: الرسوم البيانية الأخرى -->
+    <!-- [التعديل الثالث] إضافة هامش سفلي للصف -->
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                 <canvas id="categoryChart"></canvas>
             </div>
         </div>
         <div class="col-lg-6">
-            <div class="chart-container" style="height: 350px;">
+            <div class="chart-container">
+                <!-- [التعديل الأول] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
-                <div class="dual-doughnut-container">
-                    <div class="doughnut-wrapper">
-                        <canvas id="threatsChart" width="200" height="200"></canvas>
-                        <span class="doughnut-label">التهديدات</span>
+                <div class="split-doughnut-container">
+                    <!-- [التعديل الثاني] عكس أماكن الكلمات -->
+                    <span class="split-doughnut-label">فرص</span>
+                    <div style="width: 300px; height: 300px;">
+                         <canvas id="levelChart"></canvas>
                     </div>
-                    <div class="doughnut-wrapper">
-                        <canvas id="opportunitiesChart" width="200" height="200"></canvas>
-                        <span class="doughnut-label">الفرص</span>
-                    </div>
+                    <span class="split-doughnut-label">تهديدات</span>
                 </div>
             </div>
         </div>
@@ -160,10 +152,9 @@
             Chart.register(ChartDataLabels);
             Chart.defaults.plugins.datalabels.display = false;
 
-            let categoryChartInstance, threatsChartInstance, opportunitiesChartInstance, matrixChartInstance;
+            let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-            const threatsCtx = document.getElementById('threatsChart').getContext('2d');
-            const opportunitiesCtx = document.getElementById('opportunitiesChart').getContext('2d');
+            const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
 
             const riskLevelColors = { 
@@ -197,8 +188,6 @@
                         ]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
                         scales: {
                             y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } },
                             x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } }
@@ -222,8 +211,6 @@
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
                         scales: { 
                             y: { stacked: true, ticks: { color: '#fff', display: false } }, 
                             x: { stacked: true, ticks: { color: '#fff' } } 
@@ -233,22 +220,47 @@
                 });
             }
 
-            function renderSingleDoughnut(ctx, instance, data, total, typeName) {
-                if (instance) instance.destroy();
-                return new Chart(ctx, {
+            function renderSplitDoughnutChart(levelData, totalThreats, totalOpportunities) {
+                if (levelChartInstance) levelChartInstance.destroy();
+
+                const chartData = [];
+                const chartColors = [];
+                const chartLabels = [];
+                const percentageOf = [];
+
+                // نصف الفرص (في اليسار)
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.opportunities[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(`فرصة - ${level}`);
+                    percentageOf.push(totalOpportunities);
+                });
+
+                // نصف التهديدات (في اليمين)
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.threats[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(`تهديد - ${level}`);
+                    percentageOf.push(totalThreats);
+                });
+
+                levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: data.labels,
+                        labels: chartLabels,
                         datasets: [{
-                            data: data.values,
-                            backgroundColor: data.labels.map(label => riskLevelColors[label]),
+                            data: chartData,
+                            backgroundColor: chartColors,
                             borderWidth: 2,
-                            borderColor: '#273c5e'
+                            borderColor: '#273c5e',
+                            percentageOf: percentageOf 
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        rotation: -90,
+                        circumference: 180,
                         cutout: '40%',
                         plugins: {
                             legend: { display: false },
@@ -257,7 +269,9 @@
                                     label: function(context) {
                                         const label = context.label || '';
                                         const value = context.raw;
-                                        const percentage = total > 0 ? (value / total * 100).toFixed(1) : 0;
+                                        const totalForType = context.dataset.percentageOf[context.dataIndex];
+                                        const percentage = totalForType > 0 ? (value / totalForType * 100).toFixed(1) : 0;
+                                        const typeName = label.includes('تهديد') ? 'التهديدات' : 'الفرص';
                                         return `${label}: ${value} (${percentage}% من ${typeName})`;
                                     }
                                 }
@@ -266,7 +280,8 @@
                                 display: true,
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
-                                    const percentage = total > 0 ? (value / total * 100).toFixed(1) : 0;
+                                    const totalForType = ctx.dataset.percentageOf[ctx.dataIndex];
+                                    const percentage = totalForType > 0 ? (value / totalForType * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
@@ -290,18 +305,7 @@
 
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
-
-                const threatsData = {
-                    labels: stats.by_level_nested.labels,
-                    values: stats.by_level_nested.datasets.threats
-                };
-                const opportunitiesData = {
-                    labels: stats.by_level_nested.labels,
-                    values: stats.by_level_nested.datasets.opportunities
-                };
-
-                threatsChartInstance = renderSingleDoughnut(threatsCtx, threatsChartInstance, threatsData, stats.total_threats, 'التهديدات');
-                opportunitiesChartInstance = renderSingleDoughnut(opportunitiesCtx, opportunitiesChartInstance, opportunitiesData, stats.total_opportunities, 'الفرص');
+                renderSplitDoughnutChart(stats.by_level_nested, stats.total_threats, stats.total_opportunities);
             }
 
             fetchStats();
