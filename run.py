@@ -471,47 +471,61 @@ def get_stats_api():
     threats = len([r for r in risks if r.risk_type == 'تهديد'])
     opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
     
-    # --- الإضافة الجديدة تبدأ هنا ---
     threats_percentage = (threats / total * 100) if total > 0 else 0
     opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
     
-    # تجهيز البيانات للخريطة الذكية
-    matrix_data = [{
-        'x': r.probability, 
-        'y': r.impact, 
-        'type': r.risk_type,
-        'title': r.title,
-        'code': r.risk_code
-    } for r in risks]
-    # --- الإضافة الجديدة تنتهي هنا ---
-
+    matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks]
+    
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
     
-    by_category = {}
-    for r in risks:
-        if r.category: 
-            by_category[r.category] = by_category.get(r.category, 0) + 1
-            
-    by_level = {}
-    for r in risks:
-        if r.risk_level: 
-            by_level[r.risk_level] = by_level.get(r.risk_level, 0) + 1
-            
+    # --- [تعديل] تجهيز البيانات للرسم البياني المُكدَّس ---
+    risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
+    categories = sorted(list(set(r.category for r in risks if r.category)))
+    by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
+    for risk in risks:
+        if risk.category:
+            try:
+                cat_index = categories.index(risk.category)
+                by_category_stacked[risk.risk_level][cat_index] += 1
+            except ValueError:
+                continue
+
+    # --- [تعديل] تجهيز البيانات للرسم البياني المُتداخل ---
+    by_level_nested = {
+        'threats': [0] * len(risk_level_order),
+        'opportunities': [0] * len(risk_level_order)
+    }
+    for risk in risks:
+        try:
+            level_index = risk_level_order.index(risk.risk_level)
+            if risk.risk_type == 'تهديد':
+                by_level_nested['threats'][level_index] += 1
+            else:
+                by_level_nested['opportunities'][level_index] += 1
+        except ValueError:
+            continue
+
     stats_data = {
         'total_risks': total, 
         'active_risks': active, 
         'closed_risks': closed, 
-        'by_category': by_category, 
-        'by_level': by_level,
         'active_risks_percentage': active_percentage,
         'closed_risks_percentage': closed_percentage,
         'total_threats': threats,
         'total_opportunities': opportunities,
-        # --- إضافة البيانات الجديدة هنا ---
         'threats_percentage': threats_percentage,
         'opportunities_percentage': opportunities_percentage,
-        'matrix_data': matrix_data
+        'matrix_data': matrix_data,
+        # --- إضافة البيانات الجديدة للرسوم المطورة ---
+        'by_category_stacked': {
+            'labels': categories,
+            'datasets': by_category_stacked
+        },
+        'by_level_nested': {
+            'labels': risk_level_order,
+            'datasets': by_level_nested
+        }
     }
     return jsonify({'success': True, 'stats': stats_data})
 
