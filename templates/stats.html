@@ -26,7 +26,6 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
-        /* [الجديد] تنسيق حاوية الرسم الدائري المقسم */
         .split-doughnut-container {
             display: flex;
             align-items: center;
@@ -121,7 +120,7 @@
     </div>
 
     <!-- الصف الثالث: الرسوم البيانية الأخرى -->
-    <div class="row g-4">
+    <div class="row g-4 mb-4">
         <div class="col-lg-6">
             <div class="chart-container">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
@@ -131,15 +130,28 @@
         <div class="col-lg-6">
             <div class="chart-container">
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
-                <!-- [الجديد] حاوية الرسم الدائري المقسم -->
                 <div class="split-doughnut-container">
                     <span class="split-doughnut-label">تهديدات</span>
-                    <div style="width: 300px; height: 300px;"> <!-- تحديد حجم ثابت للحاوية -->
+                    <div style="width: 300px; height: 300px;">
                          <canvas id="levelChart"></canvas>
                     </div>
                     <span class="split-doughnut-label">فرص</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ▼▼▼ [الجديد] الصف الرابع للرسم البياني الزمني ▼▼▼ -->
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <h5 class="mb-3 card-title-white">تطور حالات المخاطر عبر الزمن</h5>
+                <canvas id="statusTrendChart"></canvas>
+            </div>
+        </div>
+        <!-- النصف الأيسر فارغ حالياً -->
+        <div class="col-lg-6">
+            <!-- يمكنك إضافة رسم بياني آخر هنا في المستقبل -->
         </div>
     </div>
 {% endblock %}
@@ -148,14 +160,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function ( ) {
+        document.addEventListener('DOMContentLoaded', function (  ) {
             Chart.register(ChartDataLabels);
             Chart.defaults.plugins.datalabels.display = false;
 
-            let categoryChartInstance, levelChartInstance, matrixChartInstance;
+            // ▼▼▼ [الجديد] تعريف متغيرات الرسم الجديد ▼▼▼
+            let categoryChartInstance, levelChartInstance, matrixChartInstance, statusTrendChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
+            const statusTrendCtx = document.getElementById('statusTrendChart').getContext('2d');
 
             const riskLevelColors = { 
                 'مرتفع جدا / كارثي': '#dc3545', 
@@ -163,6 +177,16 @@
                 'متوسط': '#ffc107', 
                 'منخفض': '#90EE90', 
                 'منخفض جدا': '#198754' 
+            };
+
+            // ▼▼▼ [الجديد] تعريف ألوان الحالات ▼▼▼
+            const statusColors = {
+                'جديد': '#0dcaf0', // أزرق فاتح
+                'تحت المراجعة': '#ffc107', // أصفر
+                'نشط': '#fd7e14', // برتقالي
+                'مُصعَّد': '#dc3545', // أحمر
+                'مُراقب': '#6f42c1', // بنفسجي
+                'مغلق': '#198754' // أخضر
             };
 
             async function fetchStats() {
@@ -220,50 +244,36 @@
                 });
             }
 
-            // [الجديد] دالة الرسم الدائري المقسم
             function renderSplitDoughnutChart(levelData) {
                 if (levelChartInstance) levelChartInstance.destroy();
-
                 const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
-                
-                // إعداد البيانات: نصف للفرص ونصف للتهديدات
                 const chartData = [];
                 const chartColors = [];
                 const chartLabels = [];
-
-                // نصف الفرص (في اليسار)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.opportunities[index]);
                     chartColors.push(riskLevelColors[level]);
                     chartLabels.push(`فرصة - ${level}`);
                 });
-
-                // نصف التهديدات (في اليمين)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.threats[index]);
                     chartColors.push(riskLevelColors[level]);
                     chartLabels.push(`تهديد - ${level}`);
                 });
-
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
                         labels: chartLabels,
-                        datasets: [{
-                            data: chartData,
-                            backgroundColor: chartColors,
-                            borderWidth: 2,
-                            borderColor: '#273c5e'
-                        }]
+                        datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 2, borderColor: '#273c5e' }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        rotation: -90, // يبدأ من الأعلى
-                        circumference: 180, // يرسم نصف دائرة فقط
+                        rotation: -90,
+                        circumference: 180,
                         cutout: '40%',
                         plugins: {
-                            legend: { display: false }, // لا نحتاج وسيلة إيضاح هنا
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -289,6 +299,45 @@
                 });
             }
 
+            // ▼▼▼ [الجديد] دالة رسم المخطط الزمني ▼▼▼
+            function renderStatusTrendChart(trendData) {
+                if (statusTrendChartInstance) statusTrendChartInstance.destroy();
+                
+                const datasets = Object.keys(trendData.datasets).map(status => ({
+                    label: status,
+                    data: trendData.datasets[status],
+                    borderColor: statusColors[status],
+                    backgroundColor: `${statusColors[status]}33`, // لون شفاف للمساحة
+                    fill: true,
+                    tension: 0.4 // لجعل الخطوط منحنية وأنيقة
+                }));
+
+                statusTrendChartInstance = new Chart(statusTrendCtx, {
+                    type: 'line',
+                    data: {
+                        labels: trendData.labels,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: { 
+                                stacked: true, // لجعل المساحات مكدسة
+                                ticks: { color: '#fff' } 
+                            },
+                            x: { ticks: { color: '#fff' } }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' }
+                            }
+                        }
+                    }
+                });
+            }
+
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 const threatsContainer = document.getElementById('threats-container');
@@ -302,12 +351,14 @@
 
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
-                // استدعاء الدالة الجديدة
                 renderSplitDoughnutChart(stats.by_level_nested);
+                // ▼▼▼ [الجديد] استدعاء دالة الرسم الزمني ▼▼▼
+                if (stats.status_trend && stats.status_trend.labels) {
+                    renderStatusTrendChart(stats.status_trend);
+                }
             }
 
             fetchStats();
         });
     </script>
 {% endblock %}
-
