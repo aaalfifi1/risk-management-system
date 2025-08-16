@@ -26,6 +26,17 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
+        .split-doughnut-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+        }
+        .split-doughnut-label {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+        }
     </style>
 {% endblock %}
 
@@ -118,8 +129,14 @@
         </div>
         <div class="col-lg-6">
             <div class="chart-container">
-                <h5 class="mb-3 card-title-white">المخاطر حسب النوع ومستوى الخطورة</h5>
-                <canvas id="levelChart"></canvas>
+                <h5 class="mb-3 card-title-white">توزيع المخاطر</h5>
+                <div class="split-doughnut-container">
+                    <span class="split-doughnut-label">فرص</span>
+                    <div style="width: 300px; height: 300px;">
+                         <canvas id="levelChart"></canvas>
+                    </div>
+                    <span class="split-doughnut-label">تهديدات</span>
+                </div>
             </div>
         </div>
     </div>
@@ -201,86 +218,61 @@
                 });
             }
 
-            function renderNestedDoughnutChart(levelData) {
+            function renderSplitDoughnutChart(levelData, totalThreats, totalOpportunities) {
                 if (levelChartInstance) levelChartInstance.destroy();
-                const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
-                
+
+                const chartData = [];
+                const chartColors = [];
+                const chartLabels = [];
+                const percentageOf = []; // لتخزين النسبة من ماذا (تهديدات أو فرص)
+
+                // نصف الفرص (في اليسار)
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.opportunities[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(`فرصة - ${level}`);
+                    percentageOf.push(totalOpportunities);
+                });
+
+                // نصف التهديدات (في اليمين)
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.threats[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(`تهديد - ${level}`);
+                    percentageOf.push(totalThreats);
+                });
+
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: levelData.labels, // أسماء المستويات للدائرة الخارجية
-                        datasets: [
-                            {
-                                label: 'النوع',
-                                data: [
-                                    levelData.datasets.threats.reduce((a, b) => a + b, 0),
-                                    levelData.datasets.opportunities.reduce((a, b) => a + b, 0)
-                                ],
-                                backgroundColor: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'],
-                                borderWidth: 2,
-                                borderColor: '#273c5e',
-                                customLabels: ['التهديدات', 'الفرص'] // أسماء مخصصة للدائرة الداخلية
-                            },
-                            {
-                                label: 'المستوى',
-                                data: levelData.labels.map((level, index) => levelData.datasets.threats[index] + levelData.datasets.opportunities[index]),
-                                backgroundColor: levelData.labels.map(level => riskLevelColors[level]),
-                                borderWidth: 2,
-                                borderColor: '#273c5e'
-                            }
-                        ]
+                        labels: chartLabels,
+                        datasets: [{
+                            data: chartData,
+                            backgroundColor: chartColors,
+                            borderWidth: 2,
+                            borderColor: '#273c5e',
+                            // [الجديد] نمرر مصفوفة الإجمالي لكل جزء
+                            percentageOf: percentageOf 
+                        }]
                     },
                     options: {
-                        cutout: '50%',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        rotation: -90,
+                        circumference: 180,
+                        cutout: '40%',
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: {
-                                    // [الإصلاح] تغيير لون الخط إلى الأبيض
-                                    color: '#fff',
-                                    usePointStyle: true,
-                                    pointStyle: 'rectRounded',
-                                    generateLabels: function(chart) {
-                                        return [
-                                            { text: 'تهديد', fillStyle: 'rgba(220, 53, 69, 0.8)', datasetIndex: 0 },
-                                            { text: 'فرصة', fillStyle: 'rgba(25, 135, 84, 0.8)', datasetIndex: 0 }
-                                        ];
-                                    }
-                                }
-                            },
+                            legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    // [الإصلاح] تطبيق منطق Tooltip الذكي
                                     label: function(context) {
-                                        const datasetIndex = context.datasetIndex;
-                                        const dataIndex = context.dataIndex;
-                                        
-                                        // الدائرة الداخلية (النوع)
-                                        if (datasetIndex === 0) {
-                                            const typeLabel = context.dataset.customLabels[dataIndex];
-                                            const totalForType = context.raw;
-                                            let breakdown = [`${typeLabel} (الإجمالي: ${totalForType})`];
-                                            const typeData = (dataIndex === 0) ? levelData.datasets.threats : levelData.datasets.opportunities;
-                                            levelData.labels.forEach((level, i) => {
-                                                if (typeData[i] > 0) {
-                                                    breakdown.push(`- ${level}: ${typeData[i]}`);
-                                                }
-                                            });
-                                            return breakdown;
-                                        }
-                                        
-                                        // الدائرة الخارجية (المستوى)
-                                        if (datasetIndex === 1) {
-                                            const levelLabel = context.label;
-                                            const totalForLevel = context.raw;
-                                            let breakdown = [`${levelLabel} (الإجمالي: ${totalForLevel})`];
-                                            const threatsInLevel = levelData.datasets.threats[dataIndex];
-                                            const oppsInLevel = levelData.datasets.opportunities[dataIndex];
-                                            if (threatsInLevel > 0) breakdown.push(`- تهديدات: ${threatsInLevel}`);
-                                            if (oppsInLevel > 0) breakdown.push(`- فرص: ${oppsInLevel}`);
-                                            return breakdown;
-                                        }
-                                        return '';
+                                        const label = context.label || '';
+                                        const value = context.raw;
+                                        // [الإصلاح] نحصل على الإجمالي الصحيح من مجموعة البيانات
+                                        const totalForType = context.dataset.percentageOf[context.dataIndex];
+                                        const percentage = totalForType > 0 ? (value / totalForType * 100).toFixed(1) : 0;
+                                        const typeName = label.includes('تهديد') ? 'التهديدات' : 'الفرص';
+                                        return `${label}: ${value} (${percentage}% من ${typeName})`;
                                     }
                                 }
                             },
@@ -288,7 +280,8 @@
                                 display: true,
                                 formatter: (value, ctx) => {
                                     if (value === 0) return '';
-                                    const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+                                    const totalForType = ctx.dataset.percentageOf[ctx.dataIndex];
+                                    const percentage = totalForType > 0 ? (value / totalForType * 100).toFixed(1) : 0;
                                     return `${percentage}%`;
                                 },
                                 color: '#fff',
@@ -312,7 +305,8 @@
 
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
-                renderNestedDoughnutChart(stats.by_level_nested);
+                // [الإصلاح] نمرر إجمالي التهديدات والفرص للدالة
+                renderSplitDoughnutChart(stats.by_level_nested, stats.total_threats, stats.total_opportunities);
             }
 
             fetchStats();
