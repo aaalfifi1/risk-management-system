@@ -112,14 +112,12 @@
     <div class="row g-4">
         <div class="col-lg-6">
             <div class="chart-container">
-                <!-- [التعديل] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                 <canvas id="categoryChart"></canvas>
             </div>
         </div>
         <div class="col-lg-6">
             <div class="chart-container">
-                <!-- [التعديل] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">المخاطر حسب النوع ومستوى الخطورة</h5>
                 <canvas id="levelChart"></canvas>
             </div>
@@ -195,7 +193,6 @@
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
                         scales: { 
-                            // [التعديل] إخفاء الأرقام على المحور الرأسي
                             y: { stacked: true, ticks: { color: '#fff', display: false } }, 
                             x: { stacked: true, ticks: { color: '#fff' } } 
                         },
@@ -208,16 +205,10 @@
                 if (levelChartInstance) levelChartInstance.destroy();
                 const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
                 
-                // [التعديل] إعداد بيانات وسيلة الإيضاح المخصصة
-                const legendData = {
-                    labels: ['تهديدات', 'فرص'].concat(levelData.labels),
-                    colors: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'].concat(levelData.labels.map(l => riskLevelColors[l]))
-                };
-
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: levelData.labels, // وسيلة الإيضاح الرئيسية ستكون للمستويات
+                        labels: levelData.labels, // أسماء المستويات للدائرة الخارجية
                         datasets: [
                             {
                                 label: 'النوع',
@@ -228,7 +219,7 @@
                                 backgroundColor: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'],
                                 borderWidth: 2,
                                 borderColor: '#273c5e',
-                                labels: ['تهديد', 'فرصة'] // أسماء مخصصة لهذه الدائرة
+                                customLabels: ['التهديدات', 'الفرص'] // أسماء مخصصة للدائرة الداخلية
                             },
                             {
                                 label: 'المستوى',
@@ -242,14 +233,13 @@
                     options: {
                         cutout: '50%',
                         plugins: {
-                            // [التعديل] إضافة وسيلة إيضاح مخصصة وواضحة
                             legend: {
                                 position: 'top',
                                 labels: {
+                                    // [الإصلاح] تغيير لون الخط إلى الأبيض
                                     color: '#fff',
                                     usePointStyle: true,
                                     pointStyle: 'rectRounded',
-                                    // دالة لتوليد وسيلة الإيضاح من بياناتنا المخصصة
                                     generateLabels: function(chart) {
                                         return [
                                             { text: 'تهديد', fillStyle: 'rgba(220, 53, 69, 0.8)', datasetIndex: 0 },
@@ -260,12 +250,37 @@
                             },
                             tooltip: {
                                 callbacks: {
-                                    // [التعديل] إصلاح النافذة المنبثقة
+                                    // [الإصلاح] تطبيق منطق Tooltip الذكي
                                     label: function(context) {
-                                        let label = context.dataset.labels ? context.dataset.labels[context.dataIndex] : context.label;
-                                        const value = context.raw;
-                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-                                        return `${label}: ${value} (${percentage}%)`;
+                                        const datasetIndex = context.datasetIndex;
+                                        const dataIndex = context.dataIndex;
+                                        
+                                        // الدائرة الداخلية (النوع)
+                                        if (datasetIndex === 0) {
+                                            const typeLabel = context.dataset.customLabels[dataIndex];
+                                            const totalForType = context.raw;
+                                            let breakdown = [`${typeLabel} (الإجمالي: ${totalForType})`];
+                                            const typeData = (dataIndex === 0) ? levelData.datasets.threats : levelData.datasets.opportunities;
+                                            levelData.labels.forEach((level, i) => {
+                                                if (typeData[i] > 0) {
+                                                    breakdown.push(`- ${level}: ${typeData[i]}`);
+                                                }
+                                            });
+                                            return breakdown;
+                                        }
+                                        
+                                        // الدائرة الخارجية (المستوى)
+                                        if (datasetIndex === 1) {
+                                            const levelLabel = context.label;
+                                            const totalForLevel = context.raw;
+                                            let breakdown = [`${levelLabel} (الإجمالي: ${totalForLevel})`];
+                                            const threatsInLevel = levelData.datasets.threats[dataIndex];
+                                            const oppsInLevel = levelData.datasets.opportunities[dataIndex];
+                                            if (threatsInLevel > 0) breakdown.push(`- تهديدات: ${threatsInLevel}`);
+                                            if (oppsInLevel > 0) breakdown.push(`- فرص: ${oppsInLevel}`);
+                                            return breakdown;
+                                        }
+                                        return '';
                                     }
                                 }
                             },
