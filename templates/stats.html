@@ -36,7 +36,6 @@
             font-size: 1.2rem;
             font-weight: bold;
         }
-        /* [التعديل الأول] إضافة ألوان للكلمات */
         .label-threat { color: #dc3545; }
         .label-opportunity { color: #198754; }
     </style>
@@ -114,7 +113,6 @@
     <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <!-- [التعديل الثاني] تقليل ارتفاع حاوية الخريطة -->
             <div class="chart-container" style="height: 400px;">
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
@@ -122,21 +120,19 @@
         </div>
     </div>
 
-    <!-- الصف الثالث: الرسوم البيانية الأخرى -->
-    <div class="row g-4 mb-4">
+    <!-- [التعديل الثاني] إضافة هامش سفلي للصف للسماح بالتمرير -->
+    <div class="row g-4 mb-5">
         <div class="col-lg-6">
-            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
             <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                 <canvas id="categoryChart"></canvas>
             </div>
         </div>
         <div class="col-lg-6">
-            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
             <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                 <div class="split-doughnut-container">
-                    <!-- [التعديل الأول] عكس أماكن الكلمات وتلوينها -->
+                    <!-- [التعديل الأول] عكس أماكن الكلمات وتلوينها بشكل صحيح -->
                     <span class="split-doughnut-label label-opportunity">فرص</span>
                     <div style="width: 250px; height: 250px;">
                          <canvas id="levelChart"></canvas>
