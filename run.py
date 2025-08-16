@@ -13,9 +13,6 @@ import csv
 import io
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-# ▼▼▼ [الجديد] إضافة مكتبات للتعامل مع التواريخ والبيانات ▼▼▼
-from collections import defaultdict, OrderedDict
-from itertools import groupby
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -37,7 +34,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات (بدون تغيير) ---
+# --- نماذج قاعدة البيانات ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -94,7 +91,7 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- دوال مساعدة (بدون تغيير) ---
+# --- دوال مساعدة ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -125,7 +122,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات (بدون تغيير) ---
+# --- مسارات الصفحات ---
 @app.route('/')
 @login_required
 def home():
@@ -197,7 +194,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV (بدون تغيير) ---
+# --- دالة تصدير CSV ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -228,7 +225,7 @@ def download_risk_log():
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API (بدون تغيير في أغلبها) ---
+# --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -466,7 +463,7 @@ def get_stats_api():
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
     
-    risks = query.order_by(Risk.created_at.asc()).all() # نرتب تصاعدياً حسب التاريخ
+    risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
     closed = total - active
@@ -482,6 +479,7 @@ def get_stats_api():
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
     
+    # --- [تعديل] تجهيز البيانات للرسم البياني المُكدَّس ---
     risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
     categories = sorted(list(set(r.category for r in risks if r.category)))
     by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
@@ -490,9 +488,10 @@ def get_stats_api():
             try:
                 cat_index = categories.index(risk.category)
                 by_category_stacked[risk.risk_level][cat_index] += 1
-            except (ValueError, KeyError):
+            except ValueError:
                 continue
 
+    # --- [تعديل] تجهيز البيانات للرسم البياني المُتداخل ---
     by_level_nested = {
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
@@ -504,38 +503,8 @@ def get_stats_api():
                 by_level_nested['threats'][level_index] += 1
             else:
                 by_level_nested['opportunities'][level_index] += 1
-        except (ValueError, KeyError):
+        except ValueError:
             continue
-
-    # --- [الجديد] تجهيز بيانات الرسم البياني الزمني ---
-    status_trend_data = {}
-    if risks:
-        # تحديد ترتيب الحالات والألوان
-        status_order = ['جديد', 'تحت المراجعة', 'نشط', 'مُصعَّد', 'مُراقب', 'مغلق']
-        
-        # تجميع المخاطر حسب الشهر والسنة
-        keyfunc = lambda r: r.created_at.strftime('%Y-%m')
-        grouped_by_month = groupby(sorted(risks, key=keyfunc), key=keyfunc)
-        
-        monthly_counts = OrderedDict()
-        for month, group in grouped_by_month:
-            monthly_counts[month] = defaultdict(int)
-            for risk in group:
-                monthly_counts[month][risk.status] += 1
-        
-        # بناء هيكل البيانات للرسم البياني
-        labels = list(monthly_counts.keys())
-        datasets = {status: [0] * len(labels) for status in status_order}
-        
-        for i, month in enumerate(labels):
-            for status in status_order:
-                datasets[status][i] = monthly_counts[month][status]
-                
-        status_trend_data = {
-            'labels': labels,
-            'datasets': datasets
-        }
-
 
     stats_data = {
         'total_risks': total, 
@@ -548,6 +517,7 @@ def get_stats_api():
         'threats_percentage': threats_percentage,
         'opportunities_percentage': opportunities_percentage,
         'matrix_data': matrix_data,
+        # --- إضافة البيانات الجديدة للرسوم المطورة ---
         'by_category_stacked': {
             'labels': categories,
             'datasets': by_category_stacked
@@ -555,9 +525,7 @@ def get_stats_api():
         'by_level_nested': {
             'labels': risk_level_order,
             'datasets': by_level_nested
-        },
-        # إضافة بيانات الرسم الزمني
-        'status_trend': status_trend_data
+        }
     }
     return jsonify({'success': True, 'stats': stats_data})
 
