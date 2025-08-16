@@ -112,14 +112,15 @@
     <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <div class="chart-container">
+            <!-- [التعديل الثاني] تقليل ارتفاع حاوية الخريطة -->
+            <div class="chart-container" style="height: 400px;">
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- [التعديل الثالث] إضافة هامش سفلي للصف -->
+    <!-- الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
             <div class="chart-container">
@@ -129,10 +130,8 @@
         </div>
         <div class="col-lg-6">
             <div class="chart-container">
-                <!-- [التعديل الأول] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                 <div class="split-doughnut-container">
-                    <!-- [التعديل الثاني] عكس أماكن الكلمات -->
                     <span class="split-doughnut-label">فرص</span>
                     <div style="width: 300px; height: 300px;">
                          <canvas id="levelChart"></canvas>
@@ -188,6 +187,8 @@
                         ]
                     },
                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
                         scales: {
                             y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } },
                             x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } }
@@ -228,14 +229,7 @@
                 const chartLabels = [];
                 const percentageOf = [];
 
-                // نصف الفرص (في اليسار)
-                levelData.labels.forEach((level, index) => {
-                    chartData.push(levelData.datasets.opportunities[index]);
-                    chartColors.push(riskLevelColors[level]);
-                    chartLabels.push(`فرصة - ${level}`);
-                    percentageOf.push(totalOpportunities);
-                });
-
+                // [التعديل الأول] عكس ترتيب رسم البيانات
                 // نصف التهديدات (في اليمين)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.threats[index]);
@@ -244,6 +238,14 @@
                     percentageOf.push(totalThreats);
                 });
 
+                // نصف الفرص (في اليسار)
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.opportunities[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(`فرصة - ${level}`);
+                    percentageOf.push(totalOpportunities);
+                });
+                
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
@@ -259,7 +261,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        rotation: -90,
+                        rotation: 90, // تعديل الدوران ليبدأ التهديد من اليمين
                         circumference: 180,
                         cutout: '40%',
                         plugins: {
