@@ -120,8 +120,8 @@
         </div>
     </div>
 
-    <!-- [التعديل الثاني] إضافة هامش سفلي للصف للسماح بالتمرير -->
-    <div class="row g-4 mb-5">
+    <!-- [التعديل الثاني] إزالة الهامش السفلي من الصف -->
+    <div class="row g-4">
         <div class="col-lg-6">
             <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
@@ -133,11 +133,11 @@
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                 <div class="split-doughnut-container">
                     <!-- [التعديل الأول] عكس أماكن الكلمات وتلوينها بشكل صحيح -->
-                    <span class="split-doughnut-label label-opportunity">فرص</span>
+                    <span class="split-doughnut-label label-threat">تهديدات</span>
                     <div style="width: 250px; height: 250px;">
                          <canvas id="levelChart"></canvas>
                     </div>
-                    <span class="split-doughnut-label label-threat">تهديدات</span>
+                    <span class="split-doughnut-label label-opportunity">فرص</span>
                 </div>
             </div>
         </div>
@@ -232,7 +232,7 @@
                 const chartLabels = [];
                 const percentageOf = [];
 
-                // نصف الفرص (في اليسار)
+                // نصف الفرص (في اليمين)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.opportunities[index]);
                     chartColors.push(riskLevelColors[level]);
@@ -240,7 +240,7 @@
                     percentageOf.push(totalOpportunities);
                 });
 
-                // نصف التهديدات (في اليمين)
+                // نصف التهديدات (في اليسار)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.threats[index]);
                     chartColors.push(riskLevelColors[level]);
