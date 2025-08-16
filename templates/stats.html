@@ -30,7 +30,7 @@
 {% endblock %}
 
 {% block content %}
-    <!-- الصف الأول: البطاقات الخمس (بدون تغيير) -->
+    <!-- الصف الأول: البطاقات الخمس -->
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
         <div class="col">
             <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
@@ -98,21 +98,32 @@
         </div>
     </div>
 
-    <!-- [التعديل] الصف الثاني: الخريطة الذكية بعرض كامل -->
+    <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
             <div class="chart-container">
-                <!-- [التعديل] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- [التعديل] الصف الثالث: الرسوم البيانية الأخرى -->
+    <!-- الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4">
-        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب الفئة</h5><canvas id="categoryChart"></canvas></div></div>
-        <div class="col-lg-6"><div class="chart-container"><h5 class="mb-3 card-title-white">المخاطر حسب المستوى والنوع</h5><canvas id="levelChart"></canvas></div></div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <!-- [التعديل] تغيير العنوان -->
+                <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="chart-container">
+                <!-- [التعديل] تغيير العنوان -->
+                <h5 class="mb-3 card-title-white">المخاطر حسب النوع ومستوى الخطورة</h5>
+                <canvas id="levelChart"></canvas>
+            </div>
+        </div>
     </div>
 {% endblock %}
 
@@ -122,8 +133,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
             Chart.register(ChartDataLabels);
-
-            // تعطيل إضافة datalabels بشكل عام، وتفعيلها عند الحاجة لكل رسم
             Chart.defaults.plugins.datalabels.display = false;
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
@@ -185,7 +194,11 @@
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
-                        scales: { y: { stacked: true, ticks: { color: '#fff' } }, x: { stacked: true, ticks: { color: '#fff' } } },
+                        scales: { 
+                            // [التعديل] إخفاء الأرقام على المحور الرأسي
+                            y: { stacked: true, ticks: { color: '#fff', display: false } }, 
+                            x: { stacked: true, ticks: { color: '#fff' } } 
+                        },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
                 });
@@ -194,10 +207,17 @@
             function renderNestedDoughnutChart(levelData) {
                 if (levelChartInstance) levelChartInstance.destroy();
                 const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
+                
+                // [التعديل] إعداد بيانات وسيلة الإيضاح المخصصة
+                const legendData = {
+                    labels: ['تهديدات', 'فرص'].concat(levelData.labels),
+                    colors: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'].concat(levelData.labels.map(l => riskLevelColors[l]))
+                };
+
                 levelChartInstance = new Chart(levelCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: ['تهديدات', 'فرص'],
+                        labels: levelData.labels, // وسيلة الإيضاح الرئيسية ستكون للمستويات
                         datasets: [
                             {
                                 label: 'النوع',
@@ -207,7 +227,8 @@
                                 ],
                                 backgroundColor: ['rgba(220, 53, 69, 0.8)', 'rgba(25, 135, 84, 0.8)'],
                                 borderWidth: 2,
-                                borderColor: '#273c5e'
+                                borderColor: '#273c5e',
+                                labels: ['تهديد', 'فرصة'] // أسماء مخصصة لهذه الدائرة
                             },
                             {
                                 label: 'المستوى',
@@ -221,11 +242,27 @@
                     options: {
                         cutout: '50%',
                         plugins: {
-                            legend: { display: false },
+                            // [التعديل] إضافة وسيلة إيضاح مخصصة وواضحة
+                            legend: {
+                                position: 'top',
+                                labels: {
+                                    color: '#fff',
+                                    usePointStyle: true,
+                                    pointStyle: 'rectRounded',
+                                    // دالة لتوليد وسيلة الإيضاح من بياناتنا المخصصة
+                                    generateLabels: function(chart) {
+                                        return [
+                                            { text: 'تهديد', fillStyle: 'rgba(220, 53, 69, 0.8)', datasetIndex: 0 },
+                                            { text: 'فرصة', fillStyle: 'rgba(25, 135, 84, 0.8)', datasetIndex: 0 }
+                                        ];
+                                    }
+                                }
+                            },
                             tooltip: {
                                 callbacks: {
+                                    // [التعديل] إصلاح النافذة المنبثقة
                                     label: function(context) {
-                                        const label = context.label || '';
+                                        let label = context.dataset.labels ? context.dataset.labels[context.dataIndex] : context.label;
                                         const value = context.raw;
                                         const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
                                         return `${label}: ${value} (${percentage}%)`;
