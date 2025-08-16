@@ -112,7 +112,6 @@
     <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <!-- [التعديل الثاني] تقليل ارتفاع حاوية الخريطة -->
             <div class="chart-container" style="height: 400px;">
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
@@ -123,19 +122,20 @@
     <!-- الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
-            <div class="chart-container">
+            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
+            <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                 <canvas id="categoryChart"></canvas>
             </div>
         </div>
         <div class="col-lg-6">
-            <div class="chart-container">
-                <!-- [التعديل الرابع] تغيير العنوان -->
+            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
+            <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                 <div class="split-doughnut-container">
-                    <!-- [التعديل الثالث] عكس أماكن الكلمات -->
+                    <!-- [التعديل الأول] عكس أماكن الكلمات -->
                     <span class="split-doughnut-label">فرص</span>
-                    <div style="width: 300px; height: 300px;">
+                    <div style="width: 250px; height: 250px;">
                          <canvas id="levelChart"></canvas>
                     </div>
                     <span class="split-doughnut-label">تهديدات</span>
@@ -214,6 +214,8 @@
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
                         scales: { 
                             y: { stacked: true, ticks: { color: '#fff', display: false } }, 
                             x: { stacked: true, ticks: { color: '#fff' } } 
@@ -263,8 +265,7 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        // [التعديل الأول] تعديل الدوران ليبدأ التهديد من اليمين
-                        rotation: 90, 
+                        rotation: 90, // تعديل الدوران ليبدأ التهديد من اليمين
                         circumference: 180,
                         cutout: '40%',
                         plugins: {
