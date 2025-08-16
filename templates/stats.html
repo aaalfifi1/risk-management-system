@@ -146,9 +146,13 @@
 {% block scripts %}
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <!-- ▼▼▼ [الإصلاح الثاني] إضافة مكتبة الخطوط الذكية ▼▼▼ -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-piechart-outlabels"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
-            Chart.register(ChartDataLabels);
+            // تسجيل الإضافات الجديدة
+            Chart.register(ChartDataLabels, PieChartOutlabels);
+            // تعطيل datalabels بشكل عام
             Chart.defaults.plugins.datalabels.display = false;
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
@@ -163,6 +167,9 @@
                 'منخفض': '#90EE90', 
                 'منخفض جدا': '#198754' 
             };
+            
+            // ▼▼▼ [الإصلاح الأول] تعريف الترتيب الصحيح لوسيلة الإيضاح ▼▼▼
+            const riskLevelOrder = ['منخفض جدا', 'منخفض', 'متوسط', 'مرتفع', 'مرتفع جدا / كارثي'];
 
             async function fetchStats() {
                 try {
@@ -203,11 +210,14 @@
 
             function renderStackedBarChart(categoryData) {
                 if (categoryChartInstance) categoryChartInstance.destroy();
-                const datasets = Object.keys(categoryData.datasets).map(level => ({
+                
+                // ▼▼▼ [الإصلاح الأول] استخدام الترتيب الصحيح لإنشاء البيانات ▼▼▼
+                const datasets = riskLevelOrder.map(level => ({
                     label: level,
-                    data: categoryData.datasets[level],
+                    data: categoryData.datasets[level] || [], // استخدام بيانات المستوى أو مصفوفة فارغة
                     backgroundColor: riskLevelColors[level]
                 }));
+
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
@@ -218,7 +228,18 @@
                             y: { stacked: true, ticks: { color: '#fff', display: false } }, 
                             x: { stacked: true, ticks: { color: '#fff' } } 
                         },
-                        plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
+                        plugins: { 
+                            legend: { 
+                                position: 'top', 
+                                labels: { 
+                                    color: '#fff', 
+                                    usePointStyle: true, 
+                                    pointStyle: 'rectRounded',
+                                    // ▼▼▼ [الإصلاح الأول] تعطيل الترتيب العكسي لوسيلة الإيضاح ▼▼▼
+                                    reverse: false 
+                                } 
+                            } 
+                        }
                     }
                 });
             }
@@ -231,7 +252,6 @@
                 const chartLabels = [];
                 const percentageOf = [];
 
-                // نصف الفرص (في اليمين)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.opportunities[index]);
                     chartColors.push(riskLevelColors[level]);
@@ -239,7 +259,6 @@
                     percentageOf.push(totalOpportunities);
                 });
 
-                // نصف التهديدات (في اليسار)
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.threats[index]);
                     chartColors.push(riskLevelColors[level]);
@@ -279,20 +298,22 @@
                                     }
                                 }
                             },
-                            datalabels: {
-                                display: true,
-                                formatter: (value, ctx) => {
-                                    if (value === 0) return '';
-                                    const totalForType = ctx.dataset.percentageOf[ctx.dataIndex];
-                                    const percentage = totalForType > 0 ? (value / totalForType * 100).toFixed(1) : 0;
-                                    return `${percentage}%`;
+                            // ▼▼▼ [الإصلاح الثاني] استخدام إعدادات الخطوط الذكية ▼▼▼
+                            outlabels: {
+                                text: '%p', // عرض النسبة المئوية
+                                color: 'white',
+                                stretch: 25, // طول الخط
+                                font: {
+                                    resizable: true,
+                                    minSize: 12,
+                                    maxSize: 14,
+                                    weight: 'bold'
                                 },
-                                color: '#fff',
-                                font: { weight: 'bold' },
-                                // ▼▼▼ هذا هو التعديل الوحيد والدقيق ▼▼▼
-                                anchor: 'end', // يثبت الرقم في نهاية القطعة
-                                align: 'start', // يحاذي الرقم إلى بداية النهاية (نحو المركز)
-                                offset: -10 // يدفعه قليلاً نحو الداخل
+                                // إخفاء الخط إذا كانت القطعة كبيرة بما يكفي
+                                display: (context) => {
+                                    const value = context.dataset.data[context.dataIndex];
+                                    return value > 0; // عرض الخط فقط إذا كانت القيمة أكبر من صفر
+                                }
                             }
                         }
                     }
