@@ -130,8 +130,10 @@
         </div>
         <div class="col-lg-6">
             <div class="chart-container">
+                <!-- [التعديل الرابع] تغيير العنوان -->
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                 <div class="split-doughnut-container">
+                    <!-- [التعديل الثالث] عكس أماكن الكلمات -->
                     <span class="split-doughnut-label">فرص</span>
                     <div style="width: 300px; height: 300px;">
                          <canvas id="levelChart"></canvas>
@@ -261,7 +263,8 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        rotation: 90, // تعديل الدوران ليبدأ التهديد من اليمين
+                        // [التعديل الأول] تعديل الدوران ليبدأ التهديد من اليمين
+                        rotation: 90, 
                         circumference: 180,
                         cutout: '40%',
                         plugins: {
