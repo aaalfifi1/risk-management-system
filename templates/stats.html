@@ -26,12 +26,12 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
-        /* [الجديد] تنسيقات للحاويات الجديدة */
         .dual-doughnut-container {
             display: flex;
             justify-content: space-around;
             align-items: center;
             width: 100%;
+            height: calc(100% - 40px); /* لحساب ارتفاع العنوان */
         }
         .doughnut-wrapper {
             display: flex;
@@ -119,7 +119,6 @@
     <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
     <div class="row g-4 mb-4">
         <div class="col-12">
-            <!-- [التعديل الثاني] تقليل ارتفاع حاوية الخريطة -->
             <div class="chart-container" style="height: 400px;">
                 <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                 <canvas id="matrixChart"></canvas>
@@ -130,17 +129,14 @@
     <!-- الصف الثالث: الرسوم البيانية الأخرى -->
     <div class="row g-4 mb-4">
         <div class="col-lg-6">
-            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
             <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                 <canvas id="categoryChart"></canvas>
             </div>
         </div>
         <div class="col-lg-6">
-            <!-- [التعديل الثاني] تصغير ارتفاع الحاوية -->
             <div class="chart-container" style="height: 350px;">
                 <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
-                <!-- [التعديل الأول] الهيكل الجديد للدائرتين -->
                 <div class="dual-doughnut-container">
                     <div class="doughnut-wrapper">
                         <canvas id="threatsChart" width="200" height="200"></canvas>
@@ -166,7 +162,6 @@
 
             let categoryChartInstance, threatsChartInstance, opportunitiesChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-            // [التعديل الأول] الحصول على العناصر الجديدة
             const threatsCtx = document.getElementById('threatsChart').getContext('2d');
             const opportunitiesCtx = document.getElementById('opportunitiesChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
@@ -238,7 +233,6 @@
                 });
             }
 
-            // [التعديل الأول] دالة جديدة لرسم دائرة واحدة
             function renderSingleDoughnut(ctx, instance, data, total, typeName) {
                 if (instance) instance.destroy();
                 return new Chart(ctx, {
@@ -297,7 +291,6 @@
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
 
-                // [التعديل الأول] تجهيز البيانات واستدعاء الدالة الجديدة لكل دائرة
                 const threatsData = {
                     labels: stats.by_level_nested.labels,
                     values: stats.by_level_nested.datasets.threats
