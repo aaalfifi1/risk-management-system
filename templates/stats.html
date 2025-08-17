@@ -37,7 +37,6 @@
             font-weight: bold;
             color: #fff;
         }
-        /* ▼▼▼ [الجديد] تنسيق زر إعادة التعيين ▼▼▼ */
         .reset-filter-btn {
             position: absolute;
             top: 15px;
@@ -48,107 +47,113 @@
 {% endblock %}
 
 {% block content %}
-    <!-- ▼▼▼ [الجديد] إضافة زر إعادة التعيين ▼▼▼ -->
+    <!-- ▼▼▼ [التعديل] إضافة زر التصدير بجانب زر إعادة التعيين ▼▼▼ -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">لوحة التحكم التحليلية</h2>
-        <button id="reset-filter" class="btn btn-sm btn-outline-light" style="display: none;"><i class="bi bi-arrow-clockwise"></i> إعادة تعيين الفلتر</button>
-    </div>
-
-    <!-- الصف الأول: البطاقات الخمس -->
-    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
-        <div class="col">
-            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
-                <div class="card-body">
-                    <div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div>
-                    <i class="bi bi-shield-check stat-icon text-primary"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
-                <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">التهديدات</h5>
-                        <div class="stat-value-container" id="threats-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
-                        </div>
-                    </div>
-                    <i class="bi bi-graph-down-arrow stat-icon text-danger"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
-                <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">الفرص</h5>
-                        <div class="stat-value-container" id="opportunities-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
-                        </div>
-                    </div>
-                    <i class="bi bi-graph-up-arrow stat-icon text-success"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
-                <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">المخاطر النشطة</h5>
-                        <div class="stat-value-container" id="active-risks-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
-                        </div>
-                    </div>
-                    <i class="bi bi-activity stat-icon text-warning"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col">
-            <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
-                <div class="card-body">
-                    <div>
-                        <h5 class="card-title-white">المخاطر المغلقة</h5>
-                        <div class="stat-value-container" id="closed-risks-container">
-                            <h2 class="fw-bold text-white mb-0">0</h2>
-                            <small class="percentage-text">(0.0%)</small>
-                        </div>
-                    </div>
-                    <i class="bi bi-check-circle-fill stat-icon text-success"></i>
-                </div>
-            </div>
+        <div>
+            <button id="export-pdf" class="btn btn-sm btn-info"><i class="bi bi-file-earmark-pdf-fill"></i> تصدير PDF</button>
+            <button id="reset-filter" class="btn btn-sm btn-outline-light" style="display: none;"><i class="bi bi-arrow-clockwise"></i> إعادة تعيين الفلتر</button>
         </div>
     </div>
 
-    <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
-    <div class="row g-4 mb-4">
-        <div class="col-12">
-            <div class="chart-container">
-                <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
-                <canvas id="matrixChart"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- الصف الثالث: الرسوم البيانية الأخرى -->
-    <div class="row g-4">
-        <div class="col-lg-6">
-            <div class="chart-container">
-                <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
-                <canvas id="categoryChart"></canvas>
-            </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="chart-container">
-                <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
-                <div class="split-doughnut-container">
-                    <span class="split-doughnut-label">تهديدات</span>
-                    <div style="width: 300px; height: 300px;">
-                         <canvas id="levelChart"></canvas>
+    <!-- ▼▼▼ [الجديد] إضافة id للعنصر الذي نريد طباعته ▼▼▼ -->
+    <div id="dashboard-to-print">
+        <!-- الصف الأول: البطاقات الخمس -->
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
+            <div class="col">
+                <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                    <div class="card-body">
+                        <div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div>
+                        <i class="bi bi-shield-check stat-icon text-primary"></i>
                     </div>
-                    <span class="split-doughnut-label">فرص</span>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                    <div class="card-body">
+                        <div>
+                            <h5 class="card-title-white">التهديدات</h5>
+                            <div class="stat-value-container" id="threats-container">
+                                <h2 class="fw-bold text-white mb-0">0</h2>
+                                <small class="percentage-text">(0.0%)</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-graph-down-arrow stat-icon text-danger"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                    <div class="card-body">
+                        <div>
+                            <h5 class="card-title-white">الفرص</h5>
+                            <div class="stat-value-container" id="opportunities-container">
+                                <h2 class="fw-bold text-white mb-0">0</h2>
+                                <small class="percentage-text">(0.0%)</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-graph-up-arrow stat-icon text-success"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                    <div class="card-body">
+                        <div>
+                            <h5 class="card-title-white">المخاطر النشطة</h5>
+                            <div class="stat-value-container" id="active-risks-container">
+                                <h2 class="fw-bold text-white mb-0">0</h2>
+                                <small class="percentage-text">(0.0%)</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-activity stat-icon text-warning"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;">
+                    <div class="card-body">
+                        <div>
+                            <h5 class="card-title-white">المخاطر المغلقة</h5>
+                            <div class="stat-value-container" id="closed-risks-container">
+                                <h2 class="fw-bold text-white mb-0">0</h2>
+                                <small class="percentage-text">(0.0%)</small>
+                            </div>
+                        </div>
+                        <i class="bi bi-check-circle-fill stat-icon text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- الصف الثاني: الخريطة الذكية بعرض كامل -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <div class="chart-container">
+                    <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
+                    <canvas id="matrixChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- الصف الثالث: الرسوم البيانية الأخرى -->
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <div class="chart-container">
+                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="chart-container">
+                    <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
+                    <div class="split-doughnut-container">
+                        <span class="split-doughnut-label">تهديدات</span>
+                        <div style="width: 300px; height: 300px;">
+                             <canvas id="levelChart"></canvas>
+                        </div>
+                        <span class="split-doughnut-label">فرص</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -156,17 +161,25 @@
 {% endblock %}
 
 {% block scripts %}
+    <!-- ▼▼▼ [الجديد] استدعاء مكتبات التصدير ▼▼▼ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function (  ) {
+        document.addEventListener('DOMContentLoaded', function (   ) {
+            // ▼▼▼ [الجديد] تعريف jsPDF للاستخدام العام ▼▼▼
+            const { jsPDF } = window.jspdf;
+
             Chart.register(ChartDataLabels);
             Chart.defaults.plugins.datalabels.display = false;
 
-            // ▼▼▼ [الجديد] تعريف متغيرات لتخزين البيانات الأصلية والفلترة ▼▼▼
             let allRisksData = [];
             let isFiltered = false;
             const resetButton = document.getElementById('reset-filter');
+            // ▼▼▼ [الجديد] تعريف زر التصدير ▼▼▼
+            const exportButton = document.getElementById('export-pdf');
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
@@ -181,26 +194,44 @@
                 'منخفض جدا': '#198754' 
             };
 
-            // ▼▼▼ [الجديد] إضافة حدث النقر لزر إعادة التعيين ▼▼▼
             resetButton.addEventListener('click', () => {
                 isFiltered = false;
                 resetButton.style.display = 'none';
-                updateDashboard(allRisksData); // استخدام البيانات الكاملة
+                updateDashboard(allRisksData);
+            });
+
+            // ▼▼▼ [الجديد] إضافة حدث النقر لزر التصدير ▼▼▼
+            exportButton.addEventListener('click', () => {
+                const dashboardElement = document.getElementById('dashboard-to-print');
+                // إظهار رسالة للمستخدم
+                showToast('جاري تجهيز التقرير، يرجى الانتظار...', 'info');
+
+                html2canvas(dashboardElement, { 
+                    backgroundColor: '#1a2b45', // لون خلفية التطبيق
+                    scale: 2 // زيادة الدقة
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({
+                        orientation: 'landscape', // عرضي
+                        unit: 'pt', // استخدام النقاط كوحدة قياس
+                        format: [canvas.width, canvas.height]
+                    });
+                    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                    pdf.save('Risk_Dashboard_Report.pdf');
+                });
             });
 
             async function fetchStats() {
                 try {
-                    // ▼▼▼ [الجديد] تعديل بسيط لجلب كل المخاطر وليس فقط الإحصائيات ▼▼▼
-                    const response = await fetch('/api/risks'); // <-- تغيير المسار
+                    const response = await fetch('/api/risks');
                     const data = await response.json();
                     if (data.success) {
-                        allRisksData = data.risks; // <-- تخزين البيانات الكاملة
-                        updateDashboard(allRisksData); // <-- إرسال البيانات الكاملة للدوال
+                        allRisksData = data.risks;
+                        updateDashboard(allRisksData);
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // ▼▼▼ [الجديد] دالة الفلترة الرئيسية ▼▼▼
             function applyFilterAndRedraw(filterType, value) {
                 isFiltered = true;
                 resetButton.style.display = 'block';
@@ -227,7 +258,6 @@
                         ]
                     },
                     options: {
-                        // ▼▼▼ [الجديد] تفعيل خاصية الضغط ▼▼▼
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 const datasetIndex = elements[0].datasetIndex;
@@ -270,7 +300,6 @@
                     type: 'bar',
                     data: { labels: categories, datasets: datasets },
                     options: {
-                        // ▼▼▼ [الجديد] تفعيل خاصية الضغط ▼▼▼
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 const index = elements[0].index;
@@ -321,7 +350,6 @@
                         datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 2, borderColor: '#273c5e' }]
                     },
                     options: {
-                        // ▼▼▼ [الجديد] تفعيل خاصية الضغط ▼▼▼
                         onClick: (event, elements) => {
                             if (elements.length > 0) {
                                 const index = elements[0].index;
@@ -337,24 +365,19 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: {
-                        callbacks: {
-                        label: function(context) {
-            // [الإصلاح] نحدد نوع الشريحة بناءً على موقعها
-            const riskLevelOrder = Object.keys(riskLevelColors);
-            const isOpportunity = context.dataIndex < riskLevelOrder.length;
-            const typeName = isOpportunity ? 'فرصة' : 'تهديد';
-            
-            const levelName = context.label || '';
-            const value = context.raw;
-            const totalRisks = risks.length;
-            const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-            
-            // نعيد بناء العنوان الكامل
-            return `${typeName} - ${levelName}: ${value} (${percentage}%)`;
-        }
-    }
-},
-
+                                callbacks: {
+                                    label: function(context) {
+                                        const riskLevelOrder = Object.keys(riskLevelColors);
+                                        const isOpportunity = context.dataIndex < riskLevelOrder.length;
+                                        const typeName = isOpportunity ? 'فرصة' : 'تهديد';
+                                        const levelName = context.label || '';
+                                        const value = context.raw;
+                                        const totalRisks = risks.length;
+                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+                                        return `${typeName} - ${levelName}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            },
                             datalabels: {
                                 display: true,
                                 formatter: (value, ctx) => {
@@ -371,25 +394,18 @@
                 });
             }
 
-            // ▼▼▼ [الجديد] تعديل دالة التحديث الرئيسية ▼▼▼
             function updateDashboard(risks) {
-                // تحديث البطاقات العلوية
                 const total = risks.length;
                 document.getElementById('total-risks').textContent = total;
-                
                 const threats = risks.filter(r => r.risk_type === 'تهديد').length;
                 const opportunities = total - threats;
                 const active = risks.filter(r => r.status !== 'مغلق').length;
                 const closed = total - active;
-
                 const totalForPercentage = isFiltered ? allRisksData.length : total;
-
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${threats}</h2><small class="percentage-text">(${(totalForPercentage > 0 ? (threats / totalForPercentage) * 100 : 0).toFixed(1)}%)</small>`;
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${opportunities}</h2><small class="percentage-text">(${(totalForPercentage > 0 ? (opportunities / totalForPercentage) * 100 : 0).toFixed(1)}%)</small>`;
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${active}</h2><small class="percentage-text">(${(totalForPercentage > 0 ? (active / totalForPercentage) * 100 : 0).toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${closed}</h2><small class="percentage-text">(${(totalForPercentage > 0 ? (closed / totalForPercentage) * 100 : 0).toFixed(1)}%)</small>`;
-
-                // إعادة رسم جميع المخططات بالبيانات (المفلترة أو الكاملة)
                 renderMatrixChart(risks);
                 renderStackedBarChart(risks);
                 renderSplitDoughnutChart(risks);
@@ -399,4 +415,3 @@
         });
     </script>
 {% endblock %}
-
