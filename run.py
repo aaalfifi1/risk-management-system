@@ -195,24 +195,17 @@ def logout():
     return redirect(url_for('login'))
 
 # --- دالة تصدير CSV ---
-# ▼▼▼ [التعديل الوحيد في هذا الملف] ▼▼▼
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']:
         abort(403)
     
-    # بناء الاستعلام الأساسي
     query = Risk.query.filter_by(is_deleted=False)
-
-    # تطبيق فلترة الصلاحيات
     if current_user.username != 'admin':
         query = query.filter_by(user_id=current_user.id)
-
-    # جلب البيانات بالترتيب
     risks = query.order_by(Risk.created_at.asc()).all()
 
-    # باقي الكود يبقى كما هو
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     headers = [
@@ -237,7 +230,6 @@ def download_risk_log():
     final_output = output.getvalue().encode('utf-8-sig')
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
-# ▲▲▲ [نهاية التعديل الوحيد] ▲▲▲
 
 # --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
@@ -319,51 +311,53 @@ def add_risk():
 def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
-        if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
+        if current_user.username != 'admin' and risk.user_id != current_user.id: 
+            return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
         
         data = request.form
         was_modified_before = risk.was_modified
-        # ▼▼▼ [هذا هو الكود الجديد والآمن] ▼▼▼
-# حقول يتم تحديثها فقط إذا تم إرسالها في الطلب
-if 'title' in data: risk.title = data['title']
-if 'description' in data: risk.description = data['description']
-if 'risk_type' in data: risk.risk_type = data['risk_type']
-if 'category' in data: risk.category = data['category']
-if 'owner' in data: risk.owner = data['owner']
-if 'risk_location' in data: risk.risk_location = data['risk_location']
-if 'proactive_actions' in data: risk.proactive_actions = data['proactive_actions']
-if 'immediate_actions' in data: risk.immediate_actions = data['immediate_actions']
-if 'action_effectiveness' in data: 
-    risk.action_effectiveness = data['action_effectiveness']
-    risk.residual_risk = calculate_residual_risk(data['action_effectiveness'])
-if 'status' in data: risk.status = data['status']
-if 'lessons_learned' in data: risk.lessons_learned = data['lessons_learned']
-if 'business_continuity_plan' in data: risk.business_continuity_plan = data['business_continuity_plan']
+        
+        # ▼▼▼ [هذا هو التعديل الوحيد والآمن] ▼▼▼
+        # حقول يتم تحديثها فقط إذا تم إرسالها في الطلب
+        if 'title' in data: risk.title = data['title']
+        if 'description' in data: risk.description = data['description']
+        if 'risk_type' in data: risk.risk_type = data['risk_type']
+        if 'category' in data: risk.category = data['category']
+        if 'owner' in data: risk.owner = data['owner']
+        if 'risk_location' in data: risk.risk_location = data['risk_location']
+        if 'proactive_actions' in data: risk.proactive_actions = data['proactive_actions']
+        if 'immediate_actions' in data: risk.immediate_actions = data['immediate_actions']
+        if 'action_effectiveness' in data: 
+            risk.action_effectiveness = data['action_effectiveness']
+            risk.residual_risk = calculate_residual_risk(data['action_effectiveness'])
+        if 'status' in data: risk.status = data['status']
+        if 'lessons_learned' in data: risk.lessons_learned = data['lessons_learned']
+        if 'business_continuity_plan' in data: risk.business_continuity_plan = data['business_continuity_plan']
 
-# تحديث حقول الاحتمالية والتأثير ومستوى الخطورة معاً
-if 'probability' in data and 'impact' in data:
-    prob = int(data['probability'])
-    imp = int(data['impact'])
-    risk.probability = prob
-    risk.impact = imp
-    risk.risk_level = calculate_risk_level(prob, imp)
+        # تحديث حقول الاحتمالية والتأثير ومستوى الخطورة معاً
+        if 'probability' in data and 'impact' in data:
+            prob = int(data['probability'])
+            imp = int(data['impact'])
+            risk.probability = prob
+            risk.impact = imp
+            risk.risk_level = calculate_risk_level(prob, imp)
 
-# تحديث تاريخ الإكمال
-if 'target_completion_date' in data:
-    target_date_str = data.get('target_completion_date')
-    if target_date_str:
-        try:
-            risk.target_completion_date = datetime.strptime(target_date_str, '%Y-%m-%d')
-        except (ValueError, TypeError):
-            risk.target_completion_date = None
-    else:
-        risk.target_completion_date = None
+        # تحديث تاريخ الإكمال
+        if 'target_completion_date' in data:
+            target_date_str = data.get('target_completion_date')
+            if target_date_str:
+                try:
+                    risk.target_completion_date = datetime.strptime(target_date_str, '%Y-%m-%d')
+                except (ValueError, TypeError):
+                    risk.target_completion_date = None
+            else:
+                risk.target_completion_date = None
 
-# تحديث الخطر المرتبط
-if 'linked_risk_id' in data:
-    linked_risk_value = data.get('linked_risk_id')
-    risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
-# ▲▲▲ [نهاية الكود الجديد] ▲▲▲
+        # تحديث الخطر المرتبط
+        if 'linked_risk_id' in data:
+            linked_risk_value = data.get('linked_risk_id')
+            risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
+        # ▲▲▲ [نهاية التعديل] ▲▲▲
 
         if current_user.username != 'admin':
             risk.is_read = False
@@ -489,7 +483,6 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
-# --- [التعديل الوحيد في هذا الملف] ---
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
@@ -513,7 +506,6 @@ def get_stats_api():
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
     
-    # --- [تعديل] تجهيز البيانات للرسم البياني المُكدَّس ---
     risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
     categories = sorted(list(set(r.category for r in risks if r.category)))
     by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
@@ -525,14 +517,11 @@ def get_stats_api():
             except ValueError:
                 continue
 
-    # --- [تعديل] تجهيز البيانات للرسم البياني المُتداخل ---
     by_level_nested = {
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
     }
-    for risk in risks:
-        try:
-            level_index = risk_level_order.index(risk.risk_level)
+             level_index = risk_level_order.index(risk.risk_level)
             if risk.risk_type == 'تهديد':
                 by_level_nested['threats'][level_index] += 1
             else:
@@ -551,7 +540,6 @@ def get_stats_api():
         'threats_percentage': threats_percentage,
         'opportunities_percentage': opportunities_percentage,
         'matrix_data': matrix_data,
-        # --- إضافة البيانات الجديدة للرسوم المطورة ---
         'by_category_stacked': {
             'labels': categories,
             'datasets': by_category_stacked
@@ -725,4 +713,4 @@ if __name__ == '__main__':
         
     app.run(debug=True, port=5001)
 
-
+            
