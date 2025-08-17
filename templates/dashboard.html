@@ -74,9 +74,11 @@
             {% endif %}
         </h2>
         <div>
+            <!-- ▼▼▼ [التعديل الوحيد هنا] تغيير الرابط إلى زر ▼▼▼ -->
             {% if current_user.username in ['admin', 'testuser'] %}
-                <a href="{{ url_for('download_risk_log') }}" class="btn btn-success"><i class="bi bi-download"></i> تحميل سجل المخاطر</a>
+                <button id="download-csv-btn" class="btn btn-success"><i class="bi bi-download"></i> تحميل سجل المخاطر</button>
             {% endif %}
+            <!-- ▲▲▲ [نهاية التعديل] ▲▲▲ -->
             <button class="btn btn-add-risk" data-bs-toggle="modal" data-bs-target="#riskModal"><i class="bi bi-plus-circle-fill"></i> {% if current_user.username == 'reporter' %}الإبلاغ عن خطر{% else %}إضافة خطر جديد{% endif %}</button>
         </div>
     </div>
@@ -97,7 +99,6 @@
                         <th class="col-creation-date">تاريخ الإنشاء</th>
                         <th class="col-title">عنوان الخطر</th>
                         <th class="col-description">وصف الخطر</th>
-                        <!-- [التعديل الأول] إضافة عمود نوع الخطر -->
                         <th>نوع الخطر</th>
                         <th>موقع الخطر</th>
                         <th>الفئة</th>
@@ -128,6 +129,7 @@
 {% block scripts %}
 <script>
     let allRisks = [];
+    let filteredRisks = []; // <-- [الجديد] متغير لتخزين البيانات المفلترة
     let allRiskCodes = [];
     let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
 
@@ -137,6 +139,14 @@
         const riskModal = new bootstrap.Modal(riskModalElement);
         document.querySelector('.btn-add-risk').addEventListener('click', () => prepareAddModal(riskModal));
         riskForm.addEventListener('submit', (event) => handleFormSubmit(event, riskModal));
+        
+        // ▼▼▼ [الجديد] إضافة حدث النقر لزر التحميل الجديد ▼▼▼
+        const downloadBtn = document.getElementById('download-csv-btn');
+        if (downloadBtn) {
+            downloadBtn.addEventListener('click', downloadFilteredRisksAsCSV);
+        }
+        // ▲▲▲ [نهاية التعديل] ▲▲▲
+
         if (userRole !== "reporter") {
             const risksTableBody = document.getElementById('risks-table-body');
             const contextMenu = document.getElementById('contextMenu');
@@ -213,7 +223,6 @@
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
             else if (risk.was_modified) { codeCellClass += ' cell-modified'; }
             
-            // [التعديل الثاني] تجهيز عرض نوع الخطر
             let riskTypeHtml = '';
             if (risk.risk_type === 'فرصة') {
                 riskTypeHtml = `<span class="risk-type-opportunity"><i class="bi bi-graph-up-arrow risk-type-icon"></i>فرصة</span>`;
@@ -249,16 +258,77 @@
         const searchTerm = document.getElementById('search-all').value.toLowerCase();
         const filterCategory = document.getElementById('filter-category').value;
         const sortBy = document.getElementById('sort-by').value;
-        let filtered = allRisks.filter(risk => {
+        
+        // [تعديل] استخدام متغير جديد لتجنب فلترة البيانات المفلترة أصلاً
+        let currentFiltered = allRisks.filter(risk => {
             const categoryMatch = !filterCategory || risk.category === filterCategory;
             const searchMatch = !searchTerm || Object.values(risk).some(val => val && val.toString().toLowerCase().includes(searchTerm));
             return categoryMatch && searchMatch;
         });
+
         const severityOrder = { 'مرتفع جدا / كارثي': 5, 'مرتفع': 4, 'متوسط': 3, 'منخفض': 2, 'منخفض جدا': 1 };
-        if (sortBy === 'severity') { filtered.sort((a, b) => (severityOrder[b.risk_level] || 0) - (severityOrder[a.risk_level] || 0)); }
-        else { filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); }
-        renderRisks(filtered);
+        if (sortBy === 'severity') {
+            currentFiltered.sort((a, b) => (severityOrder[b.risk_level] || 0) - (severityOrder[a.risk_level] || 0));
+        } else {
+            currentFiltered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+        
+        filteredRisks = currentFiltered; // <-- [الجديد] تحديث المتغير العام
+        renderRisks(filteredRisks);
     }
+
+    // ▼▼▼ [الجديد] دالة التحميل الذكي ▼▼▼
+    function downloadFilteredRisksAsCSV() {
+        if (filteredRisks.length === 0) {
+            showToast('لا توجد بيانات لتحميلها.', 'info');
+            return;
+        }
+
+        const headers = [
+            'كود الخطر', 'تاريخ الإنشاء', 'عنوان الخطر', 'وصف الخطر', 'نوع الخطر', 'موقع الخطر', 'الفئة', 
+            'مستوى الخطورة', 'مالك الخطر', 'الإجراءات الإستباقية', 'الإجراءات الفورية', 'تاريخ إكمال الإجراءات',
+            'فعالية الإجراءات', 'ارتباط الخطر', 'الحالة', 'المرفق', 'خطة استعادة العمل', 'الدروس المستفادة'
+        ];
+
+        let csvContent = headers.join(';') + '\n';
+
+        filteredRisks.forEach(risk => {
+            const row = [
+                risk.risk_code || risk.id,
+                toKsaTime(risk.created_at),
+                risk.title || 'بلاغ',
+                `"${(risk.description || '').replace(/"/g, '""')}"`, // التعامل مع الفواصل
+                risk.risk_type,
+                risk.risk_location || '',
+                risk.category || '',
+                risk.risk_level || '',
+                risk.owner || '',
+                `"${(risk.proactive_actions || '').replace(/"/g, '""')}"`,
+                `"${(risk.immediate_actions || '').replace(/"/g, '""')}"`,
+                risk.target_completion_date || '',
+                risk.action_effectiveness || '',
+                risk.linked_risk_id || 'لا يوجد',
+                risk.status || '',
+                risk.attachment_filename || 'لا يوجد',
+                `"${(risk.business_continuity_plan || '').replace(/"/g, '""')}"`,
+                `"${(risk.lessons_learned || '').replace(/"/g, '""')}"`
+            ];
+            csvContent += row.join(';') + '\n';
+        });
+
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'filtered_risk_log.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+    // ▲▲▲ [نهاية التعديل] ▲▲▲
 
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
@@ -279,9 +349,8 @@
 
             const riskCodeInput = risk.risk_code ? `<input type="hidden" name="risk_code" value="${risk.risk_code}">` : '';
             
-            // [التعديل الثالث] إضافة حقل اختيار نوع الخطر
             const riskTypeChecked = (risk.risk_type === 'فرصة') ? 'checked' : '';
-            const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : ''; // تهديد هو الافتراضي
+            const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : '';
 
             fieldsHtml = `
                 ${riskCodeInput}
@@ -467,3 +536,4 @@
     }
 </script>
 {% endblock %}
+
