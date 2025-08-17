@@ -337,16 +337,24 @@
                         plugins: {
                             legend: { display: false },
                             tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const value = context.raw;
-                                        const totalRisks = risks.length;
-                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-                                        return `${label}: ${value} (${percentage}%)`;
-                                    }
-                                }
-                            },
+                        callbacks: {
+                        label: function(context) {
+            // [الإصلاح] نحدد نوع الشريحة بناءً على موقعها
+            const riskLevelOrder = Object.keys(riskLevelColors);
+            const isOpportunity = context.dataIndex < riskLevelOrder.length;
+            const typeName = isOpportunity ? 'فرصة' : 'تهديد';
+            
+            const levelName = context.label || '';
+            const value = context.raw;
+            const totalRisks = risks.length;
+            const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+            
+            // نعيد بناء العنوان الكامل
+            return `${typeName} - ${levelName}: ${value} (${percentage}%)`;
+        }
+    }
+},
+
                             datalabels: {
                                 display: true,
                                 formatter: (value, ctx) => {
@@ -391,3 +399,4 @@
         });
     </script>
 {% endblock %}
+
