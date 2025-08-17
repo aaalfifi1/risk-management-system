@@ -43,20 +43,32 @@
             left: 20px;
             z-index: 10;
         }
+
+        /* ▼▼▼ [الجديد] تنسيقات وضع العرض التلفزيوني ▼▼▼ */
+        body.tv-mode .sidebar, 
+        body.tv-mode .navbar,
+        body.tv-mode .header-controls {
+            display: none !important;
+        }
+        body.tv-mode .main-content {
+            padding: 20px !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
-    <!-- ▼▼▼ [التعديل] إضافة زر التصدير بجانب زر إعادة التعيين ▼▼▼ -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <!-- ▼▼▼ [التعديل] إضافة زر وضع العرض و id للحاوية ▼▼▼ -->
+    <div class="d-flex justify-content-between align-items-center mb-3 header-controls">
         <h2 class="mb-0">لوحة التحكم التحليلية</h2>
         <div>
+            <button id="tv-mode" class="btn btn-sm btn-warning"><i class="bi bi-tv-fill"></i> وضع العرض</button>
             <button id="export-pdf" class="btn btn-sm btn-info"><i class="bi bi-file-earmark-pdf-fill"></i> تصدير PDF</button>
             <button id="reset-filter" class="btn btn-sm btn-outline-light" style="display: none;"><i class="bi bi-arrow-clockwise"></i> إعادة تعيين الفلتر</button>
         </div>
     </div>
 
-    <!-- ▼▼▼ [الجديد] إضافة id للعنصر الذي نريد طباعته ▼▼▼ -->
     <div id="dashboard-to-print">
         <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
@@ -161,15 +173,13 @@
 {% endblock %}
 
 {% block scripts %}
-    <!-- ▼▼▼ [الجديد] استدعاء مكتبات التصدير ▼▼▼ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function (   ) {
-            // ▼▼▼ [الجديد] تعريف jsPDF للاستخدام العام ▼▼▼
+        document.addEventListener('DOMContentLoaded', function (    ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
@@ -178,8 +188,10 @@
             let allRisksData = [];
             let isFiltered = false;
             const resetButton = document.getElementById('reset-filter');
-            // ▼▼▼ [الجديد] تعريف زر التصدير ▼▼▼
             const exportButton = document.getElementById('export-pdf');
+            // ▼▼▼ [الجديد] تعريف زر وضع العرض ومتغير الحالة ▼▼▼
+            const tvModeButton = document.getElementById('tv-mode');
+            let tvModeInterval = null;
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
@@ -200,25 +212,47 @@
                 updateDashboard(allRisksData);
             });
 
-            // ▼▼▼ [الجديد] إضافة حدث النقر لزر التصدير ▼▼▼
             exportButton.addEventListener('click', () => {
                 const dashboardElement = document.getElementById('dashboard-to-print');
-                // إظهار رسالة للمستخدم
                 showToast('جاري تجهيز التقرير، يرجى الانتظار...', 'info');
-
                 html2canvas(dashboardElement, { 
-                    backgroundColor: '#1a2b45', // لون خلفية التطبيق
-                    scale: 2 // زيادة الدقة
+                    backgroundColor: '#1a2b45',
+                    scale: 2
                 }).then(canvas => {
                     const imgData = canvas.toDataURL('image/png');
                     const pdf = new jsPDF({
-                        orientation: 'landscape', // عرضي
-                        unit: 'pt', // استخدام النقاط كوحدة قياس
+                        orientation: 'landscape',
+                        unit: 'pt',
                         format: [canvas.width, canvas.height]
                     });
                     pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
                     pdf.save('Risk_Dashboard_Report.pdf');
                 });
+            });
+
+            // ▼▼▼ [الجديد] إضافة حدث النقر لزر وضع العرض ▼▼▼
+            tvModeButton.addEventListener('click', () => {
+                const body = document.body;
+                body.classList.toggle('tv-mode');
+
+                if (body.classList.contains('tv-mode')) {
+                    // الدخول في وضع العرض
+                    if (document.fullscreenEnabled) {
+                        document.documentElement.requestFullscreen();
+                    }
+                    // بدء التحديث التلقائي كل دقيقة
+                    tvModeInterval = setInterval(fetchStats, 60000);
+                    tvModeButton.innerHTML = '<i class="bi bi-tv"></i> الخروج من وضع العرض';
+                } else {
+                    // الخروج من وضع العرض
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    }
+                    // إيقاف التحديث التلقائي
+                    clearInterval(tvModeInterval);
+                    tvModeInterval = null;
+                    tvModeButton.innerHTML = '<i class="bi bi-tv-fill"></i> وضع العرض';
+                }
             });
 
             async function fetchStats() {
@@ -227,7 +261,10 @@
                     const data = await response.json();
                     if (data.success) {
                         allRisksData = data.risks;
-                        updateDashboard(allRisksData);
+                        // في وضع الفلترة، لا نحدث البيانات لتجنب إرباك المستخدم
+                        if (!isFiltered) {
+                            updateDashboard(allRisksData);
+                        }
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
