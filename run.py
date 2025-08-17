@@ -317,8 +317,7 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
-        # ▼▼▼ [هذا هو التعديل الوحيد والآمن] ▼▼▼
-        # حقول يتم تحديثها فقط إذا تم إرسالها في الطلب
+        # ▼▼▼ [الكود الذكي والمعدل] ▼▼▼
         if 'title' in data: risk.title = data['title']
         if 'description' in data: risk.description = data['description']
         if 'risk_type' in data: risk.risk_type = data['risk_type']
@@ -334,7 +333,6 @@ def update_risk(risk_id):
         if 'lessons_learned' in data: risk.lessons_learned = data['lessons_learned']
         if 'business_continuity_plan' in data: risk.business_continuity_plan = data['business_continuity_plan']
 
-        # تحديث حقول الاحتمالية والتأثير ومستوى الخطورة معاً
         if 'probability' in data and 'impact' in data:
             prob = int(data['probability'])
             imp = int(data['impact'])
@@ -342,7 +340,6 @@ def update_risk(risk_id):
             risk.impact = imp
             risk.risk_level = calculate_risk_level(prob, imp)
 
-        # تحديث تاريخ الإكمال
         if 'target_completion_date' in data:
             target_date_str = data.get('target_completion_date')
             if target_date_str:
@@ -353,11 +350,10 @@ def update_risk(risk_id):
             else:
                 risk.target_completion_date = None
 
-        # تحديث الخطر المرتبط
         if 'linked_risk_id' in data:
             linked_risk_value = data.get('linked_risk_id')
             risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
-        # ▲▲▲ [نهاية التعديل] ▲▲▲
+        # ▲▲▲ [نهاية الكود الذكي والمعدل] ▲▲▲
 
         if current_user.username != 'admin':
             risk.is_read = False
@@ -521,11 +517,13 @@ def get_stats_api():
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
     }
-    level_index = risk_level_order.index(risk.risk_level)
+    for risk in risks:
+        try:
+            level_index = risk_level_order.index(risk.risk_level)
             if risk.risk_type == 'تهديد':
                 by_level_nested['threats'][level_index] += 1
             else:
-             by_level_nested['opportunities'][level_index] += 1
+                by_level_nested['opportunities'][level_index] += 1
         except ValueError:
             continue
 
@@ -712,6 +710,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-            
-
