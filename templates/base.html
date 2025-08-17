@@ -1,3 +1,6 @@
+<!-- ======================================================================= -->
+<!-- == base.html - الكود الكامل والنهائي مع دالة تحويل التوقيت == -->
+<!-- ======================================================================= -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -10,7 +13,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast/dist/css/iziToast.min.css">
     <style>
         :root { --dark-blue: #1a2a45; --medium-blue: #273c5e; --light-text: #f8f9fa; --border-color: #4f5f7d; --accent-yellow: #ffc107; }
-        body { background-color: var(--dark-blue   ); color: var(--light-text); font-family: 'Tajawal', sans-serif; }
+        body { background-color: var(--dark-blue  ); color: var(--light-text); font-family: 'Tajawal', sans-serif; }
         .navbar-custom { background-color: var(--medium-blue); }
         .navbar-brand { color: var(--accent-yellow) !important; font-weight: bold; }
         .modal-content { background-color: var(--medium-blue); color: var(--light-text); }
@@ -84,18 +87,25 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/izitoast/dist/js/iziToast.min.js"></script>
     <script>
-        function toKsaTime(isoString  ) {
+        // =================================================================
+        // == ▼▼▼ [الإضافة الوحيدة] دالة تحويل التوقيت إلى توقيت السعودية ▼▼▼ ==
+        // =================================================================
+        function toKsaTime(isoString ) {
             if (!isoString) return '';
             const date = new Date(isoString);
             date.setHours(date.getHours() + 3);
+            
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
+            
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             const seconds = String(date.getSeconds()).padStart(2, '0');
+            
             return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
         }
+        // =================================================================
 
         const userRole = "{{ current_user.username }}";
         const currentUserId = {{ current_user.id }};
@@ -134,6 +144,7 @@
                     if (notifications.length === 0) { menu.insertAdjacentHTML('beforeend', '<li><a class="dropdown-item text-center" href="#">لا توجد تنبيهات جديدة</a></li>'); }
                     else { 
                         notifications.forEach(n => { 
+                            // --- [التعديل الوحيد هنا] ---
                             const itemHtml = `<li class="notification-item"><a href="#" data-risk-id="${n.id}" class="notification-link"><span class="notification-title">${n.title || 'بلاغ جديد'}</span><span class="notification-meta">بواسطة: ${n.user} - ${toKsaTime(n.timestamp)}</span></a></li>`; 
                             menu.insertAdjacentHTML('beforeend', itemHtml); 
                         }); 
@@ -141,32 +152,25 @@
                     addMenuEventListeners();
                 }
 
+                async function markNotificationAsRead(riskId = null) {
+                    try {
+                        await fetch('/api/notifications/mark-as-read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ risk_id: riskId }) });
+                        fetchNotifications();
+                    } catch (error) { console.error("Failed to mark as read:", error); }
+                }
+
                 function addMenuEventListeners() {
                     const markAllReadLink = document.getElementById('mark-all-as-read');
-                    if (markAllReadLink) { 
-                        markAllReadLink.addEventListener('click', (e) => { 
-                            e.preventDefault(); 
-                            e.stopPropagation(); 
-                            if (window.markNotificationAsRead) window.markNotificationAsRead(); 
-                        }); 
-                    }
+                    if (markAllReadLink) { markAllReadLink.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); markNotificationAsRead(); }); }
                     document.querySelectorAll('.notification-link').forEach(link => {
                         link.addEventListener('click', (e) => {
                             e.preventDefault(); e.stopPropagation();
                             const riskId = link.dataset.riskId;
-                            if (window.markNotificationAsRead) window.markNotificationAsRead(riskId);
-                            
+                            markNotificationAsRead(riskId);
                             if (window.location.pathname.includes('/risk-register')) {
                                 const riskRow = document.querySelector(`tr[data-risk-id='${riskId}']`);
-                                if (riskRow) { 
-                                    riskRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); 
-                                    riskRow.style.transition = 'background-color 0.5s'; 
-                                    riskRow.style.backgroundColor = 'rgba(255, 193, 7, 0.3)'; 
-                                    setTimeout(() => { riskRow.style.backgroundColor = ''; }, 2000); 
-                                }
-                            } else { 
-                                window.location.href = `/risk-register?highlight=${riskId}`; 
-                            }
+                                if (riskRow) { riskRow.scrollIntoView({ behavior: 'smooth', block: 'center' }); riskRow.style.transition = 'background-color 0.5s'; riskRow.style.backgroundColor = 'rgba(255, 193, 7, 0.3)'; setTimeout(() => { riskRow.style.backgroundColor = ''; }, 2000); }
+                            } else { window.location.href = `/risk-register?highlight=${riskId}`; }
                         });
                     });
                 }
