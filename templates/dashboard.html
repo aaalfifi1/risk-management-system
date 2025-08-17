@@ -138,10 +138,8 @@
         const risk = allRisks.find(r => r.id == riskId);
         if (!risk) return;
 
-        // استدعاء دالة بناء النموذج العادية
         prepareEditModal(riskId, riskModal);
 
-        // ننتظر قليلاً حتى يتم بناء النموذج بالكامل قبل تعديله
         setTimeout(() => {
             document.getElementById('riskModalLabel').textContent = 'إضافة إجراءات تصحيحية';
             const allFormFields = document.querySelectorAll('#risk-form-fields > div');
@@ -159,6 +157,14 @@
                 targetTextarea.selectionStart = targetTextarea.selectionEnd = targetTextarea.value.length;
             }
         }, 200); 
+    }
+    
+    // --- [دالة جديدة خاصة بالتنبيهات تم نقلها هنا] ---
+    async function markNotificationAsRead(riskId = null) {
+        try {
+            await fetch('/api/notifications/mark-as-read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ risk_id: riskId }) });
+            // لا نحتاج لإعادة تحميل التنبيهات من هنا، base.html سيتكفل بذلك
+        } catch (error) { console.error("Failed to mark as read:", error); }
     }
     // --- ▲▲▲ [نهاية الكود الجديد] ▲▲▲
 
@@ -183,12 +189,11 @@
                 const row = event.target.closest('tr');
                 if (isAdmin && row && row.classList.contains('table-row-new')) {
                     const riskId = row.dataset.riskId;
-                    if (window.markNotificationAsRead) { window.markNotificationAsRead(riskId); }
+                    markNotificationAsRead(riskId);
                     row.classList.remove('table-row-new', 'admin-can-click');
                 }
             });
 
-            // --- ▼▼▼ [تفعيل النقر المزدوج] ▼▼▼ ---
             risksTableBody.addEventListener('dblclick', function(event) {
                 const cell = event.target.closest('.editable-cell');
                 if (cell && isAdmin) {
@@ -197,7 +202,6 @@
                     prepareMiniEditModal(riskId, field);
                 }
             });
-            // --- ▲▲▲ [نهاية التفعيل] ▲▲▲
 
             risksTableBody.addEventListener('contextmenu', function(event) {
                 event.preventDefault();
@@ -446,12 +450,7 @@
         document.getElementById('riskModalLabel').textContent = title;
         document.getElementById('riskId').value = '';
         generateFormFields(userRole, riskData);
-        
-        // --- ▼▼▼ [الإصلاح الحاسم] ▼▼▼ ---
-        // هذا السطر يضمن أن كل الحقول ستكون ظاهرة عند فتح نافذة "إضافة خطر جديد"
         document.querySelectorAll('#risk-form-fields > div').forEach(field => field.style.display = 'block');
-        // --- ▲▲▲ [نهاية الإصلاح] ▲▲▲
-
         modalInstance.show();
     }
 
@@ -462,12 +461,7 @@
             document.getElementById('riskModalLabel').textContent = 'تعديل الخطر';
             document.getElementById('riskId').value = risk.id;
             generateFormFields(userRole, risk);
-            
-            // --- ▼▼▼ [الإصلاح الحاسم] ▼▼▼ ---
-            // هذا السطر يضمن أن كل الحقول ستكون ظاهرة عند فتح نافذة "تعديل الخطر" العادية
             document.querySelectorAll('#risk-form-fields > div').forEach(field => field.style.display = 'block');
-            // --- ▲▲▲ [نهاية الإصلاح] ▲▲▲
-
             modalInstance.show();
         }
     }
