@@ -521,7 +521,7 @@ def get_stats_api():
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
     }
-             level_index = risk_level_order.index(risk.risk_level)
+    level_index = risk_level_order.index(risk.risk_level)
             if risk.risk_type == 'تهديد':
                 by_level_nested['threats'][level_index] += 1
             else:
@@ -714,3 +714,4 @@ if __name__ == '__main__':
     app.run(debug=True, port=5001)
 
             
+
