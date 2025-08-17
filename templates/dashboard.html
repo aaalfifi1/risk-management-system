@@ -442,18 +442,23 @@
         }
     }
 
-    function prepareAddModal(modalInstance, riskData = {}) {
-        document.getElementById('riskForm').reset();
-        let title = 'إضافة خطر جديد';
-        if (riskData.isSecondary) title = 'إضافة خطر ثانوي جديد';
-        if (riskData.isResidual) title = 'إضافة خطر متبقٍ جديد';
-        document.getElementById('riskModalLabel').textContent = title;
-        document.getElementById('riskId').value = '';
-        generateFormFields(userRole, riskData);
-        // التأكد من أن كل الحقول ظاهرة عند الإضافة
-        const allFormFields = document.querySelectorAll('#risk-form-fields > div');
-        allFormFields.forEach(field => field.style.display = 'block');
-        modalInstance.show();
+  function prepareAddModal(modalInstance, riskData = {}) {
+    document.getElementById('riskForm').reset();
+    let title = 'إضافة خطر جديد';
+    if (riskData.isSecondary) title = 'إضافة خطر ثانوي جديد';
+    if (riskData.isResidual) title = 'إضافة خطر متبقٍ جديد';
+    document.getElementById('riskModalLabel').textContent = title;
+    document.getElementById('riskId').value = '';
+    generateFormFields(userRole, riskData);
+    
+    // --- ▼▼▼ [السطر الوحيد الذي سيصلح كل شيء] ▼▼▼ ---
+    // هذا السطر يضمن أن كل الحقول ستكون ظاهرة عند فتح نافذة "إضافة خطر جديد"
+    document.querySelectorAll('#risk-form-fields > div').forEach(field => field.style.display = 'block');
+    // --- ▲▲▲ [نهاية السطر المضاف] ▲▲▲
+
+    modalInstance.show();
+}
+
     }
 
     function prepareEditModal(riskId, modalInstance) {
@@ -564,3 +569,4 @@
     }
 </script>
 {% endblock %}
+
