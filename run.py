@@ -195,10 +195,24 @@ def logout():
     return redirect(url_for('login'))
 
 # --- دالة تصدير CSV ---
+# ▼▼▼ [التعديل الوحيد في هذا الملف] ▼▼▼
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
-    if current_user.username not in ['admin', 'testuser']: abort(403)
+    if current_user.username not in ['admin', 'testuser']:
+        abort(403)
+    
+    # بناء الاستعلام الأساسي
+    query = Risk.query.filter_by(is_deleted=False)
+
+    # تطبيق فلترة الصلاحيات
+    if current_user.username != 'admin':
+        query = query.filter_by(user_id=current_user.id)
+
+    # جلب البيانات بالترتيب
+    risks = query.order_by(Risk.created_at.asc()).all()
+
+    # باقي الكود يبقى كما هو
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     headers = [
@@ -208,7 +222,6 @@ def download_risk_log():
         'Lessons Learned', 'Created At', 'Reporter'
     ]
     writer.writerow(headers)
-    risks = Risk.query.filter_by(is_deleted=False).order_by(Risk.created_at.asc()).all()
     for risk in risks:
         reporter_username = risk.user.username if risk.user else 'N/A'
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
@@ -224,6 +237,7 @@ def download_risk_log():
     final_output = output.getvalue().encode('utf-8-sig')
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
+# ▲▲▲ [نهاية التعديل الوحيد] ▲▲▲
 
 # --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
@@ -502,7 +516,7 @@ def get_stats_api():
             if risk.risk_type == 'تهديد':
                 by_level_nested['threats'][level_index] += 1
             else:
-                by_level_nested['opportunities'][level_index] += 1
+             by_level_nested['opportunities'][level_index] += 1
         except ValueError:
             continue
 
