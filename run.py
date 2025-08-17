@@ -323,27 +323,47 @@ def update_risk(risk_id):
         
         data = request.form
         was_modified_before = risk.was_modified
-        
-        risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
-        risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
-        prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
-        effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
-        
-        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
-        
-        target_date = None
-        if data.get('target_completion_date'):
-            try:
-                target_date = datetime.strptime(data.get('target_completion_date'), '%Y-%m-%d')
-            except (ValueError, TypeError):
-                target_date = None
-        risk.target_completion_date = target_date
-        
-        risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
-        
-        linked_risk_value = data.get('linked_risk_id')
-        risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
+        # ▼▼▼ [هذا هو الكود الجديد والآمن] ▼▼▼
+# حقول يتم تحديثها فقط إذا تم إرسالها في الطلب
+if 'title' in data: risk.title = data['title']
+if 'description' in data: risk.description = data['description']
+if 'risk_type' in data: risk.risk_type = data['risk_type']
+if 'category' in data: risk.category = data['category']
+if 'owner' in data: risk.owner = data['owner']
+if 'risk_location' in data: risk.risk_location = data['risk_location']
+if 'proactive_actions' in data: risk.proactive_actions = data['proactive_actions']
+if 'immediate_actions' in data: risk.immediate_actions = data['immediate_actions']
+if 'action_effectiveness' in data: 
+    risk.action_effectiveness = data['action_effectiveness']
+    risk.residual_risk = calculate_residual_risk(data['action_effectiveness'])
+if 'status' in data: risk.status = data['status']
+if 'lessons_learned' in data: risk.lessons_learned = data['lessons_learned']
+if 'business_continuity_plan' in data: risk.business_continuity_plan = data['business_continuity_plan']
+
+# تحديث حقول الاحتمالية والتأثير ومستوى الخطورة معاً
+if 'probability' in data and 'impact' in data:
+    prob = int(data['probability'])
+    imp = int(data['impact'])
+    risk.probability = prob
+    risk.impact = imp
+    risk.risk_level = calculate_risk_level(prob, imp)
+
+# تحديث تاريخ الإكمال
+if 'target_completion_date' in data:
+    target_date_str = data.get('target_completion_date')
+    if target_date_str:
+        try:
+            risk.target_completion_date = datetime.strptime(target_date_str, '%Y-%m-%d')
+        except (ValueError, TypeError):
+            risk.target_completion_date = None
+    else:
+        risk.target_completion_date = None
+
+# تحديث الخطر المرتبط
+if 'linked_risk_id' in data:
+    linked_risk_value = data.get('linked_risk_id')
+    risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
+# ▲▲▲ [نهاية الكود الجديد] ▲▲▲
 
         if current_user.username != 'admin':
             risk.is_read = False
@@ -704,4 +724,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
