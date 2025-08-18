@@ -37,6 +37,55 @@
         body.tv-mode .navbar,
         body.tv-mode .header-controls { display: none !important; }
         body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
+
+        /* --- [بداية التعديل الجديد] تنسيقات قائمة المراقبة --- */
+        .watchlist-container {
+            background-color: rgba(220, 53, 69, 0.15); /* خلفية حمراء شفافة */
+            border: 1px solid rgba(220, 53, 69, 0.4);
+            padding: 20px;
+            border-radius: 15px;
+            height: 420px;
+            display: flex;
+            flex-direction: column;
+        }
+        .watchlist-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .watchlist-item:hover {
+            background-color: rgba(220, 53, 69, 0.3);
+        }
+        .watchlist-item:last-child {
+            border-bottom: none;
+        }
+        .watchlist-title {
+            font-weight: bold;
+            color: #f8f9fa;
+        }
+        .watchlist-code {
+            font-size: 0.85rem;
+            color: #adb5bd;
+        }
+        .watchlist-level {
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 0.3em 0.6em;
+            border-radius: 5px;
+        }
+        .watchlist-placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+        /* --- [نهاية التعديل الجديد] --- */
     </style>
 {% endblock %}
 
@@ -68,25 +117,22 @@
                     <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                     <canvas id="matrixChart"></canvas>
                 </div>
-                <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
-                    <canvas id="categoryChart"></canvas>
+                <!-- --- [بداية التعديل الجديد] إضافة قائمة المراقبة هنا --- -->
+                <div class="watchlist-container">
+                    <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة (الأعلى خطورة)</h5>
+                    <div id="watchlist-body" class="flex-grow-1">
+                        <!-- سيتم ملء القائمة هنا بواسطة JavaScript -->
+                    </div>
                 </div>
+                <!-- --- [نهاية التعديل الجديد] --- -->
             </div>
 
             <!-- العمود الأيسر -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع</h5>
-                    <div class="split-doughnut-container">
-                        <span class="split-doughnut-label">تهديدات</span>
-                        <div style="position: relative; height:100%; width:100%">
-                             <canvas id="levelChart"></canvas>
-                        </div>
-                        <span class="split-doughnut-label">فرص</span>
-                    </div>
+                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
+                    <canvas id="categoryChart"></canvas>
                 </div>
-                <!-- الصف الجديد للتحليلات السريعة -->
                 <div class="row g-4">
                     <div class="col-md-6">
                         <div class="chart-container" style="height: 380px;">
@@ -127,7 +173,6 @@
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance, timelinessChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-            const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
             const statusPieCtx = document.getElementById('statusPieChart').getContext('2d');
             const timelinessCtx = document.getElementById('timelinessChart').getContext('2d');
@@ -137,7 +182,7 @@
             resetButton.addEventListener('click', () => {
                 isFiltered = false;
                 resetButton.style.display = 'none';
-                fetchStats(); // <-- استدعاء الدالة لإعادة تحميل البيانات الأصلية
+                fetchStats();
             });
 
             exportButton.addEventListener('click', () => {
@@ -181,6 +226,46 @@
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
+
+            // --- [بداية التعديل الجديد] دالة لعرض قائمة المراقبة ---
+            function renderWatchlist(topRisks) {
+                const watchlistBody = document.getElementById('watchlist-body');
+                watchlistBody.innerHTML = ''; // مسح القائمة القديمة
+
+                if (topRisks.length === 0) {
+                    watchlistBody.innerHTML = '<div class="watchlist-placeholder">لا توجد مخاطر نشطة حالياً.</div>';
+                    return;
+                }
+
+                topRisks.forEach(risk => {
+                    const item = document.createElement('div');
+                    item.className = 'watchlist-item';
+                    item.dataset.riskCode = risk.code; // إضافة كود الخطر للفلترة
+
+                    item.innerHTML = `
+                        <div>
+                            <div class="watchlist-title">${risk.title}</div>
+                            <div class="watchlist-code">${risk.code}</div>
+                        </div>
+                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">
+                            ${risk.level}
+                        </span>
+                    `;
+                    
+                    // إضافة حدث النقر للفلترة
+                    item.addEventListener('click', () => {
+                        isFiltered = true;
+                        resetButton.style.display = 'block';
+                        // ملاحظة: لا يوجد فلتر مباشر بالكود في الخلفية، لكن يمكننا محاكاة ذلك
+                        // بالفلترة في الواجهة الأمامية أو تعديل الخلفية لاحقاً إذا أردنا.
+                        // حالياً، سنقوم فقط بتسليط الضوء عليه.
+                        showToast(`عرض تفاصيل الخطر: ${risk.code}`, 'info');
+                    });
+
+                    watchlistBody.appendChild(item);
+                });
+            }
+            // --- [نهاية التعديل الجديد] ---
 
             function renderTimelinessChart(timelinessData) {
                 if (timelinessChartInstance) timelinessChartInstance.destroy();
@@ -307,75 +392,6 @@
                 });
             }
 
-            function renderSplitDoughnutChart(levelData) {
-                if (levelChartInstance) levelChartInstance.destroy();
-                const chartData = [];
-                const chartColors = [];
-                const chartLabels = [];
-                const riskLevelOrder = Object.keys(riskLevelColors);
-
-                levelData.labels.forEach((level, index) => {
-                    chartData.push(levelData.datasets.opportunities[index]);
-                    chartColors.push(riskLevelColors[level]);
-                    chartLabels.push(level);
-                });
-                levelData.labels.forEach((level, index) => {
-                    chartData.push(levelData.datasets.threats[index]);
-                    chartColors.push(riskLevelColors[level]);
-                    chartLabels.push(level);
-                });
-                levelChartInstance = new Chart(levelCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: chartLabels,
-                        datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 2, borderColor: '#273c5e' }]
-                    },
-                    options: {
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                const index = elements[0].index;
-                                const level = levelChartInstance.data.labels[index % riskLevelOrder.length];
-                                isFiltered = true;
-                                resetButton.style.display = 'block';
-                                fetchStats({ level: level });
-                            }
-                        },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        rotation: -90,
-                        circumference: 180,
-                        cutout: '40%',
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const isOpportunity = context.dataIndex < levelData.labels.length;
-                                        const typeName = isOpportunity ? 'فرصة' : 'تهديد';
-                                        const levelName = context.label || '';
-                                        const value = context.raw;
-                                        const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
-                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
-                                        return `${typeName} - ${levelName}: ${value} (${percentage}%)`;
-                                    }
-                                }
-                            },
-                            datalabels: {
-                                display: true,
-                                formatter: (value, ctx) => {
-                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                    if (value === 0 || sum === 0) return '';
-                                    const percentage = (value / sum * 100).toFixed(1);
-                                    return `${percentage}%`;
-                                },
-                                color: '#fff',
-                                font: { weight: 'bold' }
-                            }
-                        }
-                    }
-                });
-            }
-
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
@@ -385,9 +401,9 @@
                 
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
-                renderSplitDoughnutChart(stats.by_level_nested);
                 renderStatusPieChart(stats.by_status);
                 renderTimelinessChart(stats.timeliness);
+                renderWatchlist(stats.top_risks); // <-- [تعديل جديد] استدعاء دالة عرض قائمة المراقبة
             }
 
             fetchStats();
