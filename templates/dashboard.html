@@ -1,5 +1,5 @@
 <!-- ======================================================================= -->
-<!-- == dashboard.html - الكود الكامل مع إصلاح جذري للـ JavaScript (1/2) == -->
+<!-- == dashboard.html - الكود النهائي مع إصلاح مشكلة نافذة الإضافة == -->
 <!-- ======================================================================= -->
 {% extends "base.html" %}
 
@@ -42,37 +42,12 @@
         .table .col-description, .table .col-proactive, .table .col-actions, .table .col-bcp, .table .col-lessons { min-width: 300px; word-wrap: break-word; }
         .table .col-title { min-width: 220px; }
         .table .col-creation-date, .table .col-completion-date, .table .col-linked-risk { min-width: 150px; }
-
-        /* --- تنسيقات ميزة التعديل المباشر (لا تغيير هنا) --- */
         .editable-field { position: relative; padding-top: 5px; }
-        .edit-action-btn {
-            display: none; 
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            padding: 2px 6px;
-        }
-        .editable-field:hover .edit-action-btn {
-            display: inline-block;
-        }
-        .improvement-text {
-            color: #dc3545;
-            font-weight: bold;
-            display: block;
-            margin-top: 5px;
-            padding-top: 5px;
-            border-top: 1px dashed #ff00004a;
-        }
-        .inline-edit-area {
-            display: none;
-            width: 100%;
-        }
-        .inline-edit-area textarea {
-            min-height: 80px;
-            margin-bottom: 5px;
-        }
+        .edit-action-btn { display: none; position: absolute; top: 5px; left: 5px; cursor: pointer; font-size: 0.8rem; padding: 2px 6px; }
+        .editable-field:hover .edit-action-btn { display: inline-block; }
+        .improvement-text { color: #dc3545; font-weight: bold; display: block; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ff00004a; }
+        .inline-edit-area { display: none; width: 100%; }
+        .inline-edit-area textarea { min-height: 80px; margin-bottom: 5px; }
     </style>
 {% endblock %}
 
@@ -89,7 +64,11 @@
             {% if current_user.username in ['admin', 'testuser'] %}
                 <button id="download-csv-btn" class="btn btn-success"><i class="bi bi-download"></i> تحميل سجل المخاطر</button>
             {% endif %}
-            <button class="btn btn-add-risk" data-bs-toggle="modal" data-bs-target="#riskModal"><i class="bi bi-plus-circle-fill"></i> {% if current_user.username == 'reporter' %}الإبلاغ عن خطر{% else %}إضافة خطر جديد{% endif %}</button>
+            <!-- [-- تعديل --] إضافة id للزر وتغيير النص المبدئي -->
+            <button id="add-risk-btn" class="btn btn-add-risk" disabled>
+                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                جاري تحميل البيانات...
+            </button>
         </div>
     </div>
 
@@ -105,24 +84,7 @@
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>كود الخطر</th>
-                        <th class="col-creation-date">تاريخ الإنشاء</th>
-                        <th class="col-title">عنوان الخطر</th>
-                        <th class="col-description">وصف الخطر</th>
-                        <th>نوع الخطر</th>
-                        <th>موقع الخطر</th>
-                        <th>الفئة</th>
-                        <th>مستوى الخطورة</th>
-                        <th>مالك الخطر</th>
-                        <th class="col-proactive">الإجراءات الإستباقية</th>
-                        <th class="col-actions">الإجراءات الفورية</th>
-                        <th class="col-completion-date">تاريخ إكمال الإجراءات</th>
-                        <th>فعالية الإجراءات</th>
-                        <th class="col-linked-risk">ارتباط الخطر</th>
-                        <th>الحالة</th>
-                        <th>المرفق</th>
-                        <th class="col-bcp">خطة استعادة العمل</th>
-                        <th class="col-lessons">الدروس المستفادة</th>
+                        <th>كود الخطر</th><th class="col-creation-date">تاريخ الإنشاء</th><th class="col-title">عنوان الخطر</th><th class="col-description">وصف الخطر</th><th>نوع الخطر</th><th>موقع الخطر</th><th>الفئة</th><th>مستوى الخطورة</th><th>مالك الخطر</th><th class="col-proactive">الإجراءات الإستباقية</th><th class="col-actions">الإجراءات الفورية</th><th class="col-completion-date">تاريخ إكمال الإجراءات</th><th>فعالية الإجراءات</th><th class="col-linked-risk">ارتباط الخطر</th><th>الحالة</th><th>المرفق</th><th class="col-bcp">خطة استعادة العمل</th><th class="col-lessons">الدروس المستفادة</th>
                     </tr>
                 </thead>
                 <tbody id="risks-table-body"></tbody>
@@ -139,63 +101,57 @@
 
 {% block scripts %}
 <script>
-    // =======================================================================
-    // == بداية قسم الـ JavaScript المعاد هيكلته (الجزء الأول) ==
-    // =======================================================================
-
-    // --- [إصلاح جذري] ---
-    // 1. تعريف المتغيرات وحالتها في مكان واحد وواضح
     const AppState = {
         allRisks: [],
         filteredRisks: [],
         allRiskCodes: [],
         statusOptions: ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'],
         currentRiskIdForContext: null,
-        riskModalInstance: null
+        riskModalInstance: null,
+        isDataLoaded: false // [-- تعديل --] إضافة متغير لتتبع حالة تحميل البيانات
     };
 
-    // 2. دالة رئيسية واحدة لبدء تشغيل التطبيق عند تحميل الصفحة
     document.addEventListener('DOMContentLoaded', function() {
-        // تهيئة النافذة المنبثقة مرة واحدة فقط
         const riskModalElement = document.getElementById('riskModal');
         if (riskModalElement) {
             AppState.riskModalInstance = new bootstrap.Modal(riskModalElement);
         }
 
-        // ربط الأحداث الأساسية التي لا تعتمد على البيانات
         initializeStaticEventListeners();
 
-        // إذا لم يكن المستخدم "reporter"، قم بتحميل البيانات وتهيئة الواجهة الكاملة
         if (userRole !== "reporter") {
             loadInitialDataAndSetupUI();
+        } else {
+            // [-- تعديل --] إذا كان المستخدم reporter، قم بتفعيل الزر فوراً
+            const addRiskBtn = document.getElementById('add-risk-btn');
+            addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> الإبلاغ عن خطر`;
+            addRiskBtn.disabled = false;
         }
     });
 
-    /**
-     * [إصلاح جذري]
-     * تحميل البيانات الأولية من الخادم ثم إعداد واجهة المستخدم الكاملة.
-     */
     async function loadInitialDataAndSetupUI() {
         try {
             const response = await fetch('/api/risks');
             const data = await response.json();
             
             if (data.success) {
-                // تحديث حالة التطبيق بالبيانات الجديدة
                 AppState.allRisks = data.risks;
                 AppState.allRiskCodes = data.all_risk_codes || [];
-                if (data.status_options) {
-                    AppState.statusOptions = data.status_options;
-                }
+                if (data.status_options) { AppState.statusOptions = data.status_options; }
                 
-                // إعداد المستمعين للأحداث الذين يعتمدون على البيانات (الفلاتر، الجدول)
-                initializeDynamicEventListeners();
-                
-                // عرض البيانات لأول مرة
-                applyFiltersAndRender();
+                AppState.isDataLoaded = true; // [-- تعديل --] تحديث حالة تحميل البيانات
 
+                // [-- تعديل --] تفعيل زر الإضافة وتغيير نصه بعد اكتمال التحميل
+                const addRiskBtn = document.getElementById('add-risk-btn');
+                addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> إضافة خطر جديد`;
+                addRiskBtn.disabled = false;
+
+                initializeDynamicEventListeners();
+                applyFiltersAndRender();
             } else {
                 showToast('فشل تحميل البيانات.', 'error');
+                const addRiskBtn = document.getElementById('add-risk-btn');
+                addRiskBtn.innerHTML = `فشل التحميل`;
             }
         } catch (error) {
             console.error("Fetch error:", error);
@@ -203,21 +159,20 @@
         }
     }
 
-    /**
-     * [إصلاح جذري]
-     * ربط الأحداث الثابتة التي لا تحتاج إلى بيانات ليتم تحميلها أولاً.
-     * (مثل زر إضافة خطر، نموذج الإرسال، زر التحميل)
-     */
     function initializeStaticEventListeners() {
         const riskForm = document.getElementById('riskForm');
-        const addRiskButton = document.querySelector('.btn-add-risk');
+        const addRiskButton = document.getElementById('add-risk-btn'); // [-- تعديل --] استخدام ID
         const downloadBtn = document.getElementById('download-csv-btn');
 
         if (addRiskButton) {
             addRiskButton.addEventListener('click', () => {
-                // التأكد من أن النافذة موجودة قبل محاولة استخدامها
-                if (AppState.riskModalInstance) {
-                    prepareAddModal(AppState.riskModalInstance);
+                // [-- تعديل --] التحقق من أن البيانات تم تحميلها قبل فتح النافذة
+                if (AppState.isDataLoaded || userRole === 'reporter') {
+                    if (AppState.riskModalInstance) {
+                        prepareAddModal(AppState.riskModalInstance);
+                    }
+                } else {
+                    showToast('الرجاء الانتظار حتى يكتمل تحميل البيانات.', 'info');
                 }
             });
         }
@@ -236,40 +191,29 @@
         }
     }
 
-    /**
-     * [إصلاح جذري]
-     * ربط الأحداث الديناميكية التي تعتمد على وجود بيانات (الجدول، الفلاتر، قائمة السياق).
-     */
+    // باقي الكود يبقى كما هو في النسخة السابقة تماماً
+    // ... (الكود من initializeDynamicEventListeners حتى نهاية الملف لم يتغير) ...
     function initializeDynamicEventListeners() {
         const risksTableBody = document.getElementById('risks-table-body');
         const contextMenu = document.getElementById('contextMenu');
-
-        // مستمعات أحداث الفلاتر
         document.getElementById('search-all').addEventListener('input', applyFiltersAndRender);
         document.getElementById('filter-category').addEventListener('change', applyFiltersAndRender);
         document.getElementById('sort-by').addEventListener('change', applyFiltersAndRender);
-
-        // مستمعات أحداث الجدول وقائمة السياق
         if (risksTableBody) {
             risksTableBody.addEventListener('click', (event) => {
                 const row = event.target.closest('tr');
                 if (isAdmin && row && row.classList.contains('table-row-new')) {
                     const riskId = row.dataset.riskId;
-                    if (window.markNotificationAsRead) {
-                        window.markNotificationAsRead(riskId);
-                    }
+                    if (window.markNotificationAsRead) { window.markNotificationAsRead(riskId); }
                     row.classList.remove('table-row-new', 'admin-can-click');
                 }
             });
-
             risksTableBody.addEventListener('contextmenu', (event) => {
                 event.preventDefault();
                 const row = event.target.closest('tr');
                 if (!row) return;
-                
                 const risk = AppState.allRisks.find(r => r.id == row.dataset.riskId);
                 if (!risk) return;
-
                 if (isAdmin || (userRole === "testuser" && risk.user_id === currentUserId)) {
                     AppState.currentRiskIdForContext = row.dataset.riskId;
                     contextMenu.style.top = `${event.pageY}px`;
@@ -278,11 +222,7 @@
                 }
             });
         }
-
-        document.addEventListener('click', () => {
-            if (contextMenu) contextMenu.style.display = 'none';
-        });
-
+        document.addEventListener('click', () => { if (contextMenu) contextMenu.style.display = 'none'; });
         const editOption = document.getElementById('edit-option');
         if (editOption) {
             editOption.addEventListener('click', () => {
@@ -291,7 +231,6 @@
                 }
             });
         }
-
         const deleteOption = document.getElementById('delete-option');
         if (deleteOption) {
             deleteOption.addEventListener('click', () => {
@@ -301,75 +240,45 @@
             });
         }
     }
-
-    // ... يتبع في الجزء الثاني ...
-<script>
-    // ... تتمة للجزء الأول ...
-
-    /**
-     * [إصلاح جذري]
-     * دالة واحدة تقوم بتطبيق الفلاتر والترتيب ثم تستدعي دالة العرض.
-     */
     function applyFiltersAndRender() {
         const searchTerm = document.getElementById('search-all').value.toLowerCase();
         const filterCategory = document.getElementById('filter-category').value;
         const sortBy = document.getElementById('sort-by').value;
-        
         let currentFiltered = AppState.allRisks.filter(risk => {
             const categoryMatch = !filterCategory || risk.category === filterCategory;
-            const searchMatch = !searchTerm || Object.values(risk).some(val => 
-                val && val.toString().toLowerCase().includes(searchTerm)
-            );
+            const searchMatch = !searchTerm || Object.values(risk).some(val => val && val.toString().toLowerCase().includes(searchTerm));
             return categoryMatch && searchMatch;
         });
-
         const severityOrder = { 'مرتفع جدا / كارثي': 5, 'مرتفع': 4, 'متوسط': 3, 'منخفض': 2, 'منخفض جدا': 1 };
         if (sortBy === 'severity') {
             currentFiltered.sort((a, b) => (severityOrder[b.risk_level] || 0) - (severityOrder[a.risk_level] || 0));
         } else {
             currentFiltered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         }
-        
         AppState.filteredRisks = currentFiltered;
         renderRisks(AppState.filteredRisks);
     }
-
-    /**
-     * [إصلاح جذري]
-     * دالة العرض (Render) أصبحت الآن مسؤولة فقط عن عرض البيانات التي تستقبلها.
-     */
     function renderRisks(risksToRender) {
         const risksTableBody = document.getElementById('risks-table-body');
-        risksTableBody.innerHTML = ''; // مسح الجدول قبل إعادة البناء
-
+        risksTableBody.innerHTML = '';
         risksToRender.forEach((risk) => {
             const row = document.createElement('tr');
             row.dataset.riskId = risk.id;
-            if (risk.is_read === false && isAdmin) {
-                row.classList.add('table-row-new', 'admin-can-click');
-            }
-
+            if (risk.is_read === false && isAdmin) { row.classList.add('table-row-new', 'admin-can-click'); }
             const riskLevelColors = { 'مرتفع جدا / كارثي': '#dc3545', 'مرتفع': '#fd7e14', 'متوسط': '#ffc107', 'منخفض': '#90EE90', 'منخفض جدا': '#28a745' };
             const riskLevelColor = riskLevelColors[risk.risk_level] || '#6c757d';
-            
             let attachmentHtml = 'لا يوجد';
             if (risk.attachment_filename) {
                 const canDelete = isAdmin || (userRole === "testuser" && risk.user_id === currentUserId);
                 const deleteIcon = canDelete ? `<i class="bi bi-trash3-fill delete-attachment-icon" onclick="confirmDeleteAttachment(event, ${risk.id})"></i>` : '';
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
-            
             const gregorianDate = toKsaTime(risk.created_at);
-
             let codeCellClass = 'risk-code-cell';
             if (risk.title && risk.title.startsWith('(خطر ثانوي)')) { codeCellClass += ' cell-secondary-risk'; }
             else if (risk.title && risk.title.startsWith('(خطر متبقٍ)')) { codeCellClass += ' cell-residual-risk'; }
             else if (risk.was_modified) { codeCellClass += ' cell-modified'; }
-            
-            let riskTypeHtml = (risk.risk_type === 'فرصة')
-                ? `<span class="risk-type-opportunity"><i class="bi bi-graph-up-arrow risk-type-icon"></i>فرصة</span>`
-                : `<span class="risk-type-threat"><i class="bi bi-graph-down-arrow risk-type-icon"></i>تهديد</span>`;
-
+            let riskTypeHtml = (risk.risk_type === 'فرصة') ? `<span class="risk-type-opportunity"><i class="bi bi-graph-up-arrow risk-type-icon"></i>فرصة</span>` : `<span class="risk-type-threat"><i class="bi bi-graph-down-arrow risk-type-icon"></i>تهديد</span>`;
             const splitText = (text) => {
                 const separator = "||IMPROVEMENT||";
                 if (text && text.includes(separator)) {
@@ -378,157 +287,67 @@
                 }
                 return { original: text || '', improvement: '' };
             };
-
             const proactive = splitText(risk.proactive_actions);
             const immediate = splitText(risk.immediate_actions);
-
-            const proactiveHtml = `
-                <div class="editable-field" data-field="proactive_actions" data-risk-id="${risk.id}">
-                    <div class="text-display">
-                        <span>${proactive.original}</span>
-                        ${proactive.improvement ? `<span class="improvement-text">${proactive.improvement}</span>` : ''}
-                    </div>
-                    <div class="inline-edit-area">
-                        <textarea class="form-control">${proactive.original}</textarea>
-                        <div class="mt-1 d-flex gap-2">
-                            <button class="btn btn-primary btn-sm btn-save">حفظ</button>
-                            <button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button>
-                        </div>
-                    </div>
-                    <button class="btn btn-outline-primary btn-sm edit-action-btn"><i class="bi bi-pencil"></i></button>
-                </div>`;
-
-            const immediateHtml = `
-                <div class="editable-field" data-field="immediate_actions" data-risk-id="${risk.id}">
-                    <div class="text-display">
-                        <span>${immediate.original}</span>
-                        ${immediate.improvement ? `<span class="improvement-text">${immediate.improvement}</span>` : ''}
-                    </div>
-                    <div class="inline-edit-area">
-                        <textarea class="form-control">${immediate.original}</textarea>
-                        <div class="mt-1 d-flex gap-2">
-                            <button class="btn btn-primary btn-sm btn-save">حفظ</button>
-                            <button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button>
-                        </div>
-                    </div>
-                    <button class="btn btn-outline-primary btn-sm edit-action-btn"><i class="bi bi-pencil"></i></button>
-                </div>`;
-
-            row.innerHTML = `
-                <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
-                <td class="col-creation-date">${gregorianDate}</td>
-                <td class="col-title">${risk.title || 'بلاغ'}</td>
-                <td class="col-description">${risk.description || ''}</td>
-                <td>${riskTypeHtml}</td>
-                <td>${risk.risk_location || ''}</td>
-                <td>${risk.category || ''}</td>
-                <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
-                <td>${risk.owner || ''}</td>
-                <td class="col-proactive">${proactiveHtml}</td>
-                <td class="col-actions">${immediateHtml}</td>
-                <td class="col-completion-date">${risk.target_completion_date || ''}</td>
-                <td>${risk.action_effectiveness || ''}</td>
-                <td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td>
-                <td>${risk.status || ''}</td>
-                <td>${attachmentHtml}</td>
-                <td class="col-bcp">${risk.business_continuity_plan || ''}</td>
-                <td class="col-lessons">${risk.lessons_learned || ''}</td>
-            `;
+            const proactiveHtml = `<div class="editable-field" data-field="proactive_actions" data-risk-id="${risk.id}"><div class="text-display"><span>${proactive.original}</span>${proactive.improvement ? `<span class="improvement-text">${proactive.improvement}</span>` : ''}</div><div class="inline-edit-area"><textarea class="form-control"></textarea><div class="mt-1 d-flex gap-2"><button class="btn btn-primary btn-sm btn-save">حفظ</button><button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button></div></div><button class="btn btn-outline-primary btn-sm edit-action-btn"><i class="bi bi-pencil"></i></button></div>`;
+            const immediateHtml = `<div class="editable-field" data-field="immediate_actions" data-risk-id="${risk.id}"><div class="text-display"><span>${immediate.original}</span>${immediate.improvement ? `<span class="improvement-text">${immediate.improvement}</span>` : ''}</div><div class="inline-edit-area"><textarea class="form-control"></textarea><div class="mt-1 d-flex gap-2"><button class="btn btn-primary btn-sm btn-save">حفظ</button><button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button></div></div><button class="btn btn-outline-primary btn-sm edit-action-btn"><i class="bi bi-pencil"></i></button></div>`;
+            row.innerHTML = `<td class="${codeCellClass}">${risk.risk_code || risk.id}</td><td class="col-creation-date">${gregorianDate}</td><td class="col-title">${risk.title || 'بلاغ'}</td><td class="col-description">${risk.description || ''}</td><td>${riskTypeHtml}</td><td>${risk.risk_location || ''}</td><td>${risk.category || ''}</td><td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td><td>${risk.owner || ''}</td><td class="col-proactive">${proactiveHtml}</td><td class="col-actions">${immediateHtml}</td><td class="col-completion-date">${risk.target_completion_date || ''}</td><td>${risk.action_effectiveness || ''}</td><td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td><td>${risk.status || ''}</td><td>${attachmentHtml}</td><td class="col-bcp">${risk.business_continuity_plan || ''}</td><td class="col-lessons">${risk.lessons_learned || ''}</td>`;
             risksTableBody.appendChild(row);
         });
-        
-        // بعد عرض الجدول، قم بتفعيل ميزة التعديل المباشر
         initializeInlineEditing();
     }
-
-    /**
-     * [إصلاح جذري]
-     * دالة التعديل المباشر أصبحت أكثر استقلالية وتعتمد على البيانات المعروضة حالياً.
-     */
     function initializeInlineEditing() {
         const editableFields = document.querySelectorAll('.editable-field');
         const lowEffectivenessValues = ['متوسط', 'ضعيف', 'غير مرضي'];
-
         editableFields.forEach(field => {
             const riskId = field.dataset.riskId;
             const risk = AppState.allRisks.find(r => r.id == riskId);
             if (!risk) return;
-
             const editButton = field.querySelector('.edit-action-btn');
             const textDisplay = field.querySelector('.text-display');
             const editArea = field.querySelector('.inline-edit-area');
             const textarea = editArea.querySelector('textarea');
             const saveButton = editArea.querySelector('.btn-save');
             const cancelButton = editArea.querySelector('.btn-cancel');
-
-            if (lowEffectivenessValues.includes(risk.action_effectiveness)) {
-                editButton.style.display = 'inline-block';
-            } else {
-                editButton.style.display = 'none';
-            }
-
+            if (lowEffectivenessValues.includes(risk.action_effectiveness)) { editButton.style.display = 'inline-block'; } else { editButton.style.display = 'none'; }
             editButton.onclick = () => {
-                const originalText = textDisplay.querySelector('span:first-child').textContent;
                 const improvementTextSpan = textDisplay.querySelector('.improvement-text');
                 const improvementText = improvementTextSpan ? improvementTextSpan.textContent : '';
-                
-                // املأ الحقل بالنص التحسيني إذا كان موجوداً، وإلا اتركه فارغاً
                 textarea.value = improvementText;
                 textDisplay.style.display = 'none';
                 editArea.style.display = 'block';
                 editButton.style.display = 'none';
             };
-
             cancelButton.onclick = () => {
                 textDisplay.style.display = 'block';
                 editArea.style.display = 'none';
-                if (lowEffectivenessValues.includes(risk.action_effectiveness)) {
-                    editButton.style.display = 'inline-block';
-                }
+                if (lowEffectivenessValues.includes(risk.action_effectiveness)) { editButton.style.display = 'inline-block'; }
             };
-
             saveButton.onclick = async () => {
                 const improvementText = textarea.value.trim();
                 const fieldName = field.dataset.field;
-                
                 saveButton.disabled = true;
                 saveButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> جاري الحفظ...';
-
                 try {
                     const response = await fetch(`/api/risks/${riskId}/update_action`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            field: fieldName,
-                            value: improvementText
-                        })
+                        body: JSON.stringify({ field: fieldName, value: improvementText })
                     });
                     const result = await response.json();
                     if (result.success) {
                         showToast('تم حفظ الإجراء التحسيني بنجاح.');
-                        // تحديث البيانات في الحالة العامة ثم إعادة العرض
                         const riskToUpdate = AppState.allRisks.find(r => r.id == riskId);
-                        if (riskToUpdate) {
-                            riskToUpdate[fieldName] = result.newValue;
-                        }
+                        if (riskToUpdate) { riskToUpdate[fieldName] = result.newValue; }
                         applyFiltersAndRender();
-                    } else {
-                        showToast(result.message || 'فشل الحفظ', 'error');
-                    }
-                } catch (error) {
-                    showToast('خطأ في الاتصال بالخادم', 'error');
-                } finally {
+                    } else { showToast(result.message || 'فشل الحفظ', 'error'); }
+                } catch (error) { showToast('خطأ في الاتصال بالخادم', 'error'); } finally {
                     saveButton.disabled = false;
                     saveButton.innerHTML = 'حفظ';
                 }
             };
         });
     }
-
-    // =======================================================================
-    // == دوال النافذة المنبثقة (Modal) والنموذج (Form) - لا تغييرات كبيرة هنا ==
-    // =======================================================================
-
     function prepareAddModal(modalInstance, riskData = {}) {
         document.getElementById('riskForm').reset();
         let title = 'إضافة خطر جديد';
@@ -539,7 +358,6 @@
         generateFormFields(userRole, riskData);
         modalInstance.show();
     }
-
     function prepareEditModal(riskId, modalInstance) {
         const risk = AppState.allRisks.find(r => r.id == riskId);
         if (risk) {
@@ -550,7 +368,6 @@
             modalInstance.show();
         }
     }
-
     async function handleFormSubmit(event, modalInstance) {
         event.preventDefault();
         const form = event.target;
@@ -558,33 +375,23 @@
         const originalButtonText = submitButton.innerHTML;
         submitButton.disabled = true;
         submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> جاري الحفظ...';
-
         const id = document.getElementById('riskId').value;
         const formData = new FormData(form);
         const url = id ? `/api/risks/${id}` : '/api/risks';
         const method = id ? 'PUT' : 'POST';
-
         try {
             const response = await fetch(url, { method: method, body: formData });
             const result = await response.json();
             if (response.ok) {
                 modalInstance.hide();
                 showToast(result.message || 'تم الحفظ بنجاح');
-                if (userRole !== "reporter") {
-                    // إعادة تحميل البيانات بالكامل لضمان التحديث
-                    await loadInitialDataAndSetupUI();
-                }
-            } else {
-                showToast(result.message || 'حدث خطأ', 'error');
-            }
-        } catch (error) {
-            showToast('فشل الاتصال بالخادم', 'error');
-        } finally {
+                if (userRole !== "reporter") { await loadInitialDataAndSetupUI(); }
+            } else { showToast(result.message || 'حدث خطأ', 'error'); }
+        } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); } finally {
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
         }
     }
-
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
         let fieldsHtml = '';
@@ -607,7 +414,6 @@
             const riskTypeChecked = (risk.risk_type === 'فرصة') ? 'checked' : '';
             const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : '';
 
-            // [إصلاح جذري] تنظيف النص قبل عرضه في الفورم
             const cleanTextForTextarea = (text) => (text || '').replace(/\|\|IMPROVEMENT\|\|/g, '\n\n-- إجراءات تحسينية --\n');
 
             fieldsHtml = `
@@ -638,7 +444,6 @@
         const lessonsField = formFieldsContainer.querySelector('.lessons-learned-field');
         if (effectivenessSelect) setupFormEventListeners(effectivenessSelect, statusSelect, lessonsField);
     }
-
     function setupFormEventListeners(effectivenessSelect, statusSelect, lessonsField) {
         function toggleControls() {
             const effectivenessValue = effectivenessSelect.value;
@@ -662,7 +467,6 @@
             toggleLessonsField();
         }
     }
-
     function handleCreateResidualRisk(originalRiskId) {
         const originalRisk = AppState.allRisks.find(r => r.id == originalRiskId);
         if (!originalRisk) { showToast('لم يتم العثور على الخطر الأصلي.', 'error'); return; }
@@ -670,7 +474,6 @@
         AppState.riskModalInstance.hide();
         setTimeout(() => prepareAddModal(AppState.riskModalInstance, residualRiskData), 500);
     }
-
     function handleCreateSecondaryRisk(originalRiskId) {
         const originalRisk = AppState.allRisks.find(r => r.id == originalRiskId);
         if (!originalRisk) { showToast('لم يتم العثور على الخطر الأصلي.', 'error'); return; }
@@ -678,11 +481,6 @@
         AppState.riskModalInstance.hide();
         setTimeout(() => prepareAddModal(AppState.riskModalInstance, secondaryRiskData), 500);
     }
-
-    // =======================================================================
-    // == دوال مساعدة وأخرى (لا تغييرات هنا) ==
-    // =======================================================================
-
     function downloadFilteredRisksAsCSV() {
         if (AppState.filteredRisks.length === 0) {
             showToast('لا توجد بيانات لتحميلها.', 'info');
@@ -705,7 +503,6 @@
         link.click();
         document.body.removeChild(link);
     }
-
     function confirmArchive(riskId) {
         iziToast.question({
             timeout: 20000, title: 'تأكيد الحذف (الأرشفة)', message: 'هل أنت متأكد من حذف هذا الخطر؟ سيتم نقله إلى سجل التغييرات.', position: 'center', rtl: true, class: 'custom-toast-question',
@@ -721,7 +518,6 @@
             ]
         });
     }
-
     async function confirmDeleteAttachment(event, riskId) {
         event.stopPropagation();
         iziToast.question({
@@ -740,3 +536,4 @@
     }
 </script>
 {% endblock %}
+
