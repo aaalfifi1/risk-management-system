@@ -36,7 +36,11 @@
         .risk-type-threat { color: #dc3545; font-weight: bold; }
         .risk-type-opportunity { color: #198754; font-weight: bold; }
         .risk-type-icon { margin-right: 5px; }
+
+        /* ▼▼▼ [التعديل الوحيد هنا] ▼▼▼ */
         .text-updated { color: #dc3545 !important; font-weight: bold; }
+        /* ▲▲▲ [نهاية التعديل] ▲▲▲ */
+
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
@@ -123,20 +127,13 @@
     let allRisks = [];
     let filteredRisks = [];
     let allRiskCodes = [];
-    let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
+    let statusOptions =['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
 
     document.addEventListener('DOMContentLoaded', function() {
         const riskForm = document.getElementById('riskForm');
         const riskModalElement = document.getElementById('riskModal');
         const riskModal = new bootstrap.Modal(riskModalElement);
-
-        // --- ▼▼▼ [الإصلاح الحاسم هنا] ▼▼▼ ---
-        // لقد قمنا بتعديل هذا السطر لضمان أن دالة بناء الحقول تعمل دائماً
-        document.querySelector('.btn-add-risk').addEventListener('click', () => {
-            prepareAddModal(riskModal);
-        });
-        // --- ▲▲▲ [نهاية الإصلاح الحاسم] ▲▲▲
-
+        document.querySelector('.btn-add-risk').addEventListener('click', () => prepareAddModal(riskModal));
         riskForm.addEventListener('submit', (event) => handleFormSubmit(event, riskModal));
         
         const downloadBtn = document.getElementById('download-csv-btn');
@@ -148,7 +145,6 @@
             const risksTableBody = document.getElementById('risks-table-body');
             const contextMenu = document.getElementById('contextMenu');
             let currentRiskId = null;
-
             risksTableBody.addEventListener('click', function(event) {
                 const row = event.target.closest('tr');
                 if (isAdmin && row && row.classList.contains('table-row-new')) {
@@ -157,7 +153,6 @@
                     row.classList.remove('table-row-new', 'admin-can-click');
                 }
             });
-
             risksTableBody.addEventListener('contextmenu', function(event) {
                 event.preventDefault();
                 const row = event.target.closest('tr');
@@ -171,13 +166,12 @@
                     contextMenu.style.display = 'block';
                 }
             });
-
             document.addEventListener('click', () => contextMenu.style.display = 'none');
             document.getElementById('edit-option').addEventListener('click', () => { if (currentRiskId) prepareEditModal(currentRiskId, riskModal); });
             document.getElementById('delete-option').addEventListener('click', () => { if (currentRiskId) confirmArchive(currentRiskId); });
-            document.getElementById('search-all').addEventListener('input', applyFilters);
-            document.getElementById('filter-category').addEventListener('change', applyFilters);
-            document.getElementById('sort-by').addEventListener('change', applyFilters);
+            document.getElementById('search-all').addEventListener('input', () => applyFilters());
+            document.getElementById('filter-category').addEventListener('change', () => applyFilters());
+            document.getElementById('sort-by').addEventListener('change', () => applyFilters());
             
             fetchRisks().then(data => {
                 if (data) {
@@ -197,37 +191,27 @@
             if (data.success) return data;
             showToast('فشل تحميل البيانات.', 'error');
             return null;
-      // ... (الكود السابق)
-} catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
-}
-
-// ▼▼▼ [أضف الدالة الجديدة هنا] ▼▼▼
-function formatActionText(currentText, originalText) {
-    if (!currentText) return '';
-    // إذا لم يكن هناك نص أصلي محفوظ، فهذا يعني أن النص الحالي كله جديد
-    if (!originalText) {
-        return `<span class="text-updated">${currentText.replace(/\n/g, '  
-')}</span>`;
+        } catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
     }
-    // إذا كان النص الحالي مطابقاً للنص الأصلي، فلا يوجد شيء جديد
-    if (currentText === originalText) {
-        return currentText.replace(/\n/g, '  
+
+    // ▼▼▼ [الدالة الجديدة لتلوين النص] ▼▼▼
+    function formatActionText(text) {
+        if (!text) return '';
+        const separator = '---'; // نستخدم فاصل بسيط
+        if (text.includes(separator)) {
+            const parts = text.split(separator);
+            const originalPart = parts[0].replace(/\n/g, '  
+');
+            // نأخذ كل الأجزاء بعد الفاصل الأول ونلونها
+            const updatedPart = `<span class="text-updated">${(separator + parts.slice(1).join(separator)).replace(/\n/g, '  
+')}</span>`;
+            return originalPart + updatedPart;
+        }
+        // إذا لم يوجد فاصل، نعرض النص كما هو
+        return text.replace(/\n/g, '  
 ');
     }
-    // إذا كان النص الحالي يبدأ بالنص الأصلي، فهذا يعني أن هناك إضافة
-    if (currentText.startsWith(originalText)) {
-        const originalPart = originalText.replace(/\n/g, '  
-');
-        const updatedPart = `<span class="text-updated">${currentText.substring(originalText.length).replace(/\n/g, '  
-')}</span>`;
-        return originalPart + updatedPart;
-    }
-    // إذا كان النص مختلفاً تماماً، اعتبره كله جديداً
-    return `<span class="text-updated">${currentText.replace(/\n/g, '  
-')}</span>`;
-}
-// ▲▲▲ [نهاية الإضافة] ▲▲▲
-
+    // ▲▲▲ [نهاية الدالة الجديدة] ▲▲▲
 
     function renderRisks(risksToRender) {
         const risksTableBody = document.getElementById('risks-table-body');
@@ -259,28 +243,34 @@ function formatActionText(currentText, originalText) {
                 riskTypeHtml = `<span class="risk-type-threat"><i class="bi bi-graph-down-arrow risk-type-icon"></i>تهديد</span>`;
             }
 
+            // ▼▼▼ [التعديل الوحيد هنا] ▼▼▼
+            // نستخدم الدالة الجديدة لعرض الإجراءات
+            const proactiveActionsHtml = formatActionText(risk.proactive_actions);
+            const immediateActionsHtml = formatActionText(risk.immediate_actions);
+            // ▲▲▲ [نهاية التعديل] ▲▲▲
+
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
                 <td class="col-creation-date">${gregorianDate}</td>
                 <td class="col-title">${risk.title || 'بلاغ'}</td>
-                <td class="col-description">${risk.description || ''}</td>
+                <td class="col-description">${(risk.description || '').replace(/\n/g, '  
+')}</td>
                 <td>${riskTypeHtml}</td>
                 <td>${risk.risk_location || ''}</td>
                 <td>${risk.category || ''}</td>
                 <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
                 <td>${risk.owner || ''}</td>
-               // ... (الكود السابق)
-                <td class="col-proactive">${formatActionText(risk.proactive_actions, risk.proactive_actions_original)}</td>
-                <td class="col-actions">${formatActionText(risk.immediate_actions, risk.immediate_actions_original)}</td>
+                <td class="col-proactive">${proactiveActionsHtml}</td>
+                <td class="col-actions">${immediateActionsHtml}</td>
                 <td class="col-completion-date">${risk.target_completion_date || ''}</td>
-                // ... (الكود اللاحق)
-
                 <td>${risk.action_effectiveness || ''}</td>
                 <td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td>
                 <td>${risk.status || ''}</td>
                 <td>${attachmentHtml}</td>
-                <td class="col-bcp">${risk.business_continuity_plan || ''}</td>
-                <td class="col-lessons">${risk.lessons_learned || ''}</td>
+                <td class="col-bcp">${(risk.business_continuity_plan || '').replace(/\n/g, '  
+')}</td>
+                <td class="col-lessons">${(risk.lessons_learned || '').replace(/\n/g, '  
+')}</td>
             `;
             risksTableBody.appendChild(row);
         });
@@ -313,22 +303,39 @@ function formatActionText(currentText, originalText) {
             showToast('لا توجد بيانات لتحميلها.', 'info');
             return;
         }
+
         const headers = [
             'كود الخطر', 'تاريخ الإنشاء', 'عنوان الخطر', 'وصف الخطر', 'نوع الخطر', 'موقع الخطر', 'الفئة', 
             'مستوى الخطورة', 'مالك الخطر', 'الإجراءات الإستباقية', 'الإجراءات الفورية', 'تاريخ إكمال الإجراءات',
             'فعالية الإجراءات', 'ارتباط الخطر', 'الحالة', 'المرفق', 'خطة استعادة العمل', 'الدروس المستفادة'
         ];
+
         let csvContent = headers.join(';') + '\n';
+
         filteredRisks.forEach(risk => {
             const row = [
-                risk.risk_code || risk.id, toKsaTime(risk.created_at), risk.title || 'بلاغ', `"${(risk.description || '').replace(/"/g, '""')}"`,
-                risk.risk_type, risk.risk_location || '', risk.category || '', risk.risk_level || '', risk.owner || '',
-                `"${(risk.proactive_actions || '').replace(/"/g, '""')}"`, `"${(risk.immediate_actions || '').replace(/"/g, '""')}"`,
-                risk.target_completion_date || '', risk.action_effectiveness || '', risk.linked_risk_id || 'لا يوجد', risk.status || '',
-                risk.attachment_filename || 'لا يوجد', `"${(risk.business_continuity_plan || '').replace(/"/g, '""')}"`, `"${(risk.lessons_learned || '').replace(/"/g, '""')}"`
+                risk.risk_code || risk.id,
+                toKsaTime(risk.created_at),
+                risk.title || 'بلاغ',
+                `"${(risk.description || '').replace(/"/g, '""')}"`,
+                risk.risk_type,
+                risk.risk_location || '',
+                risk.category || '',
+                risk.risk_level || '',
+                risk.owner || '',
+                `"${(risk.proactive_actions || '').replace(/"/g, '""')}"`,
+                `"${(risk.immediate_actions || '').replace(/"/g, '""')}"`,
+                risk.target_completion_date || '',
+                risk.action_effectiveness || '',
+                risk.linked_risk_id || 'لا يوجد',
+                risk.status || '',
+                risk.attachment_filename || 'لا يوجد',
+                `"${(risk.business_continuity_plan || '').replace(/"/g, '""')}"`,
+                `"${(risk.lessons_learned || '').replace(/"/g, '""')}"`
             ];
             csvContent += row.join(';') + '\n';
         });
+
         const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         if (link.download !== undefined) {
@@ -354,13 +361,31 @@ function formatActionText(currentText, originalText) {
             const impactOptions = [{v:1, t:'ضئيل'}, {v:2, t:'محدود'}, {v:3, t:'مؤثر'}, {v:4, t:'حرج'}, {v:5, t:'كارثي'}].map(i => `<option value="${i.v}" ${risk.impact == i.v ? 'selected' : ''}>${i.t}</option>`).join('');
             const effectivenessOptions = ['ممتاز', 'جيد', 'متوسط', 'ضعيف', 'غير مرضي'].map(e => `<option value="${e}" ${risk.action_effectiveness === e ? 'selected' : ''}>${e}</option>`).join('');
             const statusOptionsHtml = statusOptions.map(s => `<option value="${s}" ${risk.status === s ? 'selected' : ''}>${s}</option>`).join('');
-            const linkedRiskOptions = allRiskCodes.filter(code => !risk.risk_code || code !== risk.risk_code).map(code => `<option value="${code}" ${risk.linked_risk_id === code ? 'selected' : ''}>${code}</option>`).join('');
+            
+            const linkedRiskOptions = allRiskCodes
+                .filter(code => !risk.risk_code || code !== risk.risk_code)
+                .map(code => `<option value="${code}" ${risk.linked_risk_id === code ? 'selected' : ''}>${code}</option>`).join('');
+
             const riskCodeInput = risk.risk_code ? `<input type="hidden" name="risk_code" value="${risk.risk_code}">` : '';
+            
             const riskTypeChecked = (risk.risk_type === 'فرصة') ? 'checked' : '';
             const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : '';
+
             fieldsHtml = `
                 ${riskCodeInput}
-                <div class="col-12"><label class="form-label">نوع الخطر</label><div><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="risk_type" id="risk_type_threat" value="تهديد" ${threatTypeChecked}><label class="form-check-label" for="risk_type_threat">تهديد</label></div><div class="form-check form-check-inline"><input class="form-check-input" type="radio" name="risk_type" id="risk_type_opportunity" value="فرصة" ${riskTypeChecked}><label class="form-check-label" for="risk_type_opportunity">فرصة</label></div></div></div>
+                <div class="col-12">
+                    <label class="form-label">نوع الخطر</label>
+                    <div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="risk_type" id="risk_type_threat" value="تهديد" ${threatTypeChecked}>
+                            <label class="form-check-label" for="risk_type_threat">تهديد</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="risk_type" id="risk_type_opportunity" value="فرصة" ${riskTypeChecked}>
+                            <label class="form-check-label" for="risk_type_opportunity">فرصة</label>
+                        </div>
+                    </div>
+                </div>
                 <div class="col-md-6"><label class="form-label">عنوان الخطر</label><input type="text" class="form-control" name="title" value="${risk.title || ''}" required></div>
                 <div class="col-md-6"><label class="form-label">فئة الخطر</label><select class="form-select" name="category" required><option value="" disabled>اختر فئة...</option>${categoryOptions}</select></div>
                 <div class="col-md-6"><label class="form-label">الاحتمالية</label><select class="form-select" name="probability" required>${probabilityOptions}</select></div>
@@ -370,11 +395,13 @@ function formatActionText(currentText, originalText) {
                 <div class="col-md-6"><label class="form-label">موقع الخطر</label><input type="text" class="form-control" name="risk_location" value="${risk.risk_location || ''}"></div>
                 <div class="col-12"><label class="form-label">الإجراءات الإستباقية</label><textarea class="form-control" name="proactive_actions" rows="2">${risk.proactive_actions || ''}</textarea></div>
                 <div class="col-12"><label class="form-label">الإجراءات الفورية</label><textarea class="form-control" name="immediate_actions" rows="2">${risk.immediate_actions || ''}</textarea></div>
+                
                 <div class="col-md-6"><label class="form-label">تاريخ إكمال الإجراءات</label><input type="date" class="form-control" name="target_completion_date" value="${risk.target_completion_date || ''}"></div>
                 <div class="col-md-6"><label class="form-label">فعالية الإجراءات</label><select class="form-select" name="action_effectiveness"><option value="">اختر...</option>${effectivenessOptions}</select></div>
                 <div class="col-md-6"><label class="form-label">ارتباط الخطر</label><select class="form-select" name="linked_risk_id"><option value="لا يوجد">لا يوجد</option>${linkedRiskOptions}</select></div>
                 <div class="col-md-6"><label class="form-label">الحالة</label><select class="form-select" name="status">${statusOptionsHtml}</select></div>
                 <div class="col-12"><label class="form-label">خطة استعادة العمل</label><textarea class="form-control" name="business_continuity_plan" rows="3">${risk.business_continuity_plan || ''}</textarea></div>
+                
                 <div class="col-12 secondary-risk-button-container" id="secondary-risk-container"></div>
                 <div class="col-12"><label class="form-label">إرفاق ملف (اختياري)</label><input class="form-control" type="file" name="attachment"></div>
                 <div class="col-12 lessons-learned-field"><label class="form-label">الدروس المستفادة</label><textarea class="form-control" name="lessons_learned" rows="3">${risk.lessons_learned || ''}</textarea></div>
@@ -528,5 +555,4 @@ function formatActionText(currentText, originalText) {
     }
 </script>
 {% endblock %}
-
 
