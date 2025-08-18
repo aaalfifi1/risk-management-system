@@ -640,11 +640,18 @@ def get_stats_api():
                 'score': r.probability * r.impact
             }
             for r in sorted(
-                [risk for risk in risks if risk.status != 'مغلق'], 
+                # --- [بداية التعديل] ---
+                # فلترة المخاطر لتشمل فقط "مرتفع" و "مرتفع جدا / كارثي"
+                [
+                    risk for risk in risks 
+                    if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']
+                ], 
+                # --- [نهاية التعديل] ---
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
         ][:5]
+
     }
     return jsonify({'success': True, 'stats': stats_data})
 
@@ -811,6 +818,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
