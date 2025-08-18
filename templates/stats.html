@@ -434,19 +434,31 @@
                         circumference: 180,
                         cutout: '40%',
                         plugins: {
-                            legend: { 
+                        legend: { 
                                 display: true,
                                 position: 'top',
                                 labels: {
                                     color: '#fff',
+                                    // --- [بداية التعديل] ---
+                                    // استخدام صندوق نصي واحد بدلاً من توليد مربعات ملونة
+                                    boxWidth: 0, // إخفاء الصندوق الملون
+                                    boxHeight: 0,
+                                    padding: 10,
+                                    font: {
+                                        size: 14 // يمكنك التحكم بحجم الخط
+                                    },
                                     generateLabels: function(chart) {
-                                        return [
-                                            { text: 'فرص', fillStyle: 'rgba(25, 135, 84, 0.7)', strokeStyle: 'rgba(25, 135, 84, 1)', lineWidth: 1, hidden: false, index: 0 },
-                                            { text: 'تهديدات', fillStyle: 'rgba(220, 53, 69, 0.7)', strokeStyle: 'rgba(220, 53, 69, 1)', lineWidth: 1, hidden: false, index: 1 }
-                                        ];
+                                        // نولد عنصر واحد فقط ليعرض النص المدمج
+                                        return [{
+                                            text: 'فرص | تهديدات',
+                                            fillStyle: 'transparent', // نجعله شفافاً
+                                            strokeStyle: 'transparent'
+                                        }];
                                     }
+                                    // --- [نهاية التعديل] ---
                                 }
                             },
+
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
@@ -495,3 +507,4 @@
         });
     </script>
 {% endblock %}
+
