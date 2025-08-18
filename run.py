@@ -11,10 +11,9 @@ from datetime import datetime, timedelta
 import os
 import csv
 import io
+from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-# --- [تعديل جديد] ---
-from collections import Counter
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -36,7 +35,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات ---
+# --- نماذج قاعدة البيانات (لا تغيير هنا) ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -93,7 +92,7 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- دوال مساعدة ---
+# --- دوال مساعدة (لا تغيير هنا) ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -124,7 +123,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات ---
+# --- مسارات الصفحات (لا تغيير هنا) ---
 @app.route('/')
 @login_required
 def home():
@@ -196,7 +195,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV ---
+# --- دالة تصدير CSV (لا تغيير هنا) ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -239,7 +238,7 @@ def download_risk_log():
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API ---
+# --- دوال الـ API (لا تغيير هنا إلا في get_stats_api) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -519,11 +518,9 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
-# --- [تعديل جديد] ---
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
-    # هذا الجزء من الكود لم يتغير
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
@@ -569,10 +566,27 @@ def get_stats_api():
         except ValueError:
             continue
 
-    # --- [بداية التعديل الوحيد في هذه الدالة] ---
-    # حساب عدد المخاطر لكل حالة
     status_counts = Counter(r.status for r in risks)
-    # --- [نهاية التعديل الوحيد في هذه الدالة] ---
+
+    # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
+    overdue_risks_count = 0
+    on_time_risks_count = 0
+    today = datetime.utcnow().date()
+
+    # نحن نهتم فقط بالمخاطر التي لم تغلق بعد
+    active_risks = [r for r in risks if r.status != 'مغلق']
+
+    for risk in active_risks:
+        if risk.target_completion_date:
+            # إذا كان تاريخ الإكمال المستهدف في الماضي، فهو متأخر
+            if risk.target_completion_date.date() < today:
+                overdue_risks_count += 1
+            else:
+                on_time_risks_count += 1
+        else:
+            # إذا لم يكن هناك تاريخ مستهدف، نعتبره ملتزماً بالوقت افتراضياً
+            on_time_risks_count += 1
+    # --- [نهاية التعديل الجديد] ---
 
     stats_data = {
         'total_risks': total, 
@@ -593,14 +607,17 @@ def get_stats_api():
             'labels': risk_level_order,
             'datasets': by_level_nested
         },
-        # --- [تعديل جديد] إضافة بيانات الحالات إلى الاستجابة ---
         'by_status': {
             'labels': list(status_counts.keys()),
             'data': list(status_counts.values())
+        },
+        # --- [تعديل جديد] إضافة بيانات الالتزام بالوقت ---
+        'timeliness': {
+            'labels': ['ملتزم بالوقت', 'متأخر'],
+            'data': [on_time_risks_count, overdue_risks_count]
         }
     }
     return jsonify({'success': True, 'stats': stats_data})
-# --- [نهاية التعديل] ---
 
 @app.route('/api/notifications')
 @login_required
