@@ -7,7 +7,22 @@
         .stat-card:hover { transform: translateY(-5px); }
         .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
         .stat-icon { font-size: 3rem; opacity: 0.6; }
-        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 100%; }
+        
+        /* --- [تعديل] تحديد ارتفاع ثابت لحاويات الرسوم البيانية --- */
+        .chart-container { 
+            background-color: #273c5e; 
+            padding: 20px; 
+            border-radius: 15px; 
+            height: 420px; /* تحديد ارتفاع ثابت */
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-container canvas {
+            flex-grow: 1; /* جعل الكانفاس يملأ المساحة المتبقية */
+            min-height: 0; /* ضروري لـ flexbox في بعض المتصفحات */
+        }
+        /* --- نهاية التعديل --- */
+
         .card-title-white { color: #ffffff; font-weight: bold; }
         .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
         .stat-value-container { display: flex; align-items: baseline; }
@@ -17,7 +32,7 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
-        .split-doughnut-container { display: flex; align-items: center; justify-content: center; gap: 20px; }
+        .split-doughnut-container { display: flex; align-items: center; justify-content: center; gap: 20px; height: 100%; }
         .split-doughnut-label { font-size: 1.2rem; font-weight: bold; color: #fff; }
         .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
         body.tv-mode .sidebar, 
@@ -47,7 +62,7 @@
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
         </div>
 
-        <!-- --- [تعديل جديد] إعادة هيكلة الشبكة (Grid) للرسوم البيانية --- -->
+        <!-- الهيكل الشبكي للرسوم البيانية (لا تغيير هنا) -->
         <div class="row g-4">
             <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
@@ -71,7 +86,7 @@
                     <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                     <div class="split-doughnut-container">
                         <span class="split-doughnut-label">تهديدات</span>
-                        <div style="width: 300px; height: 300px;">
+                        <div style="position: relative; height:100%; width:100%">
                              <canvas id="levelChart"></canvas>
                         </div>
                         <span class="split-doughnut-label">فرص</span>
@@ -79,7 +94,6 @@
                 </div>
             </div>
         </div>
-        <!-- --- [نهاية التعديل] --- -->
     </div>
 {% endblock %}
 
@@ -89,8 +103,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        // لا يوجد أي تغيير في كود JavaScript
-        // سيعمل الكود الحالي بشكل سليم مع الهيكل الجديد
         document.addEventListener('DOMContentLoaded', function ( ) {
             const { jsPDF } = window.jspdf;
 
@@ -169,7 +181,7 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
+                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
                         plugins: {
                             legend: { position: 'top', labels: { color: '#fff' } },
                             tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
@@ -198,6 +210,8 @@
                     type: 'bubble',
                     data: { datasets: [ { label: 'تهديد', data: threatsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', radius: 8, hoverRadius: 12 }, { label: 'فرصة', data: opportunitiesData, backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: 'rgba(25, 135, 84, 1)', radius: 8, hoverRadius: 12 } ] },
                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
                         plugins: { legend: { position: 'top', padding: { bottom: 20 }, labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' } }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
                     }
@@ -215,6 +229,8 @@
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
+                        responsive: true,
+                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
                         scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
@@ -244,7 +260,7 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false,
+                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
                         rotation: -90,
                         circumference: 180,
                         cutout: '40%',
