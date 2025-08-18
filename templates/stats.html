@@ -446,16 +446,22 @@
                                     boxHeight: 0,
                                     padding: 10,
                                     font: {
-                                        size: 14,
+                                        size: 15,
                                         color: '#fff'
                                     },
                                     generateLabels: function(chart) {
+                                        // نولد عنصر واحد فقط ليعرض النص المدمج
                                         return [{
                                             text: 'فرص | تهديدات',
                                             fillStyle: 'transparent',
-                                            strokeStyle: 'transparent'
+                                            strokeStyle: 'transparent',
+                                            // --- [بداية التعديل] ---
+                                            // يجب تحديد لون الخط هنا مباشرةً
+                                            fontColor: '#fff' 
+                                            // --- [نهاية التعديل] ---
                                         }];
                                     }
+
                                 }
                             },
                             tooltip: {
@@ -506,3 +512,4 @@
         });
     </script>
 {% endblock %}
+
