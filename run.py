@@ -60,6 +60,8 @@ class Risk(db.Model):
     risk_location = db.Column(db.String(100), nullable=True)
     proactive_actions = db.Column(db.Text, nullable=True)
     immediate_actions = db.Column(db.Text, nullable=True)
+    proactive_actions_original = db.Column(db.Text, nullable=True)
+    immediate_actions_original = db.Column(db.Text, nullable=True)
     target_completion_date = db.Column(db.DateTime, nullable=True)
     action_effectiveness = db.Column(db.String(50), nullable=True)
     status = db.Column(db.String(50), default='جديد', nullable=False)
@@ -704,4 +706,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
