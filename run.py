@@ -633,6 +633,22 @@ def get_stats_api():
             'data': [on_time_risks_count, overdue_risks_count]
         }
     }
+  # --- [بداية التعديل الجديد] ---
+        'top_risks': [
+            {
+                'code': r.risk_code,
+                'title': r.title,
+                'level': r.risk_level,
+                'score': r.probability * r.impact  # لحساب درجة الخطورة
+            }
+            # فرز تنازلي حسب درجة الخطورة، ثم حسب تاريخ الإنشاء الأقدم في حال التساوي
+            for r in sorted(
+                [risk for risk in risks if risk.status != 'مغلق'], 
+                key=lambda x: (x.probability * x.impact, x.created_at), 
+                reverse=True
+            )
+        ][:5] # نأخذ أعلى 5 فقط
+        # --- [نهاية التعديل الجديد] ---
     return jsonify({'success': True, 'stats': stats_data})
 
 @app.route('/api/notifications')
@@ -796,5 +812,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
