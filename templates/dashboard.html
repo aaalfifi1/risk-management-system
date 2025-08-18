@@ -36,7 +36,7 @@
         .risk-type-threat { color: #dc3545; font-weight: bold; }
         .risk-type-opportunity { color: #198754; font-weight: bold; }
         .risk-type-icon { margin-right: 5px; }
-
+        .text-updated { color: #dc3545 !important; font-weight: bold; }
         .table .col-description,
         .table .col-proactive,
         .table .col-actions,
@@ -197,8 +197,39 @@
             if (data.success) return data;
             showToast('فشل تحميل البيانات.', 'error');
             return null;
-        } catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
+      // ... (الكود السابق)
+} catch (error) { showToast('خطأ في الاتصال بالخادم.', 'error'); return null; }
+}
+
+// ▼▼▼ [أضف الدالة الجديدة هنا] ▼▼▼
+function formatActionText(currentText, originalText) {
+    if (!currentText) return '';
+    // إذا لم يكن هناك نص أصلي محفوظ، فهذا يعني أن النص الحالي كله جديد
+    if (!originalText) {
+        return `<span class="text-updated">${currentText.replace(/\n/g, '  
+')}</span>`;
     }
+    // إذا كان النص الحالي مطابقاً للنص الأصلي، فلا يوجد شيء جديد
+    if (currentText === originalText) {
+        return currentText.replace(/\n/g, '  
+');
+    }
+    // إذا كان النص الحالي يبدأ بالنص الأصلي، فهذا يعني أن هناك إضافة
+    if (currentText.startsWith(originalText)) {
+        const originalPart = originalText.replace(/\n/g, '  
+');
+        const updatedPart = `<span class="text-updated">${currentText.substring(originalText.length).replace(/\n/g, '  
+')}</span>`;
+        return originalPart + updatedPart;
+    }
+    // إذا كان النص مختلفاً تماماً، اعتبره كله جديداً
+    return `<span class="text-updated">${currentText.replace(/\n/g, '  
+')}</span>`;
+}
+// ▲▲▲ [نهاية الإضافة] ▲▲▲
+
+function renderRisks(risksToRender) {
+// ... (الكود اللاحق)
 
     function renderRisks(risksToRender) {
         const risksTableBody = document.getElementById('risks-table-body');
@@ -240,11 +271,12 @@
                 <td>${risk.category || ''}</td>
                 <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
                 <td>${risk.owner || ''}</td>
-                <td class="col-proactive">${(risk.proactive_actions || '').replace(/\n/g, '  
-')}</td>
-                <td class="col-actions">${(risk.immediate_actions || '').replace(/\n/g, '  
-')}</td>
+               // ... (الكود السابق)
+                <td class="col-proactive">${formatActionText(risk.proactive_actions, risk.proactive_actions_original)}</td>
+                <td class="col-actions">${formatActionText(risk.immediate_actions, risk.immediate_actions_original)}</td>
                 <td class="col-completion-date">${risk.target_completion_date || ''}</td>
+                // ... (الكود اللاحق)
+
                 <td>${risk.action_effectiveness || ''}</td>
                 <td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td>
                 <td>${risk.status || ''}</td>
@@ -498,3 +530,4 @@
     }
 </script>
 {% endblock %}
+
