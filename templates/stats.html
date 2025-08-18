@@ -111,20 +111,37 @@
 
         <!-- هيكل الشبكة (Grid) للرسوم البيانية -->
         <div class="row g-4">
-            <!-- العمود الأيمن -->
+                       <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                     <canvas id="matrixChart"></canvas>
                 </div>
-                <!-- --- [بداية التعديل الجديد] إضافة قائمة المراقبة هنا --- -->
-                <div class="watchlist-container">
-                    <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة (الأعلى خطورة)</h5>
-                    <div id="watchlist-body" class="flex-grow-1">
-                        <!-- سيتم ملء القائمة هنا بواسطة JavaScript -->
+                <!-- --- [بداية التعديل] --- -->
+                <!-- صف جديد مقسوم بين قائمة المراقبة والرسم المفقود -->
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="watchlist-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة</h5>
+                            <div id="watchlist-body" class="flex-grow-1 overflow-auto">
+                                <!-- سيتم ملء القائمة هنا -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع</h5>
+                            <div class="split-doughnut-container">
+                                <span class="split-doughnut-label">تهديدات</span>
+                                <div style="position: relative; height:100%; width:100%">
+                                     <canvas id="levelChart"></canvas>
+                                </div>
+                                <span class="split-doughnut-label">فرص</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <!-- --- [نهاية التعديل الجديد] --- -->
+                <!-- --- [نهاية التعديل] --- -->
             </div>
 
             <!-- العمود الأيسر -->
@@ -410,3 +427,4 @@
         });
     </script>
 {% endblock %}
+
