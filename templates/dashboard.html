@@ -55,12 +55,6 @@
         .table .col-linked-risk {
             min-width: 150px;
         }
-
-        /* --- ▼▼▼ [التعديلات الجديدة للفكرة الذكية] ▼▼▼ --- */
-        .editable-cell { cursor: pointer; }
-        .text-updated { color: #dc3545 !important; font-weight: bold; }
-        /* --- ▲▲▲ [نهاية التعديلات الجديدة] ▲▲▲ --- */
-
     </style>
 {% endblock %}
 
@@ -131,53 +125,18 @@
     let allRiskCodes = [];
     let statusOptions = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق'];
 
-    // --- ▼▼▼ [الكود الجديد للفكرة الذكية] ▼▼▼ ---
-    function prepareMiniEditModal(riskId, fieldToEdit) {
-        const riskModalElement = document.getElementById('riskModal');
-        const riskModal = bootstrap.Modal.getInstance(riskModalElement) || new bootstrap.Modal(riskModalElement);
-        const risk = allRisks.find(r => r.id == riskId);
-        if (!risk) return;
-
-        // نستدعي دالة التعديل العادية لتبني لنا النموذج أولاً
-        prepareEditModal(riskId, riskModal);
-
-        // ننتظر قليلاً جداً (200 ميلي ثانية) لنضمن أن النموذج قد تم بناؤه في الخلفية
-        setTimeout(() => {
-            // نغير العنوان ونخفي كل الحقول
-            document.getElementById('riskModalLabel').textContent = 'إضافة إجراءات تصحيحية';
-            const allFormFields = document.querySelectorAll('#risk-form-fields > div');
-            allFormFields.forEach(field => field.style.display = 'none');
-
-            // نظهر فقط الحقل الذي نريده (حقل الإجراءات)
-            const targetTextarea = document.querySelector(`#risk-form-fields textarea[name="${fieldToEdit}"]`);
-            if (targetTextarea) {
-                const wrapperDiv = targetTextarea.closest('.col-12');
-                wrapperDiv.style.display = 'block';
-                
-                // نجهز النص ونضع المؤشر في النهاية
-                const originalText = risk[fieldToEdit] || '';
-                const separator = '\n\n--- إجراءات تصحيحية إضافية ---\n';
-                targetTextarea.value = originalText + separator;
-                targetTextarea.focus();
-                targetTextarea.selectionStart = targetTextarea.selectionEnd = targetTextarea.value.length;
-            }
-        }, 200); 
-    }
-    
-    // --- [دالة جديدة خاصة بالتنبيهات تم نقلها من base.html] ---
-    // هذه الدالة الآن موجودة هنا فقط لتجنب أي تعارض
-    async function markNotificationAsRead(riskId = null) {
-        try {
-            await fetch('/api/notifications/mark-as-read', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ risk_id: riskId }) });
-        } catch (error) { console.error("Failed to mark as read:", error); }
-    }
-    // --- ▲▲▲ [نهاية الكود الجديد] ▲▲▲
-
     document.addEventListener('DOMContentLoaded', function() {
         const riskForm = document.getElementById('riskForm');
         const riskModalElement = document.getElementById('riskModal');
         const riskModal = new bootstrap.Modal(riskModalElement);
-        document.querySelector('.btn-add-risk').addEventListener('click', () => prepareAddModal(riskModal));
+
+        // --- ▼▼▼ [الإصلاح الحاسم هنا] ▼▼▼ ---
+        // لقد قمنا بتعديل هذا السطر لضمان أن دالة بناء الحقول تعمل دائماً
+        document.querySelector('.btn-add-risk').addEventListener('click', () => {
+            prepareAddModal(riskModal);
+        });
+        // --- ▲▲▲ [نهاية الإصلاح الحاسم] ▲▲▲
+
         riskForm.addEventListener('submit', (event) => handleFormSubmit(event, riskModal));
         
         const downloadBtn = document.getElementById('download-csv-btn');
@@ -190,27 +149,15 @@
             const contextMenu = document.getElementById('contextMenu');
             let currentRiskId = null;
 
-            // حدث النقر العادي (للتنبيهات)
             risksTableBody.addEventListener('click', function(event) {
                 const row = event.target.closest('tr');
                 if (isAdmin && row && row.classList.contains('table-row-new')) {
                     const riskId = row.dataset.riskId;
-                    markNotificationAsRead(riskId); // استدعاء الدالة المحلية
+                    if (window.markNotificationAsRead) { window.markNotificationAsRead(riskId); }
                     row.classList.remove('table-row-new', 'admin-can-click');
                 }
             });
 
-            // حدث النقر المزدوج (للفكرة الجديدة)
-            risksTableBody.addEventListener('dblclick', function(event) {
-                const cell = event.target.closest('.editable-cell');
-                if (cell && isAdmin) {
-                    const riskId = cell.closest('tr').dataset.riskId;
-                    const field = cell.dataset.field;
-                    prepareMiniEditModal(riskId, field);
-                }
-            });
-
-            // حدث النقر بالزر الأيمن (للقائمة)
             risksTableBody.addEventListener('contextmenu', function(event) {
                 event.preventDefault();
                 const row = event.target.closest('tr');
@@ -283,24 +230,6 @@
                 riskTypeHtml = `<span class="risk-type-threat"><i class="bi bi-graph-down-arrow risk-type-icon"></i>تهديد</span>`;
             }
 
-            // دالة تلوين النص الجديد
-            function formatActionText(text) {
-                if (!text) return '';
-                const separator = '--- إجراءات تصحيحية إضافية ---';
-                if (text.includes(separator)) {
-                    const parts = text.split(separator);
-                    const originalPart = parts[0].replace(/\n/g, '  
-');
-                    const updatedPart = `<span class="text-updated">${(separator + parts[1]).replace(/\n/g, '  
-')}</span>`;
-                    return originalPart + updatedPart;
-                }
-                return text.replace(/\n/g, '  
-');
-            }
-            const proactiveActionsHtml = formatActionText(risk.proactive_actions);
-            const immediateActionsHtml = formatActionText(risk.immediate_actions);
-
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
                 <td class="col-creation-date">${gregorianDate}</td>
@@ -311,8 +240,10 @@
                 <td>${risk.category || ''}</td>
                 <td><span class="badge" style="background-color: ${riskLevelColor};">${risk.risk_level || ''}</span></td>
                 <td>${risk.owner || ''}</td>
-                <td class="col-proactive editable-cell" data-field="proactive_actions">${proactiveActionsHtml}</td>
-                <td class="col-actions editable-cell" data-field="immediate_actions">${immediateActionsHtml}</td>
+                <td class="col-proactive">${(risk.proactive_actions || '').replace(/\n/g, '  
+')}</td>
+                <td class="col-actions">${(risk.immediate_actions || '').replace(/\n/g, '  
+')}</td>
                 <td class="col-completion-date">${risk.target_completion_date || ''}</td>
                 <td>${risk.action_effectiveness || ''}</td>
                 <td class="col-linked-risk">${risk.linked_risk_id || 'لا يوجد'}</td>
@@ -460,7 +391,6 @@
         document.getElementById('riskModalLabel').textContent = title;
         document.getElementById('riskId').value = '';
         generateFormFields(userRole, riskData);
-        document.querySelectorAll('#risk-form-fields > div').forEach(field => field.style.display = 'block');
         modalInstance.show();
     }
 
@@ -471,7 +401,6 @@
             document.getElementById('riskModalLabel').textContent = 'تعديل الخطر';
             document.getElementById('riskId').value = risk.id;
             generateFormFields(userRole, risk);
-            document.querySelectorAll('#risk-form-fields > div').forEach(field => field.style.display = 'block');
             modalInstance.show();
         }
     }
