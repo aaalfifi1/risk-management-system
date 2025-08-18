@@ -13,6 +13,8 @@ import csv
 import io
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+# --- [تعديل جديد] ---
+from collections import Counter
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -222,7 +224,6 @@ def download_risk_log():
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
         created_at_ksa = risk.created_at + timedelta(hours=3)
         
-        # [-- تعديل جديد --] تنظيف النص قبل التصدير
         proactive_cleaned = (risk.proactive_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
         immediate_cleaned = (risk.immediate_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
 
@@ -323,20 +324,16 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
-        # [-- تعديل جديد --] الحفاظ على الإجراءات التحسينية عند التعديل من النافذة الرئيسية
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
         def preserve_improvements(old_value, new_value_from_form):
             if old_value and IMPROVEMENT_SEPARATOR in old_value:
                 parts = old_value.split(IMPROVEMENT_SEPARATOR)
-                # النص الجديد من الفورم هو النص الأصلي المحدث
-                # نحافظ على النص التحسيني القديم
                 return f"{new_value_from_form}{IMPROVEMENT_SEPARATOR}{parts[1]}"
             return new_value_from_form
 
         risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
         risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
-        # -- نهاية التعديل --
 
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
@@ -389,7 +386,6 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-# [-- تعديل جديد --] إضافة مسار جديد لتحديث الإجراءات التحسينية فقط
 @app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
 @login_required
 def update_risk_action(risk_id):
@@ -407,17 +403,13 @@ def update_risk_action(risk_id):
 
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
-        # الحصول على النص الأصلي من قاعدة البيانات
         current_db_value = getattr(risk, field_to_update) or ""
         original_text = current_db_value.split(IMPROVEMENT_SEPARATOR)[0]
 
-        # بناء القيمة الجديدة: النص الأصلي + الفاصل + النص التحسيني الجديد
-        # هذا يضمن أننا نعدل فقط على النص التحسيني
         final_value = f"{original_text}{IMPROVEMENT_SEPARATOR}{new_value}"
         
         setattr(risk, field_to_update, final_value)
         
-        # تحديث حالة "تم التعديل" وإرسال إشعار
         if current_user.username != 'admin':
             risk.is_read = False
             risk.was_modified = True
@@ -434,7 +426,6 @@ def update_risk_action(risk_id):
         db.session.rollback()
         print(f"An error occurred in update_risk_action: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
-# -- نهاية التعديل --
 
 @app.route('/api/risks', methods=['GET'])
 @login_required
@@ -528,9 +519,11 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
+# --- [تعديل جديد] ---
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
+    # هذا الجزء من الكود لم يتغير
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
@@ -576,6 +569,11 @@ def get_stats_api():
         except ValueError:
             continue
 
+    # --- [بداية التعديل الوحيد في هذه الدالة] ---
+    # حساب عدد المخاطر لكل حالة
+    status_counts = Counter(r.status for r in risks)
+    # --- [نهاية التعديل الوحيد في هذه الدالة] ---
+
     stats_data = {
         'total_risks': total, 
         'active_risks': active, 
@@ -594,9 +592,15 @@ def get_stats_api():
         'by_level_nested': {
             'labels': risk_level_order,
             'datasets': by_level_nested
+        },
+        # --- [تعديل جديد] إضافة بيانات الحالات إلى الاستجابة ---
+        'by_status': {
+            'labels': list(status_counts.keys()),
+            'data': list(status_counts.values())
         }
     }
     return jsonify({'success': True, 'stats': stats_data})
+# --- [نهاية التعديل] ---
 
 @app.route('/api/notifications')
 @login_required
