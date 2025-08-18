@@ -524,22 +524,27 @@ def get_stats_api():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
+
     # --- [بداية التعديل الجديد] ---
-    # قراءة بارامترات الفلترة من الطلب
+    # التعامل مع الفلاتر القادمة من الواجهة
     filter_category = request.args.get('category')
     filter_level = request.args.get('level')
-    filter_status = request.args.get('status')
     filter_type = request.args.get('type')
+    filter_status = request.args.get('status')
+    filter_code = request.args.get('code') # <-- هذا هو الفلتر الجديد
 
-    # تطبيق الفلاتر على الاستعلام إذا كانت موجودة
     if filter_category:
         query = query.filter(Risk.category == filter_category)
     if filter_level:
         query = query.filter(Risk.risk_level == filter_level)
-    if filter_status:
-        query = query.filter(Risk.status == filter_status)
     if filter_type:
         query = query.filter(Risk.risk_type == filter_type)
+    if filter_status:
+        query = query.filter(Risk.status == filter_status)
+    if filter_code:
+        query = query.filter(Risk.risk_code == filter_code) # <-- تطبيق الفلتر الجديد
+    # --- [نهاية التعديل الجديد] ---
+
     # --- [نهاية التعديل الجديد] ---
     risks = query.all()
     total = len(risks)
@@ -818,6 +823,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
