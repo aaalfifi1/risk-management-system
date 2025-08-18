@@ -195,24 +195,19 @@ def logout():
     return redirect(url_for('login'))
 
 # --- دالة تصدير CSV ---
-# ▼▼▼ [التعديل الوحيد في هذا الملف] ▼▼▼
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
     if current_user.username not in ['admin', 'testuser']:
         abort(403)
     
-    # بناء الاستعلام الأساسي
     query = Risk.query.filter_by(is_deleted=False)
 
-    # تطبيق فلترة الصلاحيات
     if current_user.username != 'admin':
         query = query.filter_by(user_id=current_user.id)
 
-    # جلب البيانات بالترتيب
     risks = query.order_by(Risk.created_at.asc()).all()
 
-    # باقي الكود يبقى كما هو
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     headers = [
@@ -226,10 +221,15 @@ def download_risk_log():
         reporter_username = risk.user.username if risk.user else 'N/A'
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
         created_at_ksa = risk.created_at + timedelta(hours=3)
+        
+        # [-- تعديل جديد --] تنظيف النص قبل التصدير
+        proactive_cleaned = (risk.proactive_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
+        immediate_cleaned = (risk.immediate_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
+
         writer.writerow([
             risk.risk_code or risk.id, risk.title, risk.description, risk.category, risk.probability, 
             risk.impact, risk.risk_level, risk.status, risk.owner, risk.risk_location, 
-            risk.proactive_actions, risk.immediate_actions, completion_date, risk.action_effectiveness, 
+            proactive_cleaned, immediate_cleaned, completion_date, risk.action_effectiveness, 
             risk.residual_risk, risk.linked_risk_id, risk.business_continuity_plan, risk.lessons_learned, 
             created_at_ksa.strftime('%Y-%m-%d %H:%M:%S'),
             reporter_username
@@ -237,7 +237,6 @@ def download_risk_log():
     final_output = output.getvalue().encode('utf-8-sig')
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
-# ▲▲▲ [نهاية التعديل الوحيد] ▲▲▲
 
 # --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
@@ -305,7 +304,7 @@ def add_risk():
             if admin_user and admin_user.email:
                 subject = f"بلاغ خطر جديد: {new_risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بنشاط جديد في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>تم تسجيل نشاط جديد من قبل المستخدم: <strong>{current_user.username}</strong></p><hr><h3>تفاصيل الخطر:</h3><ul><li><strong>كود الخطر:</strong> {new_risk.risk_code}</li><li><strong>الوصف:</strong> {new_risk.description}</li><li><strong>الموقع:</strong> {new_risk.risk_location}</li></ul><hr><p>الرجاء الدخول إلى النظام لمراجعة التفاصيل واتخاذ الإجراء اللازم.</p><p>شكراً لك.</p></div>"
-                send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
+                send_email(to_email=admin_user.email, subject=subject,html_content=html_content)
         
         message = 'تم إرسال بلاغك بنجاح. شكراً لك!' if user_role == 'reporter' else 'تمت إضافة الخطر بنجاح'
         return jsonify({'success': True, 'message': message}), 201
@@ -324,8 +323,21 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
-        risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
-        risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
+        # [-- تعديل جديد --] الحفاظ على الإجراءات التحسينية عند التعديل من النافذة الرئيسية
+        IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
+        
+        def preserve_improvements(old_value, new_value_from_form):
+            if old_value and IMPROVEMENT_SEPARATOR in old_value:
+                parts = old_value.split(IMPROVEMENT_SEPARATOR)
+                # النص الجديد من الفورم هو النص الأصلي المحدث
+                # نحافظ على النص التحسيني القديم
+                return f"{new_value_from_form}{IMPROVEMENT_SEPARATOR}{parts[1]}"
+            return new_value_from_form
+
+        risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
+        risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
+        # -- نهاية التعديل --
+
         prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
         
@@ -376,6 +388,53 @@ def update_risk(risk_id):
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+
+# [-- تعديل جديد --] إضافة مسار جديد لتحديث الإجراءات التحسينية فقط
+@app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
+@login_required
+def update_risk_action(risk_id):
+    try:
+        risk = Risk.query.get_or_404(risk_id)
+        if current_user.username != 'admin' and risk.user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
+
+        data = request.get_json()
+        field_to_update = data.get('field')
+        new_value = data.get('value')
+
+        if field_to_update not in ['proactive_actions', 'immediate_actions']:
+            return jsonify({'success': False, 'message': 'حقل غير صالح للتحديث'}), 400
+
+        IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
+        
+        # الحصول على النص الأصلي من قاعدة البيانات
+        current_db_value = getattr(risk, field_to_update) or ""
+        original_text = current_db_value.split(IMPROVEMENT_SEPARATOR)[0]
+
+        # بناء القيمة الجديدة: النص الأصلي + الفاصل + النص التحسيني الجديد
+        # هذا يضمن أننا نعدل فقط على النص التحسيني
+        final_value = f"{original_text}{IMPROVEMENT_SEPARATOR}{new_value}"
+        
+        setattr(risk, field_to_update, final_value)
+        
+        # تحديث حالة "تم التعديل" وإرسال إشعار
+        if current_user.username != 'admin':
+            risk.is_read = False
+            risk.was_modified = True
+
+        log_details = f"إضافة/تعديل إجراء تحسيني في حقل '{field_to_update}' للخطر بكود: '{risk.risk_code}'"
+        log_entry = AuditLog(user_id=current_user.id, action='إجراء تحسيني', details=log_details, risk_id=risk.id)
+        db.session.add(log_entry)
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'تم تحديث الإجراء بنجاح', 'newValue': final_value})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"An error occurred in update_risk_action: {e}")
+        return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+# -- نهاية التعديل --
 
 @app.route('/api/risks', methods=['GET'])
 @login_required
@@ -469,7 +528,6 @@ def delete_attachment(risk_id):
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
-# --- [التعديل الوحيد في هذا الملف] ---
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
@@ -493,7 +551,6 @@ def get_stats_api():
     active_percentage = (active / total * 100) if total > 0 else 0
     closed_percentage = (closed / total * 100) if total > 0 else 0
     
-    # --- [تعديل] تجهيز البيانات للرسم البياني المُكدَّس ---
     risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
     categories = sorted(list(set(r.category for r in risks if r.category)))
     by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
@@ -505,7 +562,6 @@ def get_stats_api():
             except ValueError:
                 continue
 
-    # --- [تعديل] تجهيز البيانات للرسم البياني المُتداخل ---
     by_level_nested = {
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
@@ -531,7 +587,6 @@ def get_stats_api():
         'threats_percentage': threats_percentage,
         'opportunities_percentage': opportunities_percentage,
         'matrix_data': matrix_data,
-        # --- إضافة البيانات الجديدة للرسوم المطورة ---
         'by_category_stacked': {
             'labels': categories,
             'datasets': by_category_stacked
