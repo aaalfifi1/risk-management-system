@@ -43,7 +43,28 @@
         .table .col-title { min-width: 220px; }
         .table .col-creation-date, .table .col-completion-date, .table .col-linked-risk { min-width: 150px; }
         .editable-field { position: relative; padding-top: 5px; }
-        .edit-action-btn { display: none; position: absolute; top: 5px; left: 5px; cursor: pointer; font-size: 0.8rem; padding: 2px 6px; }
+        /* --- [تعديل] تحسين شكل وموضع قلم التعديل --- */
+        .edit-action-btn {
+    display: none; 
+    position: absolute;
+    top: 2px;      /* تحريكه للأعلى قليلاً */
+    left: 2px;     /* تحريكه لليسار قليلاً */
+    cursor: pointer;
+    font-size: 0.75rem; /* تصغير حجم الأيقونة */
+    padding: 1px 4px;   /* تصغير الحواف الداخلية */
+    border-radius: 3px; /* جعل الحواف أكثر نعومة */
+    color: var(--dark-blue); /* لون الأيقونة (النص) */
+    background-color: var(--accent-yellow); /* لون الخلفية أصفر */
+    opacity: 0.8; /* جعله شبه شفاف قليلاً */
+    transition: opacity 0.2s; /* إضافة تأثير عند مرور الماوس */
+}
+
+.editable-field:hover .edit-action-btn {
+    display: inline-block;
+    opacity: 1; /* إظهاره بشكل كامل عند مرور الماوس */
+}
+/* --- نهاية التعديل --- */
+
         .editable-field:hover .edit-action-btn { display: inline-block; }
         .improvement-text { color: #dc3545; font-weight: bold; display: block; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ff00004a; }
         .inline-edit-area { display: none; width: 100%; }
@@ -536,4 +557,5 @@
     }
 </script>
 {% endblock %}
+
 
