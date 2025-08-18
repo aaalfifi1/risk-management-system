@@ -8,20 +8,18 @@
         .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
         .stat-icon { font-size: 3rem; opacity: 0.6; }
         
-        /* --- [تعديل] تحديد ارتفاع ثابت لحاويات الرسوم البيانية --- */
         .chart-container { 
             background-color: #273c5e; 
             padding: 20px; 
             border-radius: 15px; 
-            height: 420px; /* تحديد ارتفاع ثابت */
+            height: 420px; 
             display: flex;
             flex-direction: column;
         }
         .chart-container canvas {
-            flex-grow: 1; /* جعل الكانفاس يملأ المساحة المتبقية */
-            min-height: 0; /* ضروري لـ flexbox في بعض المتصفحات */
+            flex-grow: 1;
+            min-height: 0;
         }
-        /* --- نهاية التعديل --- */
 
         .card-title-white { color: #ffffff; font-weight: bold; }
         .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
@@ -62,7 +60,7 @@
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
         </div>
 
-        <!-- الهيكل الشبكي للرسوم البيانية (لا تغيير هنا) -->
+        <!-- --- [تعديل جديد] إعادة هيكلة الشبكة (Grid) للرسوم البيانية --- -->
         <div class="row g-4">
             <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
@@ -71,19 +69,15 @@
                     <canvas id="matrixChart"></canvas>
                 </div>
                 <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">توزيع المخاطر حسب الحالة</h5>
-                    <canvas id="statusPieChart"></canvas>
+                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
+                    <canvas id="categoryChart"></canvas>
                 </div>
             </div>
 
             <!-- العمود الأيسر -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
-                    <canvas id="categoryChart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
+                    <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع</h5>
                     <div class="split-doughnut-container">
                         <span class="split-doughnut-label">تهديدات</span>
                         <div style="position: relative; height:100%; width:100%">
@@ -92,8 +86,24 @@
                         <span class="split-doughnut-label">فرص</span>
                     </div>
                 </div>
+                <!-- الصف الجديد للتحليلات السريعة -->
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">توزيع الحالات</h5>
+                            <canvas id="statusPieChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">الالتزام بالوقت</h5>
+                            <canvas id="timelinessChart"></canvas>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
+        <!-- --- [نهاية التعديل] --- -->
     </div>
 {% endblock %}
 
@@ -116,11 +126,12 @@
             const tvModeButton = document.getElementById('tv-mode');
             let tvModeInterval = null;
 
-            let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance;
+            let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance, timelinessChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
             const statusPieCtx = document.getElementById('statusPieChart').getContext('2d');
+            const timelinessCtx = document.getElementById('timelinessChart').getContext('2d'); // <-- الجديد
             
             const riskLevelColors = { 'مرتفع جدا / كارثي': '#dc3545', 'مرتفع': '#fd7e14', 'متوسط': '#ffc107', 'منخفض': '#90EE90', 'منخفض جدا': '#198754' };
 
@@ -169,6 +180,50 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
+            // --- [دالة جديدة] لرسم مخطط الالتزام بالوقت ---
+            function renderTimelinessChart(timelinessData) {
+                if (timelinessChartInstance) timelinessChartInstance.destroy();
+                timelinessChartInstance = new Chart(timelinessCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: timelinessData.labels,
+                        datasets: [{
+                            label: 'عدد المخاطر',
+                            data: timelinessData.data,
+                            backgroundColor: ['#198754', '#dc3545'], // أخضر للملتزم، أحمر للمتأخر
+                            borderColor: '#273c5e',
+                            borderWidth: 2,
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // جعل المخطط أفقي
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { ticks: { color: '#fff', stepSize: 1 } },
+                            y: { ticks: { color: '#fff' } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (context) => ` عدد المخاطر: ${context.raw}`
+                                }
+                            },
+                            datalabels: {
+                                display: true,
+                                anchor: 'end',
+                                align: 'end',
+                                color: '#fff',
+                                font: { weight: 'bold' },
+                                formatter: (value) => value > 0 ? value : ''
+                            }
+                        }
+                    }
+                });
+            }
+
             function renderStatusPieChart(statusData) {
                 if (statusPieChartInstance) statusPieChartInstance.destroy();
                 const statusColors = { 'جديد': '#0dcaf0', 'تحت المراجعة': '#6c757d', 'نشط': '#ffc107', 'مُراقب': '#fd7e14', 'مُصعَّد': '#dc3545', 'مغلق': '#198754' };
@@ -181,16 +236,14 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
+                        maintainAspectRatio: false,
                         plugins: {
                             legend: { position: 'top', labels: { color: '#fff' } },
                             tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
                             datalabels: {
                                 display: true,
                                 formatter: (value, ctx) => {
-                                    let sum = 0;
-                                    let dataArr = ctx.chart.data.datasets[0].data;
-                                    dataArr.map(data => { sum += data; });
+                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                                     let percentage = (value*100 / sum).toFixed(1)+"%";
                                     return value > 0 ? percentage : '';
                                 },
@@ -211,7 +264,7 @@
                     data: { datasets: [ { label: 'تهديد', data: threatsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', radius: 8, hoverRadius: 12 }, { label: 'فرصة', data: opportunitiesData, backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: 'rgba(25, 135, 84, 1)', radius: 8, hoverRadius: 12 } ] },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
+                        maintainAspectRatio: false,
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
                         plugins: { legend: { position: 'top', padding: { bottom: 20 }, labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' } }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
                     }
@@ -230,7 +283,7 @@
                     data: { labels: categoryData.labels, datasets: datasets },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
+                        maintainAspectRatio: false,
                         scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
@@ -260,7 +313,7 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: false, // <-- [تعديل] التأكد من تعطيل هذا الخيار
+                        maintainAspectRatio: false,
                         rotation: -90,
                         circumference: 180,
                         cutout: '40%',
@@ -306,9 +359,11 @@
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
                 renderStatusPieChart(stats.by_status);
+                renderTimelinessChart(stats.timeliness); // <-- استدعاء الدالة الجديدة
             }
 
             fetchStats();
         });
     </script>
 {% endblock %}
+
