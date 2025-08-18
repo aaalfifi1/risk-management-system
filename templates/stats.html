@@ -38,6 +38,7 @@
     </div>
 
     <div id="dashboard-to-print">
+        <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">التهديدات</h5><div class="stat-value-container" id="threats-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-down-arrow stat-icon text-danger"></i></div></div></div>
@@ -46,31 +47,26 @@
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
         </div>
 
-        <div class="row g-4 mb-4">
-            <div class="col-lg-8">
+        <!-- --- [تعديل جديد] إعادة هيكلة الشبكة (Grid) للرسوم البيانية --- -->
+        <div class="row g-4">
+            <!-- العمود الأيمن -->
+            <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                     <canvas id="matrixChart"></canvas>
                 </div>
-            </div>
-            <!-- --- [تعديل جديد] إضافة حاوية للرسم البياني الدائري --- -->
-            <div class="col-lg-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">توزيع المخاطر حسب الحالة</h5>
                     <canvas id="statusPieChart"></canvas>
                 </div>
             </div>
-            <!-- --- [نهاية التعديل] --- -->
-        </div>
 
-        <div class="row g-4">
-            <div class="col-lg-6">
+            <!-- العمود الأيسر -->
+            <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
                     <canvas id="categoryChart"></canvas>
                 </div>
-            </div>
-            <div class="col-lg-6">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع ومستوى الخطورة</h5>
                     <div class="split-doughnut-container">
@@ -83,6 +79,7 @@
                 </div>
             </div>
         </div>
+        <!-- --- [نهاية التعديل] --- -->
     </div>
 {% endblock %}
 
@@ -92,33 +89,33 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
+        // لا يوجد أي تغيير في كود JavaScript
+        // سيعمل الكود الحالي بشكل سليم مع الهيكل الجديد
         document.addEventListener('DOMContentLoaded', function ( ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
             Chart.defaults.plugins.datalabels.display = false;
 
-            let allStatsData = {}; // <-- [تعديل] استخدام كائن واحد لتخزين كل بيانات الإحصائيات
+            let allStatsData = {};
             let isFiltered = false;
             const resetButton = document.getElementById('reset-filter');
             const exportButton = document.getElementById('export-pdf');
             const tvModeButton = document.getElementById('tv-mode');
             let tvModeInterval = null;
 
-            // --- [تعديل جديد] تعريف متغيرات الرسم البياني الجديد ---
             let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
             const levelCtx = document.getElementById('levelChart').getContext('2d');
             const matrixCtx = document.getElementById('matrixChart').getContext('2d');
-            const statusPieCtx = document.getElementById('statusPieChart').getContext('2d'); // <-- الجديد
-            // --- [نهاية التعديل] ---
-
+            const statusPieCtx = document.getElementById('statusPieChart').getContext('2d');
+            
             const riskLevelColors = { 'مرتفع جدا / كارثي': '#dc3545', 'مرتفع': '#fd7e14', 'متوسط': '#ffc107', 'منخفض': '#90EE90', 'منخفض جدا': '#198754' };
 
             resetButton.addEventListener('click', () => {
                 isFiltered = false;
                 resetButton.style.display = 'none';
-                updateDashboard(allStatsData); // <-- [تعديل] استخدام البيانات الكاملة
+                updateDashboard(allStatsData);
             });
 
             exportButton.addEventListener('click', () => {
@@ -149,7 +146,6 @@
 
             async function fetchStats() {
                 try {
-                    // --- [تعديل] استدعاء API الإحصائيات بدلاً من المخاطر ---
                     const response = await fetch('/api/stats');
                     const data = await response.json();
                     if (data.success) {
@@ -161,61 +157,22 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            function applyFilterAndRedraw(filterType, value) {
-                isFiltered = true;
-                resetButton.style.display = 'block';
-                // لا يمكن الفلترة حالياً لأننا لا نملك بيانات المخاطر الخام هنا
-                // هذه الميزة تحتاج لإعادة نظر في المستقبل إذا أردنا الحفاظ عليها
-                showToast('الفلترة غير مدعومة حالياً مع بنية البيانات الجديدة.', 'info');
-            }
-
-            // --- [تعديل جديد] دالة رسم المخطط الدائري للحالات ---
             function renderStatusPieChart(statusData) {
                 if (statusPieChartInstance) statusPieChartInstance.destroy();
-                
-                const statusColors = {
-                    'جديد': '#0dcaf0',
-                    'تحت المراجعة': '#6c757d',
-                    'نشط': '#ffc107',
-                    'مُراقب': '#fd7e14',
-                    'مُصعَّد': '#dc3545',
-                    'مغلق': '#198754'
-                };
-
+                const statusColors = { 'جديد': '#0dcaf0', 'تحت المراجعة': '#6c757d', 'نشط': '#ffc107', 'مُراقب': '#fd7e14', 'مُصعَّد': '#dc3545', 'مغلق': '#198754' };
                 const backgroundColors = statusData.labels.map(label => statusColors[label] || '#cccccc');
-
                 statusPieChartInstance = new Chart(statusPieCtx, {
                     type: 'pie',
                     data: {
                         labels: statusData.labels,
-                        datasets: [{
-                            label: 'عدد المخاطر',
-                            data: statusData.data,
-                            backgroundColor: backgroundColors,
-                            borderColor: '#273c5e',
-                            borderWidth: 2
-                        }]
+                        datasets: [{ label: 'عدد المخاطر', data: statusData.data, backgroundColor: backgroundColors, borderColor: '#273c5e', borderWidth: 2 }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: {
-                                position: 'top',
-                                labels: { color: '#fff' }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        let label = context.label || '';
-                                        if (label) { label += ': '; }
-                                        if (context.parsed !== null) {
-                                            label += context.parsed;
-                                        }
-                                        return label;
-                                    }
-                                }
-                            },
+                            legend: { position: 'top', labels: { color: '#fff' } },
+                            tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
                             datalabels: {
                                 display: true,
                                 formatter: (value, ctx) => {
@@ -257,17 +214,8 @@
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
                     data: { labels: categoryData.labels, datasets: datasets },
-                    options: { onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                const index = elements[0].index;
-                                const category = categoryChartInstance.data.labels[index];
-                                // applyFilterAndRedraw('category', category); // تم تعطيل الفلترة مؤقتاً
-                            }
-                        },
-                        scales: { 
-                            y: { stacked: true, ticks: { color: '#fff', display: false } }, 
-                            x: { stacked: true, ticks: { color: '#fff' } } 
-                        },
+                    options: {
+                        scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
                 });
@@ -295,13 +243,6 @@
                         datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 2, borderColor: '#273c5e' }]
                     },
                     options: {
-                        onClick: (event, elements) => {
-                            if (elements.length > 0) {
-                                const index = elements[0].index;
-                                const level = levelChartInstance.data.labels[index % levelData.labels.length];
-                                // applyFilterAndRedraw('level', level); // تم تعطيل الفلترة مؤقتاً
-                            }
-                        },
                         responsive: true,
                         maintainAspectRatio: false,
                         rotation: -90,
@@ -355,5 +296,3 @@
         });
     </script>
 {% endblock %}
-
-                        
