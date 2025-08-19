@@ -400,45 +400,102 @@ def update_risk(risk_id):
         print(f"An error occurred in update_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-@app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
+@app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
-def update_risk_action(risk_id):
+def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
-        if current_user.username != 'admin' and risk.user_id != current_user.id:
+        if current_user.username != 'admin' and risk.user_id != current_user.id: 
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
-
-        data = request.get_json()
-        field_to_update = data.get('field')
-        new_value = data.get('value')
-
-        if field_to_update not in ['proactive_actions', 'immediate_actions']:
-            return jsonify({'success': False, 'message': 'حقل غير صالح للتحديث'}), 400
-
+        
+        data = request.form
+        was_modified_before = risk.was_modified
+        
+        # [تصحيح مهم] تتبع الحالة القديمة والجديدة بشكل صحيح
+        old_status = risk.status
+        new_status = data.get('status', risk.status)
+        
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
-        current_db_value = getattr(risk, field_to_update) or ""
-        original_text = current_db_value.split(IMPROVEMENT_SEPARATOR)[0]
+        def preserve_improvements(old_value, new_value_from_form):
+            if old_value and IMPROVEMENT_SEPARATOR in old_value:
+                parts = old_value.split(IMPROVEMENT_SEPARATOR)
+                return f"{new_value_from_form}{IMPROVEMENT_SEPARATOR}{parts[1]}"
+            return new_value_from_form
 
-        final_value = f"{original_text}{IMPROVEMENT_SEPARATOR}{new_value}"
+        risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
+        risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
+
+        prob = int(data.get('probability', risk.probability))
+        imp = int(data.get('impact', risk.impact))
+        effectiveness = data.get('action_effectiveness', risk.action_effectiveness)
+        residual = calculate_residual_risk(effectiveness)
         
-        setattr(risk, field_to_update, final_value)
+        risk.title = data.get('title', risk.title)
+        risk.description = data.get('description', risk.description)
+        risk.risk_type = data.get('risk_type', risk.risk_type)
+        risk.category = data.get('category', risk.category)
+        risk.probability = prob
+        risk.impact = imp
+        risk.risk_level = calculate_risk_level(prob, imp)
+        risk.owner = data.get('owner', risk.owner)
+        risk.risk_location = data.get('risk_location', risk.risk_location)
+        risk.action_effectiveness = effectiveness
+        risk.status = new_status  # استخدام الحالة الجديدة
+        risk.residual_risk = residual
+        risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
+        # [تصحيح مهم] تسجيل تاريخ الإغلاق عند تغيير الحالة إلى "مغلق"
+        if new_status == 'مغلق' and old_status != 'مغلق':
+            risk.closed_at = datetime.utcnow()
+        elif new_status != 'مغلق':
+            risk.closed_at = None
+
+        target_date = None
+        if data.get('target_completion_date'):
+            try:
+                target_date = datetime.strptime(data.get('target_completion_date'), '%Y-%m-%d')
+            except (ValueError, TypeError):
+                target_date = None
+        risk.target_completion_date = target_date
+        
+        risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
+        
+        linked_risk_value = data.get('linked_risk_id')
+        risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
+
         if current_user.username != 'admin':
             risk.is_read = False
             risk.was_modified = True
-
-        log_details = f"إضافة/تعديل إجراء تحسيني في حقل '{field_to_update}' للخطر بكود: '{risk.risk_code}'"
-        log_entry = AuditLog(user_id=current_user.id, action='إجراء تحسيني', details=log_details, risk_id=risk.id)
+        else:
+            risk.is_read = True
+            
+        upload_folder = app.config['UPLOAD_FOLDER']
+        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
+        if 'attachment' in request.files:
+            file = request.files['attachment']
+            if file.filename != '':
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(upload_folder, filename))
+                risk.attachment_filename = filename
+                
+        log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
-        
         db.session.commit()
         
-        return jsonify({'success': True, 'message': 'تم تحديث الإجراء بنجاح', 'newValue': final_value})
-
+        if current_user.username != 'admin' and not was_modified_before:
+            admin_user = User.query.filter_by(username='admin').first()
+            if admin_user and admin_user.email:
+                subject = f"تحديث على الخطر: {risk.risk_code}"
+                html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
+                send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
+                
+        return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
     except Exception as e:
         db.session.rollback()
-        print(f"An error occurred in update_risk_action: {e}")
+        print(f"An error occurred in update_risk: {e}")
+        import traceback
+        traceback.print_exc() # لطباعة تفاصيل الخطأ بدقة
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
 @app.route('/api/risks', methods=['GET'])
@@ -881,3 +938,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
