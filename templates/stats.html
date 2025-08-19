@@ -420,7 +420,21 @@
                         },
                         responsive: true, maintainAspectRatio: false,
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
-                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
+                                           plugins: { 
+                            legend: { display: false }, 
+                            tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } },
+                            // --- [بداية التعديل] إضافة عناوين المحاور ---
+                            title: {
+                                display: true,
+                                text: 'خريطة التهديدات والفرص',
+                                color: '#fff',
+                                font: {
+                                    size: 16
+                                }
+                            }
+                            // --- [نهاية التعديل] ---
+                        }
+
                     }
                 });
             }
@@ -521,22 +535,29 @@
                 });
             }
 
-            function updateDashboard(stats) {
-                document.getElementById('total-risks').textContent = stats.total_risks;
-                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
+                function updateDashboard(stats) {
+                // --- [بداية الإصلاح] التأكد من وجود البيانات قبل استخدامها ---
+                if (!stats) {
+                    console.error("No stats data received to update dashboard.");
+                    return;
+                }
+                // --- [نهاية الإصلاح] ---
+
+                document.getElementById('total-risks').textContent = stats.total_risks || 0;
+                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats || 0}</h2><small class="percentage-text">(${(stats.threats_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities || 0}</h2><small class="percentage-text">(${(stats.opportunities_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks || 0}</h2><small class="percentage-text">(${(stats.active_risks_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks || 0}</h2><small class="percentage-text">(${(stats.closed_risks_percentage || 0).toFixed(1)}%)</small>`;
                 
                 renderKpiTicker(stats.kpi_data);
                 updateTooltips(stats.tooltip_data);
 
-                renderMatrixChart(stats.matrix_data);
-                renderStackedBarChart(stats.by_category_stacked);
-                renderSplitDoughnutChart(stats.by_level_nested);
-                renderStatusPieChart(stats.by_status);
-                renderTimelinessChart(stats.timeliness);
-                renderWatchlist(stats.top_risks);
+                renderMatrixChart(stats.matrix_data || []);
+                renderStackedBarChart(stats.by_category_stacked || { labels: [], datasets: {} });
+                renderSplitDoughnutChart(stats.by_level_nested || { labels: [], datasets: { threats: [], opportunities: [] } });
+                renderStatusPieChart(stats.by_status || { labels: [], data: [] });
+                renderTimelinessChart(stats.timeliness || { labels: [], data: [] });
+                renderWatchlist(stats.top_risks || []);
             }
 
             fetchStats();
