@@ -107,10 +107,6 @@
             white-space: nowrap;
             padding-right: 100%;
             box-sizing: content-box;
-            /* سيتم التحكم بالحركة عبر JavaScript لضمان الدقة */
-        }
-
-        .kpi-ticker-wrap .ticker-content.animate {
             animation: ticker-animation 60s infinite linear;
         }
 
@@ -161,7 +157,7 @@
         <!-- ================================================================== -->
         <div class="kpi-ticker-wrap" id="kpi-ticker-container" style="display: none;">
             <div class="ticker-content" id="kpi-ticker-content">
-                <!-- البيانات تملأ هنا -->
+                <!-- البيانات تملأ هنا بواسطة JavaScript -->
             </div>
         </div>
         <!-- ================================================================ -->
@@ -319,7 +315,6 @@
                 }
 
                 tickerContent.innerHTML = '';
-                tickerContent.classList.remove('animate');
 
                 const createKpiItem = (kpi) => {
                     const item = document.createElement('div');
@@ -328,29 +323,26 @@
                     return item;
                 };
 
+                // إضافة العناصر الأصلية
                 kpiData.forEach(kpi => {
                     tickerContent.appendChild(createKpiItem(kpi));
                 });
 
-                // ننتظر قليلاً ليتمكن المتصفح من حساب عرض المحتوى
-                setTimeout(() => {
-                    const originalItems = Array.from(tickerContent.children);
-                    const contentWidth = tickerContent.scrollWidth;
-                    const containerWidth = tickerContainer.offsetWidth;
+                // تكرار المحتوى لضمان حركة سلسة ومستمرة
+                const originalItems = Array.from(tickerContent.children);
+                const contentWidth = tickerContent.scrollWidth;
+                const containerWidth = tickerContainer.offsetWidth;
 
-                    // نكرر المحتوى لضمان عدم وجود فراغات أثناء الحركة
-                    if (contentWidth > 0 && containerWidth > 0) {
-                        const cloneCount = Math.ceil(containerWidth / contentWidth) + 1;
-                        for (let i = 0; i < cloneCount; i++) {
-                            originalItems.forEach(child => {
-                                tickerContent.appendChild(child.cloneNode(true));
-                            });
-                        }
+                if (contentWidth > 0 && containerWidth > 0) {
+                    const cloneCount = Math.ceil(containerWidth / contentWidth) + 2; // إضافة نسخ إضافية
+                    for (let i = 0; i < cloneCount; i++) {
+                        originalItems.forEach(child => {
+                            tickerContent.appendChild(child.cloneNode(true));
+                        });
                     }
-                    
-                    tickerContent.classList.add('animate');
-                    tickerContainer.style.display = 'block';
-                }, 100);
+                }
+                
+                tickerContainer.style.display = 'block';
             }
             // ================================================================
             // == ▲▲▲ [نهاية دالة عرض شريط مؤشرات الأداء] ▲▲▲ ==
@@ -611,13 +603,14 @@
             }
 
             function updateDashboard(stats) {
+                // تحديث البطاقات الرئيسية
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('active-risks-container
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
+                // عرض الرسوم البيانية
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
@@ -625,10 +618,13 @@
                 renderTimelinessChart(stats.timeliness);
                 renderWatchlist(stats.top_risks);
 
-                // استدعاء دالة عرض شريط مؤشرات الأداء
+                // ==================================================================
+                // == ▼▼▼ [استدعاء دالة عرض شريط مؤشرات الأداء] ▼▼▼ ==
+                // ==================================================================
                 if (stats.kpi_ticker_data) {
                     renderKpiTicker(stats.kpi_ticker_data);
                 }
+                // ================================================================
             }
 
             // بدء جلب البيانات عند تحميل الصفحة
@@ -636,3 +632,4 @@
         });
     </script>
 {% endblock %}
+
