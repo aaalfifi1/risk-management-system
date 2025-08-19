@@ -553,8 +553,31 @@
                 renderTimelinessChart(stats.timeliness);
                 renderWatchlist(stats.top_risks);
             }
+            function updateDashboard(stats) {
+                document.getElementById('total-risks').textContent = stats.total_risks;
+                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
+                
+                // --- [التعديل الأهم] ---
+                // الشريط الآن يأخذ بياناته من allStatsData الثابتة
+                // هذا يضمن عدم تأثره بالفلتر واستمرارية حركته
+                if (allStatsData && allStatsData.kpi_ticker_data) {
+                    renderKpiTicker(allStatsData.kpi_ticker_data);
+                }
+
+                // الرسوم البيانية تأخذ بياناتها من `stats` المتغيرة مع الفلتر
+                renderMatrixChart(stats.matrix_data);
+                renderStackedBarChart(stats.by_category_stacked);
+                renderSplitDoughnutChart(stats.by_level_nested);
+                renderStatusPieChart(stats.by_status);
+                renderTimelinessChart(stats.timeliness);
+                renderWatchlist(stats.top_risks);
+            }
 
             fetchStats();
         });
     </script>
 {% endblock %}
+
