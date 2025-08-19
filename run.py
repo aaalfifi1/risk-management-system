@@ -354,7 +354,10 @@ def update_risk(risk_id):
         risk.risk_level = calculate_risk_level(prob, imp)
         risk.owner = data.get('owner', risk.owner)
         risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness; risk.status = new_status; risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
+        risk.action_effectiveness = effectiveness
+        risk.status = new_status
+        risk.residual_risk = residual
+        risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
         target_date = None
         if data.get('target_completion_date'):
@@ -595,44 +598,42 @@ def get_stats_api():
         status_counts = Counter(r.status for r in risks)
 
         # --- [الكود الجديد] حساب مؤشرات الأداء الرئيسية المبسطة ---
-kpi_data = []
-active_risks_list = [r for r in risks if r.status != 'مغلق']
+        kpi_data = []
 
-# 1. إحصائيات المخاطر الخاصة (مترابطة، ثانوية، متبقية)
-kpi_data.append({'label': 'المخاطر المترابطة:', 'value': str(sum(1 for r in risks if r.linked_risk_id))})
-kpi_data.append({'label': 'المخاطر الثانوية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر ثانوي)')))})
-kpi_data.append({'label': 'المخاطر المتبقية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')))})
+        # 1. إحصائيات المخاطر الخاصة (مترابطة، ثانوية، متبقية)
+        kpi_data.append({'label': 'المخاطر المترابطة:', 'value': str(sum(1 for r in risks if r.linked_risk_id))})
+        kpi_data.append({'label': 'المخاطر الثانوية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر ثانوي)')))})
+        kpi_data.append({'label': 'المخاطر المتبقية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')))})
 
-# 2. الإجراء الأكثر فعالية
-if risks:
-    effectiveness_counts = Counter(r.action_effectiveness for r in risks if r.action_effectiveness)
-    if effectiveness_counts:
-        most_effective_action = effectiveness_counts.most_common(1)[0][0]
-        kpi_data.append({'label': 'الإجراء الأكثر فعالية:', 'value': most_effective_action})
+        # 2. الإجراء الأكثر فعالية
+        if risks:
+            effectiveness_counts = Counter(r.action_effectiveness for r in risks if r.action_effectiveness)
+            if effectiveness_counts:
+                most_effective_action = effectiveness_counts.most_common(1)[0][0]
+                kpi_data.append({'label': 'الإجراء الأكثر فعالية:', 'value': most_effective_action})
 
-# 3. الحالة الأكثر شيوعاً (للمخاطر النشطة)
-if active_risks_list:
-    status_counts = Counter(r.status for r in active_risks_list)
-    if status_counts:
-        most_common_status = status_counts.most_common(1)[0][0]
-        kpi_data.append({'label': 'الحالة الأكثر شيوعاً:', 'value': most_common_status})
+        # 3. الحالة الأكثر شيوعاً (للمخاطر النشطة)
+        if active_risks_list:
+            status_counts_active = Counter(r.status for r in active_risks_list)
+            if status_counts_active:
+                most_common_status = status_counts_active.most_common(1)[0][0]
+                kpi_data.append({'label': 'الحالة الأكثر شيوعاً:', 'value': most_common_status})
 
-# 4. الفئة الأكثر خطورة
-high_level_risks = [r for r in active_risks_list if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'] and r.category]
-if high_level_risks:
-    category_counts = Counter(r.category for r in high_level_risks)
-    if category_counts:
-        most_dangerous_category = category_counts.most_common(1)[0][0]
-        kpi_data.append({'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category})
+        # 4. الفئة الأكثر خطورة
+        high_level_risks = [r for r in active_risks_list if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'] and r.category]
+        if high_level_risks:
+            category_counts = Counter(r.category for r in high_level_risks)
+            if category_counts:
+                most_dangerous_category = category_counts.most_common(1)[0][0]
+                kpi_data.append({'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category})
 
-# 5. عدد المخاطر المتأخرة
-today = datetime.utcnow().date()
-overdue_count = sum(1 for r in active_risks_list if r.target_completion_date and r.target_completion_date.date() < today)
-kpi_data.append({'label': 'المخاطر المتأخرة:', 'value': str(overdue_count)})
-
-                overdue_risks_count += 1
-            else:
-                on_time_risks_count += 1
+        # 5. عدد المخاطر المتأخرة
+        today = datetime.utcnow().date()
+        overdue_count = sum(1 for r in active_risks_list if r.target_completion_date and r.target_completion_date.date() < today)
+        kpi_data.append({'label': 'المخاطر المتأخرة:', 'value': str(overdue_count)})
+        
+        overdue_risks_count = overdue_count
+        on_time_risks_count = len(active_risks_list) - overdue_risks_count
 
         stats_data = {
             'total_risks': total, 'active_risks': active, 'closed_risks': closed, 
@@ -821,4 +822,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
