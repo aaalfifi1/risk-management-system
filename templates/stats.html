@@ -305,6 +305,9 @@
             // ==================================================================
             // == ▼▼▼ [دالة عرض شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ ==
             // ==================================================================
+                // ==================================================================
+            // == ▼▼▼ [النسخة المصححة والنهائية لدالة عرض الشريط] ▼▼▼ ==
+            // ==================================================================
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
@@ -314,36 +317,51 @@
                     return;
                 }
 
+                // الخطوة 1: إزالة أي محتوى قديم أو حركة سابقة
                 tickerContent.innerHTML = '';
+                tickerContent.classList.remove('animate'); // إزالة الحركة مؤقتاً
 
                 const createKpiItem = (kpi) => {
                     const item = document.createElement('div');
                     item.className = 'kpi-item';
-                    item.innerHTML = `<span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span>`;
+                    // التأكد من أن القيم لا تكون فارغة
+                    const label = kpi.label || '';
+                    const value = kpi.value !== null && kpi.value !== undefined ? kpi.value : '';
+                    item.innerHTML = `<span class="kpi-label">${label}</span><span class="kpi-value">${value}</span>`;
                     return item;
                 };
 
-                // إضافة العناصر الأصلية
+                // الخطوة 2: إضافة العناصر الأصلية إلى الشريط
                 kpiData.forEach(kpi => {
                     tickerContent.appendChild(createKpiItem(kpi));
                 });
 
-                // تكرار المحتوى لضمان حركة سلسة ومستمرة
-                const originalItems = Array.from(tickerContent.children);
-                const contentWidth = tickerContent.scrollWidth;
-                const containerWidth = tickerContainer.offsetWidth;
+                // الخطوة 3: ننتظر لحظة بسيطة ليقوم المتصفح بحساب الأبعاد الجديدة
+                setTimeout(() => {
+                    const originalItems = Array.from(tickerContent.children);
+                    const contentWidth = tickerContent.scrollWidth;
+                    const containerWidth = tickerContainer.offsetWidth;
 
-                if (contentWidth > 0 && containerWidth > 0) {
-                    const cloneCount = Math.ceil(containerWidth / contentWidth) + 2; // إضافة نسخ إضافية
-                    for (let i = 0; i < cloneCount; i++) {
-                        originalItems.forEach(child => {
-                            tickerContent.appendChild(child.cloneNode(true));
-                        });
+                    // الخطوة 4: تكرار المحتوى لضمان حركة سلسة ومستمرة
+                    if (contentWidth > 0 && containerWidth > 0) {
+                        // نكرر المحتوى بما يكفي لتغطية الشاشة مرتين على الأقل
+                        const cloneCount = Math.ceil(containerWidth / contentWidth) + 2;
+                        for (let i = 0; i < cloneCount; i++) {
+                            originalItems.forEach(child => {
+                                tickerContent.appendChild(child.cloneNode(true));
+                            });
+                        }
                     }
-                }
-                
-                tickerContainer.style.display = 'block';
+                    
+                    // الخطوة 5: الآن وبعد إضافة كل المحتوى، نبدأ الحركة
+                    tickerContent.classList.add('animate');
+                    tickerContainer.style.display = 'block';
+                }, 100); // تأخير بسيط لضمان حساب الأبعاد بشكل صحيح
             }
+            // ================================================================
+            // == ▲▲▲ [نهاية النسخة المصححة] ▲▲▲ ==
+            // ================================================================
+
             // ================================================================
             // == ▲▲▲ [نهاية دالة عرض شريط مؤشرات الأداء] ▲▲▲ ==
             // ================================================================
@@ -632,4 +650,5 @@
         });
     </script>
 {% endblock %}
+
 
