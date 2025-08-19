@@ -15,6 +15,7 @@
             height: 420px; 
             display: flex;
             flex-direction: column;
+            position: relative;
         }
         .chart-container canvas {
             flex-grow: 1;
@@ -34,7 +35,8 @@
         .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
         body.tv-mode .sidebar, 
         body.tv-mode .navbar,
-        body.tv-mode .header-controls { display: none !important; }
+        body.tv-mode .header-controls,
+        body.tv-mode .kpi-ticker-container { display: none !important; }
         body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
 
         .watchlist-container {
@@ -55,34 +57,57 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        .watchlist-item:hover {
-            background-color: rgba(220, 53, 69, 0.3);
+        .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
+        .watchlist-item:last-child { border-bottom: none; }
+        .watchlist-title { font-weight: bold; color: #f8f9fa; }
+        .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
+        .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
+        .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
         }
-        .watchlist-item:last-child {
-            border-bottom: none;
+        .chart-toggle-buttons {
+            width: 120px;
+            text-align: right;
         }
-        .watchlist-title {
-            font-weight: bold;
+
+        /* --- [بداية الإضافة الجديدة] تنسيقات شريط المؤشرات --- */
+        .kpi-ticker-container {
+            background-color: #273c5e;
+            border-radius: 10px;
+            padding: 10px 20px;
+            overflow: hidden;
+            white-space: nowrap;
+            margin-bottom: 1.5rem; /* لإعطاء مسافة قبل البطاقات */
+        }
+        .kpi-ticker-content {
+            display: inline-block;
+            /* سرعة الحركة تعتمد على هذا الرقم، كلما زاد كان أبطأ */
+            animation: ticker-scroll 20s linear infinite;
             color: #f8f9fa;
         }
-        .watchlist-code {
-            font-size: 0.85rem;
-            color: #adb5bd;
-        }
-        .watchlist-level {
+        .kpi-item {
+            display: inline-block;
+            margin-right: 50px; /* مسافة بين كل مؤشر والذي يليه */
             font-size: 0.9rem;
-            font-weight: bold;
-            padding: 0.3em 0.6em;
-            border-radius: 5px;
         }
-        .watchlist-placeholder {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            color: rgba(255, 255, 255, 0.5);
-            font-style: italic;
+        .kpi-item strong {
+            color: var(--accent-yellow);
+            font-size: 1rem;
         }
+        @keyframes ticker-scroll {
+            0% {
+                transform: translateX(100%);
+            }
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+        /* --- [نهاية الإضافة الجديدة] --- */
     </style>
 {% endblock %}
 
@@ -96,31 +121,43 @@
         </div>
     </div>
 
+    <!-- --- [بداية الإضافة الجديدة] حاوية شريط المؤشرات --- -->
+    <div class="kpi-ticker-container">
+        <div id="kpi-ticker-content" class="kpi-ticker-content">
+            <!-- سيتم ملء المؤشرات هنا بواسطة JavaScript -->
+        </div>
+    </div>
+    <!-- --- [نهاية الإضافة الجديدة] --- -->
+
     <div id="dashboard-to-print">
-        <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
-            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
-            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">التهديدات</h5><div class="stat-value-container" id="threats-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-down-arrow stat-icon text-danger"></i></div></div></div>
-            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">الفرص</h5><div class="stat-value-container" id="opportunities-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-up-arrow stat-icon text-success"></i></div></div></div>
-            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر النشطة</h5><div class="stat-value-container" id="active-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-activity stat-icon text-warning"></i></div></div></div>
-            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
+            <div class="col"><div id="total-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
+            <div class="col"><div id="threats-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">التهديدات</h5><div class="stat-value-container" id="threats-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-down-arrow stat-icon text-danger"></i></div></div></div>
+            <div class="col"><div id="opportunities-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">الفرص</h5><div class="stat-value-container" id="opportunities-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-up-arrow stat-icon text-success"></i></div></div></div>
+            <div class="col"><div id="active-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر النشطة</h5><div class="stat-value-container" id="active-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-activity stat-icon text-warning"></i></div></div></div>
+            <div class="col"><div id="closed-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
         </div>
 
-        <!-- هيكل الشبكة (Grid) للرسوم البيانية -->
         <div class="row g-4">
-            <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
-                    <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
+                    <div class="chart-header">
+                        <div class="btn-group btn-group-sm chart-toggle-buttons" role="group">
+                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-all" autocomplete="off" checked>
+                            <label class="btn btn-outline-light" for="matrix-view-all">الكل</label>
+                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-active" autocomplete="off">
+                            <label class="btn btn-outline-light" for="matrix-view-active">النشطة فقط</label>
+                        </div>
+                        <h5 class="mb-0 card-title-white">خريطة التهديدات والفرص</h5>
+                        <div style="width: 120px;"></div> 
+                    </div>
                     <canvas id="matrixChart"></canvas>
                 </div>
                 <div class="row g-4">
                     <div class="col-md-6">
                         <div class="watchlist-container" style="height: 380px;">
                             <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة</h5>
-                            <div id="watchlist-body" class="flex-grow-1 overflow-auto">
-                                <!-- سيتم ملء القائمة هنا -->
-                            </div>
+                            <div id="watchlist-body" class="flex-grow-1 overflow-auto"></div>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -133,8 +170,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- العمود الأيسر -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
@@ -219,6 +254,16 @@
                 }
             });
 
+            document.getElementById('matrix-view-all').addEventListener('change', () => {
+                if (allStatsData.matrix_data) renderMatrixChart(allStatsData.matrix_data);
+            });
+            document.getElementById('matrix-view-active').addEventListener('change', () => {
+                if (allStatsData.matrix_data) {
+                    const activeRisks = allStatsData.matrix_data.filter(r => allStatsData.active_risk_codes.includes(r.code));
+                    renderMatrixChart(activeRisks);
+                }
+            });
+
             async function fetchStats(filters = {}) {
                 try {
                     const params = new URLSearchParams(filters);
@@ -235,35 +280,74 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
+            // --- [بداية الإضافة الجديدة] دالة عرض شريط المؤشرات ---
+            function renderKpiTicker(kpiData) {
+                const tickerContent = document.getElementById('kpi-ticker-content');
+                if (!kpiData) {
+                    tickerContent.innerHTML = '';
+                    return;
+                }
+                const items = [
+                    `<span class="kpi-item">متوسط عمر المخاطر النشطة: <strong>${kpiData.avg_risk_age} يوم</strong></span>`,
+                    `<span class="kpi-item">نسبة الإغلاق هذا الشهر: <strong>${kpiData.closure_rate_this_month}%</strong></span>`,
+                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${kpiData.most_dangerous_category}</strong></span>`
+                ];
+                // نكرر المحتوى لضمان استمرارية الحركة بدون فراغات
+                tickerContent.innerHTML = (items.join('')).repeat(5);
+            }
+            // --- [نهاية الإضافة الجديدة] ---
+
+            function updateTooltips(tooltipData) {
+                if (!tooltipData) return;
+                ['total-risks-card', 'threats-card', 'opportunities-card', 'active-risks-card', 'closed-risks-card'].forEach(id => {
+                    const el = document.getElementById(id);
+                    const tooltipInstance = bootstrap.Tooltip.getInstance(el);
+                    if (tooltipInstance) {
+                        tooltipInstance.dispose();
+                    }
+                });
+
+                const activeCard = document.getElementById('active-risks-card');
+                let activeDetails = Object.entries(tooltipData.active_risks_details)
+                    .map(([level, count]) => `${level}: ${count}`)
+                    .join('  
+');
+                if (!activeDetails) activeDetails = "لا توجد مخاطر نشطة حالياً.";
+                
+                new bootstrap.Tooltip(activeCard, {
+                    title: activeDetails, html: true, placement: 'bottom', trigger: 'hover', container: 'body'
+                });
+
+                const threatsCard = document.getElementById('threats-card');
+                const threatDetails = `أخطر تهديد حالياً:  
+<strong>${tooltipData.most_dangerous_threat}</strong>`;
+                new bootstrap.Tooltip(threatsCard, {
+                    title: threatDetails, html: true, placement: 'bottom', trigger: 'hover', container: 'body'
+                });
+            }
+
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
                 watchlistBody.innerHTML = '';
-
-                if (topRisks.length === 0) {
+                if (!topRisks || topRisks.length === 0) {
                     watchlistBody.innerHTML = '<div class="watchlist-placeholder">لا توجد مخاطر مرتفعة حالياً.</div>';
                     return;
                 }
-
                 topRisks.forEach(risk => {
                     const item = document.createElement('div');
                     item.className = 'watchlist-item';
-                    
                     item.innerHTML = `
                         <div>
                             <div class="watchlist-title">${risk.title}</div>
                             <div class="watchlist-code">${risk.code}</div>
                         </div>
-                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">
-                            ${risk.level}
-                        </span>
+                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">${risk.level}</span>
                     `;
-                    
                     item.addEventListener('click', () => {
                         isFiltered = true;
                         resetButton.style.display = 'block';
                         fetchStats({ code: risk.code });
                     });
-
                     watchlistBody.appendChild(item);
                 });
             }
@@ -275,26 +359,14 @@
                     data: {
                         labels: timelinessData.labels,
                         datasets: [{
-                            label: 'عدد المخاطر',
-                            data: timelinessData.data,
-                            backgroundColor: ['#198754', '#dc3545'],
-                            borderColor: '#273c5e',
-                            borderWidth: 2,
-                            borderRadius: 5
+                            label: 'عدد المخاطر', data: timelinessData.data, backgroundColor: ['#198754', '#dc3545'],
+                            borderColor: '#273c5e', borderWidth: 2, borderRadius: 5
                         }]
                     },
                     options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                         scales: {
-                            x: { 
-                                ticks: { 
-                                    color: '#fff', 
-                                    stepSize: 1,
-                                    display: false
-                                } 
-                            },
+                            x: { ticks: { color: '#fff', stepSize: 1, display: false } },
                             y: { ticks: { color: '#fff' } }
                         },
                         plugins: {
@@ -326,8 +398,7 @@
                                 fetchStats({ status: status });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         plugins: {
                             legend: { position: 'top', labels: { color: '#fff' } },
                             tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
@@ -338,8 +409,7 @@
                                     let percentage = (value*100 / sum).toFixed(1)+"%";
                                     return value > 0 ? percentage : '';
                                 },
-                                color: '#fff',
-                                font: { weight: 'bold' }
+                                color: '#fff', font: { weight: 'bold' }
                             }
                         }
                     }
@@ -363,10 +433,9 @@
                                 fetchStats({ type: type });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
-                        plugins: { legend: { position: 'top', padding: { bottom: 20 }, labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' } }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
                     }
                 });
             }
@@ -374,9 +443,7 @@
             function renderStackedBarChart(categoryData) {
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 const datasets = Object.keys(categoryData.datasets).map(level => ({
-                    label: level,
-                    data: categoryData.datasets[level],
-                    backgroundColor: riskLevelColors[level]
+                    label: level, data: categoryData.datasets[level], backgroundColor: riskLevelColors[level]
                 }));
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
@@ -391,8 +458,7 @@
                                 fetchStats({ category: category });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
@@ -401,11 +467,8 @@
 
             function renderSplitDoughnutChart(levelData) {
                 if (levelChartInstance) levelChartInstance.destroy();
-                const chartData = [];
-                const chartColors = [];
-                const chartLabels = [];
+                const chartData = [], chartColors = [], chartLabels = [];
                 const riskLevelOrder = Object.keys(riskLevelColors);
-
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.opportunities[index]);
                     chartColors.push(riskLevelColors[level]);
@@ -432,36 +495,17 @@
                                 fetchStats({ level: level });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        rotation: -90,
-                        circumference: 180,
-                        cutout: '40%',
+                        responsive: true, maintainAspectRatio: false,
+                        rotation: -90, circumference: 180, cutout: '40%',
                         plugins: {
                             legend: { 
-                                display: true,
-                                position: 'top',
+                                display: true, position: 'top',
                                 labels: {
-                                    boxWidth: 0,
-                                    boxHeight: 0,
-                                    padding: 10,
-                                    font: {
-                                        size: 15,
-                                        color: '#fff'
-                                    },
+                                    boxWidth: 0, boxHeight: 0, padding: 10,
+                                    font: { size: 14 },
                                     generateLabels: function(chart) {
-                                        // نولد عنصر واحد فقط ليعرض النص المدمج
-                                        return [{
-                                            text: 'فرص | تهديدات',
-                                            fillStyle: 'transparent',
-                                            strokeStyle: 'transparent',
-                                            // --- [بداية التعديل] ---
-                                            // يجب تحديد لون الخط هنا مباشرةً
-                                            fontColor: '#fff' 
-                                            // --- [نهاية التعديل] ---
-                                        }];
+                                        return [{ text: 'فرص | تهديدات', fillStyle: 'transparent', strokeStyle: 'transparent', fontColor: '#fff' }];
                                     }
-
                                 }
                             },
                             tooltip: {
@@ -485,8 +529,7 @@
                                     const percentage = (value / sum * 100).toFixed(1);
                                     return `${percentage}%`;
                                 },
-                                color: '#fff',
-                                font: { weight: 'bold' }
+                                color: '#fff', font: { weight: 'bold' }
                             }
                         }
                     }
@@ -494,22 +537,31 @@
             }
 
             function updateDashboard(stats) {
-                document.getElementById('total-risks').textContent = stats.total_risks;
-                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
+                if (!stats) {
+                    console.error("No stats data received to update dashboard.");
+                    return;
+                }
+
+                document.getElementById('total-risks').textContent = stats.total_risks || 0;
+                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats || 0}</h2><small class="percentage-text">(${(stats.threats_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities || 0}</h2><small class="percentage-text">(${(stats.opportunities_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks || 0}</h2><small class="percentage-text">(${(stats.active_risks_percentage || 0).toFixed(1)}%)</small>`;
+                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks || 0}</h2><small class="percentage-text">(${(stats.closed_risks_percentage || 0).toFixed(1)}%)</small>`;
                 
-                renderMatrixChart(stats.matrix_data);
-                renderStackedBarChart(stats.by_category_stacked);
-                renderSplitDoughnutChart(stats.by_level_nested);
-                renderStatusPieChart(stats.by_status);
-                renderTimelinessChart(stats.timeliness);
-                renderWatchlist(stats.top_risks);
+                // --- [الإضافة الجديدة] استدعاء دالة عرض شريط المؤشرات ---
+                renderKpiTicker(stats.kpi_data);
+                
+                updateTooltips(stats.tooltip_data);
+
+                renderMatrixChart(stats.matrix_data || []);
+                renderStackedBarChart(stats.by_category_stacked || { labels: [], datasets: {} });
+                renderSplitDoughnutChart(stats.by_level_nested || { labels: [], datasets: { threats: [], opportunities: [] } });
+                renderStatusPieChart(stats.by_status || { labels: [], data: [] });
+                renderTimelinessChart(stats.timeliness || { labels: [], data: [] });
+                renderWatchlist(stats.top_risks || []);
             }
 
             fetchStats();
         });
     </script>
 {% endblock %}
-
