@@ -636,7 +636,7 @@ def get_stats_api():
             on_time_risks_count += 1
     # --- [نهاية التعديل الجديد] ---
 
-    stats_data = {
+    stats_data = [
         'total_risks': total, 
         'active_risks': active, 
         'closed_risks': closed, 
@@ -692,7 +692,7 @@ def get_stats_api():
             'most_dangerous_category': most_dangerous_category
         }
         # --- [نهاية الإضافة الجديدة] ---
- }
+ 
     }
     return jsonify({'success': True, 'stats': stats_data})
 
@@ -858,6 +858,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
