@@ -216,7 +216,7 @@
             resetButton.addEventListener('click', () => {
                 isFiltered = false;
                 resetButton.style.display = 'none';
-                fetchStats(); // يعيد طلب البيانات الكاملة
+                fetchStats();
             });
 
             exportButton.addEventListener('click', () => {
@@ -263,7 +263,6 @@
                     const response = await fetch(url);
                     const data = await response.json();
                     if (data.success) {
-                        // عند عدم وجود فلاتر، يتم تحديث البيانات العامة
                         if (Object.keys(filters).length === 0) {
                             allStatsData = data.stats;
                         }
@@ -287,8 +286,9 @@
                 if (!tooltipData) return;
                 ['total-risks-card', 'threats-card', 'opportunities-card', 'active-risks-card', 'closed-risks-card'].forEach(id => {
                     const el = document.getElementById(id);
-                    if (el && el._tooltip) {
-                        el._tooltip.dispose();
+                    const tooltipInstance = bootstrap.Tooltip.getInstance(el);
+                    if (tooltipInstance) {
+                        tooltipInstance.dispose();
                     }
                 });
 
@@ -420,21 +420,7 @@
                         },
                         responsive: true, maintainAspectRatio: false,
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
-                                           plugins: { 
-                            legend: { display: false }, 
-                            tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } },
-                            // --- [بداية التعديل] إضافة عناوين المحاور ---
-                            title: {
-                                display: true,
-                                text: 'خريطة التهديدات والفرص',
-                                color: '#fff',
-                                font: {
-                                    size: 16
-                                }
-                            }
-                            // --- [نهاية التعديل] ---
-                        }
-
+                        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
                     }
                 });
             }
@@ -535,13 +521,11 @@
                 });
             }
 
-                function updateDashboard(stats) {
-                // --- [بداية الإصلاح] التأكد من وجود البيانات قبل استخدامها ---
+            function updateDashboard(stats) {
                 if (!stats) {
                     console.error("No stats data received to update dashboard.");
                     return;
                 }
-                // --- [نهاية الإصلاح] ---
 
                 document.getElementById('total-risks').textContent = stats.total_risks || 0;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats || 0}</h2><small class="percentage-text">(${(stats.threats_percentage || 0).toFixed(1)}%)</small>`;
