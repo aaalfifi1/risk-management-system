@@ -329,18 +329,28 @@
                 });
 
                 // مضاعفة المحتوى لضمان استمرارية الحركة بدون فراغات
-                // نكرر المحتوى عدة مرات لملء الشاشة وتجنب الفراغات أثناء الحركة
                 if (kpiData.length > 0) {
-                    const contentWidth = tickerContent.offsetWidth;
-                    const containerWidth = tickerContainer.offsetWidth;
-                    const cloneCount = Math.max(2, Math.ceil(containerWidth / contentWidth) * 2);
-                    
-                    const originalItems = Array.from(tickerContent.children);
-                    for (let i = 0; i < cloneCount; i++) {
-                        originalItems.forEach(child => {
-                            tickerContent.appendChild(child.cloneNode(true));
-                        });
-                    }
+                    // ننتظر لحظة قصيرة ليتم عرض المحتوى وحساب عرضه بشكل صحيح
+                    setTimeout(() => {
+                        const contentWidth = tickerContent.scrollWidth / 2; // عرض المحتوى الأصلي
+                        const containerWidth = tickerContainer.offsetWidth;
+                        if (contentWidth < containerWidth) {
+                             // إذا كان المحتوى أصغر من الشاشة، نكرره حتى يملأها
+                            const cloneCount = Math.ceil(containerWidth / contentWidth);
+                             const originalItems = Array.from(tickerContent.children);
+                             for (let i = 0; i < cloneCount; i++) {
+                                originalItems.forEach(child => {
+                                    tickerContent.appendChild(child.cloneNode(true));
+                                });
+                            }
+                        } else {
+                            // إذا كان المحتوى أكبر من الشاشة، نكرره مرة واحدة فقط لضمان سلاسة الحركة
+                            const originalItems = Array.from(tickerContent.children);
+                            originalItems.forEach(child => {
+                                tickerContent.appendChild(child.cloneNode(true));
+                            });
+                        }
+                    }, 100);
                 }
 
                 tickerContainer.style.display = 'block';
@@ -606,12 +616,11 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('opportunities-container').innerHTML = `<h2 class="
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
-                renderMatrixChart(stats.matrix_data);
-                renderStackedBar
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
