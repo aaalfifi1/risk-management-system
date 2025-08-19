@@ -608,38 +608,6 @@ def get_stats_api():
             # إذا لم يكن هناك تاريخ مستهدف، نعتبره ملتزماً بالوقت افتراضياً
             on_time_risks_count += 1
     # --- [نهاية التعديل الجديد] ---
-    # --- [بداية الإضافة الجديدة] حساب مؤشرات الأداء الرئيسية (KPIs) ---
-    # نستخدم all_risks هنا لضمان أن المؤشرات تعكس الوضع العام للنظام وليس فقط البيانات المفلترة
-    kpi_active_risks = [r for r in risks if r.status != 'مغلق']
-    
-    # 1. متوسط عمر المخاطر النشطة
-    avg_risk_age = 0
-    if kpi_active_risks:
-        total_age_days = sum([(today - r.created_at.date()).days for r in kpi_active_risks])
-        avg_risk_age = round(total_age_days / len(kpi_active_risks)) if len(kpi_active_risks) > 0 else 0
-
-    # 2. كفاءة الإغلاق هذا الشهر
-    first_day_of_month = today.replace(day=1)
-    closed_this_month_count = len([r for r in risks if r.status == 'مغلق' and r.created_at.date() >= first_day_of_month])
-    opened_this_month_count = len([r for r in risks if r.created_at.date() >= first_day_of_month])
-    closure_rate_this_month = round((closed_this_month_count / opened_this_month_count) * 100) if opened_this_month_count > 0 else 0
-
-    # 3. أخطر فئة حالياً
-    category_scores = {}
-    for r in kpi_active_risks:
-        score = r.probability * r.impact
-        category_scores[r.category] = category_scores.get(r.category, 0) + score
-    most_dangerous_category = max(category_scores, key=category_scores.get) if category_scores else "لا يوجد"
-
-    # 4. عدد المخاطر المترابطة
-    linked_risks_count = len([r for r in risks if r.linked_risk_id is not None and r.linked_risk_id != 'لا يوجد'])
-
-    # 5. عدد المخاطر الثانوية
-    secondary_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر ثانوي)')])
-
-    # 6. عدد المخاطر المتبقية
-    residual_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')])
-    # --- [نهاية الإضافة الجديدة] ---
 
     stats_data = {
         'total_risks': total, 
@@ -687,15 +655,7 @@ def get_stats_api():
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
-        ][:5],
-            'kpi_data': {
-            'avg_risk_age': avg_risk_age,
-            'closure_rate_this_month': closure_rate_this_month,
-            'most_dangerous_category': most_dangerous_category,
-            'linked_risks_count': linked_risks_count,
-            'secondary_risks_count': secondary_risks_count,
-            'residual_risks_count': residual_risks_count
-        }
+        ][:5]
 
     }
     return jsonify({'success': True, 'stats': stats_data})
@@ -863,7 +823,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
 
 
 
