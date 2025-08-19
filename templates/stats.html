@@ -92,12 +92,18 @@
             100% { transform: translateX(-100%); }
         }
 
-        .chart-toggle-buttons {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            z-index: 10;
+       .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem; /* نفس قيمة mb-3 */
         }
+        .chart-toggle-buttons {
+            /* لم نعد بحاجة لـ position: absolute */
+            width: 120px; /* نعطيها عرضاً ثابتاً للموازنة */
+            text-align: right;
+        }
+
         /* --- [نهاية التعديل الجديد] --- */
     </style>
 {% endblock %}
@@ -136,19 +142,24 @@
         <div class="row g-4">
             <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
-                <div class="chart-container">
-                    <!-- [بداية التعديل الجديد] إضافة أزرار تبديل العرض -->
-                    <div class="btn-group btn-group-sm chart-toggle-buttons" role="group">
-                        <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-all" autocomplete="off" checked>
-                        <label class="btn btn-outline-light" for="matrix-view-all">الكل</label>
+            <div class="chart-container">
+                    <!-- --- [بداية التعديل] --- -->
+                    <div class="chart-header">
+                        <div class="btn-group btn-group-sm chart-toggle-buttons" role="group">
+                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-all" autocomplete="off" checked>
+                            <label class="btn btn-outline-light" for="matrix-view-all">الكل</label>
 
-                        <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-active" autocomplete="off">
-                        <label class="btn btn-outline-light" for="matrix-view-active">النشطة فقط</label>
+                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-active" autocomplete="off">
+                            <label class="btn btn-outline-light" for="matrix-view-active">النشطة فقط</label>
+                        </div>
+                        <h5 class="mb-0 card-title-white">خريطة التهديدات والفرص</h5>
+                        <!-- عنصر فارغ للموازنة -->
+                        <div style="width: 120px;"></div> 
                     </div>
-                    <!-- [نهاية التعديل الجديد] -->
-                    <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
+                    <!-- --- [نهاية التعديل] --- -->
                     <canvas id="matrixChart"></canvas>
                 </div>
+
                 <div class="row g-4">
                     <div class="col-md-6">
                         <div class="watchlist-container" style="height: 380px;">
@@ -262,7 +273,7 @@
             });
             // --- [نهاية التعديل الجديد] ---
 
-            async function fetchStats(filters = {}) {
+                async function fetchStats(filters = {}) {
                 try {
                     const params = new URLSearchParams(filters);
                     const url = `/api/stats?${params.toString()}`;
@@ -270,10 +281,14 @@
                     const response = await fetch(url);
                     const data = await response.json();
                     if (data.success) {
+                        // --- [بداية التعديل] ---
+                        // دائماً نحدث المتغير العام بالبيانات الجديدة عند عدم وجود فلاتر
                         if (Object.keys(filters).length === 0) {
                             allStatsData = data.stats;
                         }
+                        // ونعرض البيانات المستلمة دائماً
                         updateDashboard(data.stats);
+                        // --- [نهاية التعديل] ---
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
@@ -594,3 +609,4 @@
         });
     </script>
 {% endblock %}
+
