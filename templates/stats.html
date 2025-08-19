@@ -330,7 +330,11 @@
                             tickerContent.innerHTML += initialHtml;
                         }
                     }
-                    tickerContent.classList.add('animate');
+                   // نستخدم تأخير بسيط جداً لضمان أن المتصفح قد رسم المحتوى المكرر قبل بدء الحركة
+                setTimeout(() => {
+                            tickerContent.classList.add('animate');
+              }, 100); // 100 ميلي ثانية
+
                 });
             }
 
@@ -611,3 +615,4 @@
         });
     </script>
 {% endblock %}
+
