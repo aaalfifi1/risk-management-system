@@ -44,10 +44,15 @@
             color: var(--light-text);
         }
         /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
-        @keyframes ticker-animation {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(var(--ticker-scroll-width, -100%)); }
-        }
+       @keyframes ticker-animation {
+       from {
+        transform: translateX(0);
+    }
+       to {
+        transform: translateX(-50%);
+    }
+}
+
 
         /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
         .stat-card:hover { transform: translateY(-5px); }
@@ -237,19 +242,15 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-            function renderKpiTicker(kpiData) {
+                function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
                 if (!tickerContainer || !tickerContent) return;
-
                 if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
                     tickerContainer.style.display = 'none';
                     return;
                 }
-
-                tickerContent.innerHTML = '';
-                tickerContent.classList.remove('animate');
 
                 let itemsHtml = '';
                 kpiData.forEach(kpi => {
@@ -263,25 +264,21 @@
                     return;
                 }
 
-                tickerContainer.style.display = 'block';
-                // نكرر المحتوى مرتين مبدئياً لضمان وجود ما يكفي للحركة
+                // الخدعة السحرية هنا: نكرر المحتوى مرتين فقط
                 tickerContent.innerHTML = itemsHtml + itemsHtml;
+                tickerContainer.style.display = 'block';
+                
+                // نحسب عرض المحتوى الأصلي (النصف)
+                const contentWidth = tickerContent.scrollWidth / 2;
+                
+                // نضبط مدة الحركة بناءً على العرض لضمان سرعة ثابتة
+                const animationDuration = contentWidth / 50; // سرعة 50 بكسل في الثانية
+                tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
 
-                requestAnimationFrame(() => {
-                    // نحسب عرض الجزء الأصلي (غير المكرر)
-                    const originalContentWidth = tickerContent.scrollWidth / 2;
-
-                    // نضبط متغير الـ CSS بقيمة العرض السالبة
-                    tickerContent.style.setProperty('--ticker-scroll-width', `-${originalContentWidth}px`);
-                    
-                    // نضبط مدة الأنيميشن بناءً على العرض لضمان سرعة ثابتة
-                    const animationDuration = originalContentWidth / 50; // سرعة 50 بكسل في الثانية
-                    tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
-
-                    // الآن نبدأ الحركة بأمان
-                    tickerContent.classList.add('animate');
-                });
+                // نبدأ الحركة
+                tickerContent.classList.add('animate');
             }
+
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -558,3 +555,4 @@
         });
     </script>
 {% endblock %}
+
