@@ -14,8 +14,6 @@ import io
 from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from sqlalchemy import func
-import traceback
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -37,7 +35,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات ---
+# --- نماذج قاعدة البيانات (لا تغيير هنا) ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -76,11 +74,6 @@ class Risk(db.Model):
     lessons_learned = db.Column(db.Text, nullable=True)
     was_modified = db.Column(db.Boolean, default=False, nullable=False)
     linked_risk_id = db.Column(db.String(20), nullable=True)
-    # ==================================================================
-    # == ▼▼▼ [الإضافة الوحيدة هنا] إضافة حقل تاريخ الإغلاق ▼▼▼ ==
-    # ==================================================================
-    closed_at = db.Column(db.DateTime, nullable=True)
-    # ================================================================
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -99,7 +92,7 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- دوال مساعدة ---
+# --- دوال مساعدة (لا تغيير هنا) ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -130,7 +123,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات ---
+# --- مسارات الصفحات (لا تغيير هنا) ---
 @app.route('/')
 @login_required
 def home():
@@ -202,7 +195,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV ---
+# --- دالة تصدير CSV (لا تغيير هنا) ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -245,7 +238,7 @@ def download_risk_log():
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API ---
+# --- دوال الـ API (لا تغيير هنا إلا في get_stats_api) ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -319,23 +312,16 @@ def add_risk():
         db.session.rollback()
         print(f"An error occurred in add_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
 def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
-        if current_user.username != 'admin' and risk.user_id != current_user.id: 
-            return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
+        if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
         
         data = request.form
         was_modified_before = risk.was_modified
-        
-        # ==================================================================
-        # == ▼▼▼ [تعديل] تتبع الحالة القديمة والجديدة لتسجيل تاريخ الإغلاق ▼▼▼ ==
-        # ==================================================================
-        old_status = risk.status
-        new_status = data.get('status', risk.status)
-        # ================================================================
         
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
@@ -348,34 +334,12 @@ def update_risk(risk_id):
         risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
         risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
 
-        prob = int(data.get('probability', risk.probability))
-        imp = int(data.get('impact', risk.impact))
-        effectiveness = data.get('action_effectiveness', risk.action_effectiveness)
-        residual = calculate_residual_risk(effectiveness)
+        prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
+        effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
         
-        risk.title = data.get('title', risk.title)
-        risk.description = data.get('description', risk.description)
-        risk.risk_type = data.get('risk_type', risk.risk_type)
-        risk.category = data.get('category', risk.category)
-        risk.probability = prob
-        risk.impact = imp
-        risk.risk_level = calculate_risk_level(prob, imp)
-        risk.owner = data.get('owner', risk.owner)
-        risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness
-        risk.status = new_status # استخدام الحالة الجديدة
-        risk.residual_risk = residual
-        risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
+        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
+        risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
-        # ==================================================================
-        # == ▼▼▼ [تعديل] تسجيل تاريخ الإغلاق عند تغيير الحالة إلى "مغلق" ▼▼▼ ==
-        # ==================================================================
-        if new_status == 'مغلق' and old_status != 'مغلق':
-            risk.closed_at = datetime.utcnow()
-        elif new_status != 'مغلق':
-            risk.closed_at = None
-        # ================================================================
-
         target_date = None
         if data.get('target_completion_date'):
             try:
@@ -419,7 +383,6 @@ def update_risk(risk_id):
     except Exception as e:
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
-        traceback.print_exc()
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
 @app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
@@ -558,137 +521,146 @@ def delete_attachment(risk_id):
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
-    try:
-        query = Risk.query.filter_by(is_deleted=False)
-        if current_user.username != 'admin': 
-            query = query.filter_by(user_id=current_user.id)
+    query = Risk.query.filter_by(is_deleted=False)
+    if current_user.username != 'admin': 
+        query = query.filter_by(user_id=current_user.id)
 
-        # تطبيق الفلاتر
-        filter_category = request.args.get('category')
-        if filter_category: query = query.filter(Risk.category == filter_category)
-        filter_level = request.args.get('level')
-        if filter_level: query = query.filter(Risk.risk_level == filter_level)
-        filter_type = request.args.get('type')
-        if filter_type: query = query.filter(Risk.risk_type == filter_type)
-        filter_status = request.args.get('status')
-        if filter_status: query = query.filter(Risk.status == filter_status)
-        filter_code = request.args.get('code')
-        if filter_code: query = query.filter(Risk.risk_code == filter_code)
-        
-        risks = query.all()
-        total = len(risks)
-        active_risks_list = [r for r in risks if r.status != 'مغلق']
-        active = len(active_risks_list)
-        closed = total - active
-        
-        threats = len([r for r in risks if r.risk_type == 'تهديد'])
-        opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
-        
-        threats_percentage = (threats / total * 100) if total > 0 else 0
-        opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
-        
-        matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks]
-        
-        active_percentage = (active / total * 100) if total > 0 else 0
-        closed_percentage = (closed / total * 100) if total > 0 else 0
-        
-        risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
-        categories = sorted(list(set(r.category for r in risks if r.category)))
-        by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
-        for risk in risks:
-            if risk.category and risk.category in categories:
+    # --- [بداية التعديل الجديد] ---
+    # التعامل مع الفلاتر القادمة من الواجهة
+    filter_category = request.args.get('category')
+    filter_level = request.args.get('level')
+    filter_type = request.args.get('type')
+    filter_status = request.args.get('status')
+    filter_code = request.args.get('code') # <-- هذا هو الفلتر الجديد
+
+    if filter_category:
+        query = query.filter(Risk.category == filter_category)
+    if filter_level:
+        query = query.filter(Risk.risk_level == filter_level)
+    if filter_type:
+        query = query.filter(Risk.risk_type == filter_type)
+    if filter_status:
+        query = query.filter(Risk.status == filter_status)
+    if filter_code:
+        query = query.filter(Risk.risk_code == filter_code) # <-- تطبيق الفلتر الجديد
+    # --- [نهاية التعديل الجديد] ---
+
+    # --- [نهاية التعديل الجديد] ---
+    risks = query.all()
+    total = len(risks)
+    active = len([r for r in risks if r.status != 'مغلق'])
+    closed = total - active
+    
+    threats = len([r for r in risks if r.risk_type == 'تهديد'])
+    opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
+    
+    threats_percentage = (threats / total * 100) if total > 0 else 0
+    opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
+    
+    matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks]
+    
+    active_percentage = (active / total * 100) if total > 0 else 0
+    closed_percentage = (closed / total * 100) if total > 0 else 0
+    
+    risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
+    categories = sorted(list(set(r.category for r in risks if r.category)))
+    by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
+    for risk in risks:
+        if risk.category:
+            try:
                 cat_index = categories.index(risk.category)
                 by_category_stacked[risk.risk_level][cat_index] += 1
+            except ValueError:
+                continue
 
-        by_level_nested = {'threats': [0] * 5, 'opportunities': [0] * 5}
-        for risk in risks:
-            if risk.risk_level in risk_level_order:
-                level_index = risk_level_order.index(risk.risk_level)
-                if risk.risk_type == 'تهديد':
-                    by_level_nested['threats'][level_index] += 1
-                else:
-                    by_level_nested['opportunities'][level_index] += 1
+    by_level_nested = {
+        'threats': [0] * len(risk_level_order),
+        'opportunities': [0] * len(risk_level_order)
+    }
+    for risk in risks:
+        try:
+            level_index = risk_level_order.index(risk.risk_level)
+            if risk.risk_type == 'تهديد':
+                by_level_nested['threats'][level_index] += 1
+            else:
+             by_level_nested['opportunities'][level_index] += 1
+        except ValueError:
+            continue
 
-        status_counts = Counter(r.status for r in risks)
+    status_counts = Counter(r.status for r in risks)
 
-        overdue_risks_count = 0
-        on_time_risks_count = 0
-        today = datetime.utcnow().date()
-        for risk in active_risks_list:
-            if risk.target_completion_date and risk.target_completion_date.date() < today:
+    # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
+    overdue_risks_count = 0
+    on_time_risks_count = 0
+    today = datetime.utcnow().date()
+
+    # نحن نهتم فقط بالمخاطر التي لم تغلق بعد
+    active_risks = [r for r in risks if r.status != 'مغلق']
+
+    for risk in active_risks:
+        if risk.target_completion_date:
+            # إذا كان تاريخ الإكمال المستهدف في الماضي، فهو متأخر
+            if risk.target_completion_date.date() < today:
                 overdue_risks_count += 1
             else:
                 on_time_risks_count += 1
+        else:
+            # إذا لم يكن هناك تاريخ مستهدف، نعتبره ملتزماً بالوقت افتراضياً
+            on_time_risks_count += 1
+    # --- [نهاية التعديل الجديد] ---
 
-        # --- حساب مؤشرات الأداء الرئيسية (KPIs) ---
-        kpi_data = []
-        now = datetime.utcnow()
+    stats_data = {
+        'total_risks': total, 
+        'active_risks': active, 
+        'closed_risks': closed, 
+        'active_risks_percentage': active_percentage,
+        'closed_risks_percentage': closed_percentage,
+        'total_threats': threats,
+        'total_opportunities': opportunities,
+        'threats_percentage': threats_percentage,
+        'opportunities_percentage': opportunities_percentage,
+        'matrix_data': matrix_data,
+        'by_category_stacked': {
+            'labels': categories,
+            'datasets': by_category_stacked
+        },
+        'by_level_nested': {
+            'labels': risk_level_order,
+            'datasets': by_level_nested
+        },
+        'by_status': {
+            'labels': list(status_counts.keys()),
+            'data': list(status_counts.values())
+        },
+        # --- [تعديل جديد] إضافة بيانات الالتزام بالوقت ---
+        'timeliness': {
+            'labels': ['ملتزم بالوقت', 'متأخر'],
+            'data': [on_time_risks_count, overdue_risks_count]
+        },
+        'top_risks': [
+            {
+                'code': r.risk_code,
+                'title': r.title,
+                'level': r.risk_level,
+                'score': r.probability * r.impact
+            }
+            for r in sorted(
+                # --- [بداية التعديل] ---
+                # فلترة المخاطر لتشمل فقط "مرتفع" و "مرتفع جدا / كارثي"
+                [
+                    risk for risk in risks 
+                    if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']
+                ], 
+                # --- [نهاية التعديل] ---
+                key=lambda x: (x.probability * x.impact, x.created_at), 
+                reverse=True
+            )
+        ][:5]
 
-        # 1. متوسط عمر المخاطر النشطة
-        if active_risks_list:
-            total_age_days = sum([(now - r.created_at).days for r in active_risks_list])
-            avg_age = total_age_days / len(active_risks_list)
-            kpi_data.append({'label': 'متوسط عمر المخاطر النشطة:', 'value': f'{int(avg_age)} يوم'})
+    }
+    return jsonify({'success': True, 'stats': stats_data})
 
-        # 2. معدل الإغلاق الشهري
-        all_risks_for_user_query = Risk.query.filter_by(is_deleted=False)
-        if current_user.username != 'admin':
-            all_risks_for_user_query = all_risks_for_user_query.filter_by(user_id=current_user.id)
-        
-        all_risks_for_user = all_risks_for_user_query.all()
-        
-        first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        closed_this_month_count = sum(1 for r in all_risks_for_user if r.status == 'مغلق' and r.closed_at and r.closed_at >= first_day_of_month)
-        total_created_this_month = sum(1 for r in all_risks_for_user if r.created_at >= first_day_of_month)
-        
-        closure_rate = (closed_this_month_count / total_created_this_month * 100) if total_created_this_month > 0 else 0
-        kpi_data.append({'label': 'معدل الإغلاق الشهري:', 'value': f'{closure_rate:.1f}%'})
-
-        # 3. أخطر فئة حالياً
-        if active_risks_list:
-            category_scores = {}
-            for r in active_risks_list:
-                if r.category:
-                    score = r.probability * r.impact
-                    category_scores[r.category] = category_scores.get(r.category, 0) + score
-            if category_scores:
-                most_dangerous_category = max(category_scores, key=category_scores.get)
-                kpi_data.append({'label': 'أخطر فئة حالياً:', 'value': most_dangerous_category})
-
-        # 4. إحصائيات المخاطر الخاصة
-        linked_risks_count = sum(1 for r in risks if r.linked_risk_id)
-        secondary_risks_count = sum(1 for r in risks if r.title and r.title.startswith('(خطر ثانوي)'))
-        residual_risks_count = sum(1 for r in risks if r.title and r.title.startswith('(خطر متبقٍ)'))
-
-        kpi_data.append({'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)})
-        kpi_data.append({'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)})
-        kpi_data.append({'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)})
-
-        stats_data = {
-            'total_risks': total, 'active_risks': active, 'closed_risks': closed, 
-            'active_risks_percentage': active_percentage, 'closed_risks_percentage': closed_percentage,
-            'total_threats': threats, 'total_opportunities': opportunities,
-            'threats_percentage': threats_percentage, 'opportunities_percentage': opportunities_percentage,
-            'matrix_data': matrix_data,
-            'by_category_stacked': {'labels': categories, 'datasets': by_category_stacked},
-            'by_level_nested': {'labels': risk_level_order, 'datasets': by_level_nested},
-            'by_status': {'labels': list(status_counts.keys()), 'data': list(status_counts.values())},
-            'timeliness': {'labels': ['ملتزم بالوقت', 'متأخر'], 'data': [on_time_risks_count, overdue_risks_count]},
-            'top_risks': [{'code': r.risk_code, 'title': r.title, 'level': r.risk_level, 'score': r.probability * r.impact} for r in sorted([risk for risk in risks if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']], key=lambda x: (x.probability * x.impact, x.created_at), reverse=True)[:5]],
-            'kpi_ticker_data': kpi_data
-        }
-        return jsonify({'success': True, 'stats': stats_data})
-
-    except Exception as e:
-        print("!!!!!!!!!!!!!!!!! ERROR IN get_stats_api !!!!!!!!!!!!!!!")
-        traceback.print_exc()
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        return jsonify({'success': True, 'stats': {
-            'total_risks': 0, 'active_risks': 0, 'closed_risks': 0, 'active_risks_percentage': 0, 'closed_risks_percentage': 0,
-            'total_threats': 0, 'total_opportunities': 0, 'threats_percentage': 0, 'opportunities_percentage': 0,
-            'matrix_data': [], 'by_category_stacked': {'labels': [], 'datasets': {}}, 'by_level_nested': {'labels': [], 'datasets': {}},
-            'by_status': {'labels': [], 'data': []}, 'timeliness': {'labels': [], 'data': []}, 'top_risks': [], 'kpi_ticker_data': []
-        }})
+    return jsonify({'success': True, 'stats': stats_data})
 
 @app.route('/api/notifications')
 @login_required
@@ -851,3 +823,9 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
+
+
+
+
+
