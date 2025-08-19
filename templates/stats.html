@@ -293,54 +293,67 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            function renderKpiTicker(kpiData) {
-                const tickerContainer = document.getElementById('kpi-ticker-container');
-                const tickerContent = document.getElementById('kpi-ticker-content');
+    function renderKpiTicker(kpiData) {
+    const tickerContainer = document.getElementById('kpi-ticker-container');
+    const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!kpiData || kpiData.length === 0) {
-                    if(tickerContainer) tickerContainer.style.display = 'none';
-                    return;
-                }
+    // التحقق من وجود العناصر في الصفحة لتجنب الأخطاء
+    if (!tickerContainer || !tickerContent) {
+        console.error("Ticker container or content not found in HTML.");
+        return;
+    }
 
-                tickerContent.innerHTML = '';
-                tickerContent.classList.remove('animate');
+    // التحقق من أن البيانات موجودة وأنها مصفوفة وليست فارغة
+    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
+        tickerContainer.style.display = 'none'; // إخفاء الحاوية إذا لا توجد بيانات
+        return;
+    }
 
-                const createKpiItem = (kpi) => {
-                    const item = document.createElement('div');
-                    item.className = 'kpi-item';
-                    const label = kpi.label || '';
-                    const value = kpi.value !== null && kpi.value !== undefined ? kpi.value : '';
-                    item.innerHTML = `<span class="kpi-label">${label}</span><span class="kpi-value">${value}</span>`;
-                    return item;
-                };
+    // إعادة تعيين المحتوى والحركة قبل البدء
+    tickerContent.innerHTML = '';
+    tickerContent.classList.remove('animate');
 
-                kpiData.forEach(kpi => {
-                    tickerContent.appendChild(createKpiItem(kpi));
-                });
-                
-                if(tickerContainer) tickerContainer.style.display = 'block';
+    // بناء عناصر الشريط
+    let itemsHtml = '';
+    kpiData.forEach(kpi => {
+        // التحقق من أن كل عنصر هو كائن ويحتوي على الخصائص المطلوبة
+        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
+            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+        }
+    });
 
-                requestAnimationFrame(() => {
-                    setTimeout(() => {
-                        const originalItems = Array.from(tickerContent.children);
-                        if (originalItems.length === 0) return;
+    // إذا لم يتم بناء أي عناصر (بسبب بيانات غير صالحة)، لا تعرض الشريط
+    if (itemsHtml === '') {
+        tickerContainer.style.display = 'none';
+        return;
+    }
 
-                        const contentWidth = tickerContent.scrollWidth;
-                        const containerWidth = tickerContainer.offsetWidth;
+    // إظهار الحاوية وملء المحتوى
+    tickerContainer.style.display = 'block';
+    tickerContent.innerHTML = itemsHtml;
 
-                        if (contentWidth > 0 && containerWidth > 0) {
-                            const cloneCount = Math.ceil(containerWidth / contentWidth) + 2;
-                            for (let i = 0; i < cloneCount; i++) {
-                                originalItems.forEach(child => {
-                                    tickerContent.appendChild(child.cloneNode(true));
-                                });
-                            }
-                        }
-                        
-                        tickerContent.classList.add('animate');
-                    }, 50);
-                });
+    // استخدام requestAnimationFrame لضمان أن المتصفح قد عرض العناصر قبل قياسها
+    requestAnimationFrame(() => {
+        // التأكد من أن العناصر موجودة فعلاً قبل محاولة تكرارها
+        if (tickerContent.children.length === 0) return;
+
+        const contentWidth = tickerContent.scrollWidth;
+        const containerWidth = tickerContainer.offsetWidth;
+
+        // تكرار المحتوى فقط إذا كان أصغر من الحاوية لضمان استمرارية الحركة
+        if (contentWidth > 0 && containerWidth > 0 && contentWidth < containerWidth * 1.5) {
+            const cloneCount = Math.ceil((containerWidth * 1.5) / contentWidth);
+            const initialHtml = tickerContent.innerHTML;
+            for (let i = 0; i < cloneCount; i++) {
+                tickerContent.innerHTML += initialHtml;
             }
+        }
+        
+        // إضافة كلاس الحركة
+        tickerContent.classList.add('animate');
+    });
+}
+
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -619,3 +632,4 @@
         });
     </script>
 {% endblock %}
+
