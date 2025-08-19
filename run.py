@@ -682,8 +682,7 @@ def get_stats_api():
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
-        ][:5]        ], # <--- تأكد من وجود هذه الفاصلة
-
+        ][:5]        
         # --- [بداية الإضافة الجديدة] ---
         'kpi_data': {
             'avg_risk_age': avg_risk_age,
@@ -860,6 +859,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
