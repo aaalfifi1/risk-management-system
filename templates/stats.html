@@ -3,93 +3,81 @@
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
-<style>
-    /* --- [تقنية جديدة] تنسيقات شريط مؤشرات الأداء --- */
-    .kpi-ticker-wrap {
-        background-color: #1a2a45;
-        width: 100%;
-        overflow: hidden;
-        height: 2.5rem;
-        padding: 0;
-        border-radius: 10px;
-        border: 1px solid var(--border-color);
-        box-sizing: border-box;
-        margin-bottom: 1.5rem;
-        /* خاصية مهمة لمنع القفزات */
-        -webkit-font-smoothing: antialiased;
-    }
-
-    .kpi-ticker-wrap .ticker-content {
-        display: flex;
-        width: fit-content; /* نجعل العرض يناسب المحتوى */
-    }
-
-    .kpi-ticker-wrap .ticker-content.animate {
-        /* مدة الحركة ستُحسب بواسطة JavaScript */
-        animation: ticker-animation var(--animation-duration, 40s) linear infinite;
-    }
-
-    .kpi-ticker-wrap .ticker-content:hover {
-        animation-play-state: paused;
-    }
-
-    .kpi-ticker-wrap .kpi-item {
-        display: flex;
-        align-items: center;
-        padding: 0 2rem;
-        font-size: 0.95rem;
-        white-space: nowrap; /* نضمن أن كل عنصر على سطر واحد */
-    }
-
-    .kpi-ticker-wrap .kpi-item .kpi-label {
-        color: var(--accent-yellow);
-        font-weight: bold;
-        margin-left: 8px;
-    }
-
-    .kpi-ticker-wrap .kpi-item .kpi-value {
-        color: var(--light-text);
-    }
-
-    @keyframes ticker-animation {
-        from {
-            transform: translateX(0);
+    <style>
+        /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
+        .kpi-ticker-wrap {
+            background-color: #1a2a45;
+            width: 100%;
+            overflow: hidden;
+            height: 2.5rem;
+            padding: 0;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            margin-bottom: 1.5rem;
         }
-        to {
-            /* نحرك بمقدار النصف فقط (عرض المحتوى الأصلي) */
-            transform: translateX(-50%);
+        .kpi-ticker-wrap .ticker-content {
+            display: inline-block;
+            height: 2.5rem;
+            line-height: 2.5rem;
+            white-space: nowrap;
+            box-sizing: content-box;
         }
-    }
+        .kpi-ticker-wrap .ticker-content.animate {
+            /* الحركة الآن تعتمد على متغيرات نحددها من جافاسكريبت */
+            animation: ticker-animation var(--animation-duration, 60s) infinite linear;
+        }
+        .kpi-ticker-wrap .ticker-content:hover {
+            animation-play-state: paused;
+        }
+        .kpi-ticker-wrap .kpi-item {
+            display: inline-block;
+            padding: 0 2rem;
+            font-size: 0.95rem;
+        }
+        .kpi-ticker-wrap .kpi-item .kpi-label {
+            color: var(--accent-yellow);
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .kpi-ticker-wrap .kpi-item .kpi-value {
+            color: var(--light-text);
+        }
+        /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
+        @keyframes ticker-animation {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(var(--ticker-scroll-width, -100%)); }
+        }
 
-    /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
-    .stat-card:hover { transform: translateY(-5px); }
-    .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
-    .stat-icon { font-size: 3rem; opacity: 0.6; }
-    .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
-    .chart-container canvas { flex-grow: 1; min-height: 0; }
-    .card-title-white { color: #ffffff; font-weight: bold; }
-    .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
-    .stat-value-container { display: flex; align-items: baseline; }
-    #matrixChart {
-        background-image: 
-            linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
-        background-size: calc(100% / 5) calc(100% / 5);
-    }
-    .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
-    body.tv-mode .sidebar, 
-    body.tv-mode .navbar,
-    body.tv-mode .header-controls { display: none !important; }
-    body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
-    .watchlist-container { background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
-    .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: background-color 0.2s; }
-    .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
-    .watchlist-item:last-child { border-bottom: none; }
-    .watchlist-title { font-weight: bold; color: #f8f9fa; }
-    .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
-    .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
-    .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
-</style>
+        /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
+        .stat-card:hover { transform: translateY(-5px); }
+        .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
+        .stat-icon { font-size: 3rem; opacity: 0.6; }
+        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+        .chart-container canvas { flex-grow: 1; min-height: 0; }
+        .card-title-white { color: #ffffff; font-weight: bold; }
+        .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
+        .stat-value-container { display: flex; align-items: baseline; }
+        #matrixChart {
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: calc(100% / 5) calc(100% / 5);
+        }
+        .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
+        body.tv-mode .sidebar, 
+        body.tv-mode .navbar,
+        body.tv-mode .header-controls { display: none !important; }
+        body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
+        .watchlist-container { background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: background-color 0.2s; }
+        .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
+        .watchlist-item:last-child { border-bottom: none; }
+        .watchlist-title { font-weight: bold; color: #f8f9fa; }
+        .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
+        .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
+        .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
+    </style>
 {% endblock %}
 
 {% block content %}
@@ -112,12 +100,62 @@
 
         <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
-            <!-- ... (البطاقات كما هي) ... -->
+            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
+            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">التهديدات</h5><div class="stat-value-container" id="threats-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-down-arrow stat-icon text-danger"></i></div></div></div>
+            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">الفرص</h5><div class="stat-value-container" id="opportunities-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-up-arrow stat-icon text-success"></i></div></div></div>
+            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر النشطة</h5><div class="stat-value-container" id="active-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-activity stat-icon text-warning"></i></div></div></div>
+            <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
         </div>
 
         <!-- هيكل الشبكة (Grid) للرسوم البيانية -->
         <div class="row g-4">
-            <!-- ... (الرسوم البيانية كما هي) ... -->
+            <!-- العمود الأيمن -->
+            <div class="col-lg-6 d-flex flex-column gap-4">
+                <div class="chart-container">
+                    <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
+                    <canvas id="matrixChart"></canvas>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="watchlist-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة</h5>
+                            <div id="watchlist-body" class="flex-grow-1 overflow-auto">
+                                <!-- سيتم ملء القائمة هنا -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">توزيع المخاطر حسب النوع</h5>
+                            <div style="position: relative; height:100%; width:100%">
+                                 <canvas id="levelChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- العمود الأيسر -->
+            <div class="col-lg-6 d-flex flex-column gap-4">
+                <div class="chart-container">
+                    <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">توزيع الحالات</h5>
+                            <canvas id="statusPieChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chart-container" style="height: 380px;">
+                            <h5 class="mb-3 card-title-white">الالتزام بالوقت</h5>
+                            <canvas id="timelinessChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 {% endblock %}
@@ -129,22 +167,89 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function ( ) {
-            // ... (الكود الأولي لتعريف المتغيرات والأزرار لم يتغير) ...
+            const { jsPDF } = window.jspdf;
+
+            Chart.register(ChartDataLabels);
+            Chart.defaults.plugins.datalabels.display = false;
+
+            let allStatsData = {};
+            let isFiltered = false;
+            const resetButton = document.getElementById('reset-filter');
+            const exportButton = document.getElementById('export-pdf');
+            const tvModeButton = document.getElementById('tv-mode');
+            let tvModeInterval = null;
+
+            let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance, timelinessChartInstance;
+            const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+            const levelCtx = document.getElementById('levelChart').getContext('2d');
+            const matrixCtx = document.getElementById('matrixChart').getContext('2d');
+            const statusPieCtx = document.getElementById('statusPieChart').getContext('2d');
+            const timelinessCtx = document.getElementById('timelinessChart').getContext('2d');
+            
+            const riskLevelColors = { 'مرتفع جدا / كارثي': '#dc3545', 'مرتفع': '#fd7e14', 'متوسط': '#ffc107', 'منخفض': '#90EE90', 'منخفض جدا': '#198754' };
+
+            resetButton.addEventListener('click', () => {
+                isFiltered = false;
+                resetButton.style.display = 'none';
+                fetchStats();
+            });
+
+            exportButton.addEventListener('click', () => {
+                const dashboardElement = document.getElementById('dashboard-to-print');
+                showToast('جاري تجهيز التقرير، يرجى الانتظار...', 'info');
+                html2canvas(dashboardElement, { backgroundColor: '#1a2b45', scale: 2 }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF({ orientation: 'landscape', unit: 'pt', format: [canvas.width, canvas.height] });
+                    pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                    pdf.save('Risk_Dashboard_Report.pdf');
+                });
+            });
+
+            tvModeButton.addEventListener('click', () => {
+                const body = document.body;
+                body.classList.toggle('tv-mode');
+                if (body.classList.contains('tv-mode')) {
+                    if (document.fullscreenEnabled) { document.documentElement.requestFullscreen(); }
+                    tvModeInterval = setInterval(fetchStats, 60000);
+                    tvModeButton.innerHTML = '<i class="bi bi-tv"></i> الخروج من وضع العرض';
+                } else {
+                    if (document.fullscreenElement) { document.exitFullscreen(); }
+                    clearInterval(tvModeInterval);
+                    tvModeInterval = null;
+                    tvModeButton.innerHTML = '<i class="bi bi-tv-fill"></i> وضع العرض';
+                }
+            });
 
             async function fetchStats(filters = {}) {
-                // ... (الدالة كما هي) ...
+                try {
+                    const params = new URLSearchParams(filters);
+                    const url = `/api/stats?${params.toString()}`;
+
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    if (data.success) {
+                        if (Object.keys(filters).length === 0) {
+                            allStatsData = data.stats;
+                        }
+                        updateDashboard(data.stats);
+                    }
+                } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [دالة الشريط الجديدة كلياً] ---
+            // --- [الكود الجديد والمحصن لدالة الشريط] ---
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
                 if (!tickerContainer || !tickerContent) return;
+
                 if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
                     tickerContainer.style.display = 'none';
                     return;
                 }
+
+                tickerContent.innerHTML = '';
+                tickerContent.classList.remove('animate');
 
                 let itemsHtml = '';
                 kpiData.forEach(kpi => {
@@ -158,25 +263,303 @@
                     return;
                 }
 
-                // الخدعة هنا: نضع المحتوى مرتين
-                tickerContent.innerHTML = itemsHtml + itemsHtml;
                 tickerContainer.style.display = 'block';
-                
-                // نحسب عرض المحتوى الأصلي (النصف)
-                const contentWidth = tickerContent.scrollWidth / 2;
-                
-                // نضبط مدة الحركة بناءً على العرض
-                const animationDuration = contentWidth / 50; // سرعة 50 بكسل في الثانية
-                tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
+                // نكرر المحتوى مرتين مبدئياً لضمان وجود ما يكفي للحركة
+                tickerContent.innerHTML = itemsHtml + itemsHtml;
 
-                // نبدأ الحركة
-                tickerContent.classList.add('animate');
+                requestAnimationFrame(() => {
+                    // نحسب عرض الجزء الأصلي (غير المكرر)
+                    const originalContentWidth = tickerContent.scrollWidth / 2;
+
+                    // نضبط متغير الـ CSS بقيمة العرض السالبة
+                    tickerContent.style.setProperty('--ticker-scroll-width', `-${originalContentWidth}px`);
+                    
+                    // نضبط مدة الأنيميشن بناءً على العرض لضمان سرعة ثابتة
+                    const animationDuration = originalContentWidth / 50; // سرعة 50 بكسل في الثانية
+                    tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
+
+                    // الآن نبدأ الحركة بأمان
+                    tickerContent.classList.add('animate');
+                });
             }
 
-            // ... (بقية دوال الرسوم البيانية لم تتغير) ...
+            function renderWatchlist(topRisks) {
+                const watchlistBody = document.getElementById('watchlist-body');
+                watchlistBody.innerHTML = '';
 
-            function updateDashboard(stats) {
-                // ... (الدالة كما هي) ...
+                if (topRisks.length === 0) {
+                    watchlistBody.innerHTML = '<div class="watchlist-placeholder">لا توجد مخاطر مرتفعة حالياً.</div>';
+                    return;
+                }
+
+                topRisks.forEach(risk => {
+                    const item = document.createElement('div');
+                    item.className = 'watchlist-item';
+                    
+                    item.innerHTML = `
+                        <div>
+                            <div class="watchlist-title">${risk.title}</div>
+                            <div class="watchlist-code">${risk.code}</div>
+                        </div>
+                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">
+                            ${risk.level}
+                        </span>
+                    `;
+                    
+                    item.addEventListener('click', () => {
+                        isFiltered = true;
+                        resetButton.style.display = 'block';
+                        fetchStats({ code: risk.code });
+                    });
+
+                    watchlistBody.appendChild(item);
+                });
+            }
+
+            function renderTimelinessChart(timelinessData) {
+                if (timelinessChartInstance) timelinessChartInstance.destroy();
+                timelinessChartInstance = new Chart(timelinessCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: timelinessData.labels,
+                        datasets: [{
+                            label: 'عدد المخاطر',
+                            data: timelinessData.data,
+                            backgroundColor: ['#198754', '#dc3545'],
+                            borderColor: '#273c5e',
+                            borderWidth: 2,
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { 
+                                ticks: { 
+                                    color: '#fff', 
+                                    stepSize: 1,
+                                    display: false
+                                } 
+                            },
+                            y: { ticks: { color: '#fff' } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (context) => ` عدد المخاطر: ${context.raw}` } },
+                            datalabels: { display: true, anchor: 'end', align: 'end', color: '#fff', font: { weight: 'bold' }, formatter: (value) => value > 0 ? value : '' }
+                        }
+                    }
+                });
+            }
+
+            function renderStatusPieChart(statusData) {
+                if (statusPieChartInstance) statusPieChartInstance.destroy();
+                const statusColors = { 'جديد': '#0dcaf0', 'تحت المراجعة': '#6c757d', 'نشط': '#ffc107', 'مُراقب': '#fd7e14', 'مُصعَّد': '#dc3545', 'مغلق': '#198754' };
+                const backgroundColors = statusData.labels.map(label => statusColors[label] || '#cccccc');
+                statusPieChartInstance = new Chart(statusPieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: statusData.labels,
+                        datasets: [{ label: 'عدد المخاطر', data: statusData.data, backgroundColor: backgroundColors, borderColor: '#273c5e', borderWidth: 2 }]
+                    },
+                    options: {
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const status = statusPieChartInstance.data.labels[index];
+                                isFiltered = true;
+                                resetButton.style.display = 'block';
+                                fetchStats({ status: status });
+                            }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { color: '#fff' } },
+                            tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
+                            datalabels: {
+                                display: true,
+                                formatter: (value, ctx) => {
+                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    let percentage = (value*100 / sum).toFixed(1)+"%";
+                                    return value > 0 ? percentage : '';
+                                },
+                                color: '#fff',
+                                font: { weight: 'bold' }
+                            }
+                        }
+                    }
+                });
+            }
+
+            function renderMatrixChart(matrixData) {
+                if (matrixChartInstance) matrixChartInstance.destroy();
+                const threatsData = matrixData.filter(d => d.type === 'تهديد').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
+                const opportunitiesData = matrixData.filter(d => d.type === 'فرصة').map(d => ({ x: d.x, y: d.y, label: `${d.code}: ${d.title}` }));
+                matrixChartInstance = new Chart(matrixCtx, {
+                    type: 'bubble',
+                    data: { datasets: [ { label: 'تهديد', data: threatsData, backgroundColor: 'rgba(220, 53, 69, 0.7)', borderColor: 'rgba(220, 53, 69, 1)', radius: 8, hoverRadius: 12 }, { label: 'فرصة', data: opportunitiesData, backgroundColor: 'rgba(25, 135, 84, 0.7)', borderColor: 'rgba(25, 135, 84, 1)', radius: 8, hoverRadius: 12 } ] },
+                    options: {
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const datasetIndex = elements[0].datasetIndex;
+                                const type = matrixChartInstance.data.datasets[datasetIndex].label;
+                                isFiltered = true;
+                                resetButton.style.display = 'block';
+                                fetchStats({ type: type });
+                            }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
+                        plugins: { legend: { position: 'top', padding: { bottom: 20 }, labels: { color: '#fff', usePointStyle: true, pointStyle: 'circle' } }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
+                    }
+                });
+            }
+
+            function renderStackedBarChart(categoryData) {
+                if (categoryChartInstance) categoryChartInstance.destroy();
+                const datasets = Object.keys(categoryData.datasets).map(level => ({
+                    label: level,
+                    data: categoryData.datasets[level],
+                    backgroundColor: riskLevelColors[level]
+                }));
+                categoryChartInstance = new Chart(categoryCtx, {
+                    type: 'bar',
+                    data: { labels: categoryData.labels, datasets: datasets },
+                    options: {
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const category = categoryChartInstance.data.labels[index];
+                                isFiltered = true;
+                                resetButton.style.display = 'block';
+                                fetchStats({ category: category });
+                            }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
+                        plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
+                    }
+                });
+            }
+
+            function renderSplitDoughnutChart(levelData) {
+                if (levelChartInstance) levelChartInstance.destroy();
+                const chartData = [];
+                const chartColors = [];
+                const chartLabels = [];
+                const riskLevelOrder = Object.keys(riskLevelColors);
+
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.opportunities[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(level);
+                });
+                levelData.labels.forEach((level, index) => {
+                    chartData.push(levelData.datasets.threats[index]);
+                    chartColors.push(riskLevelColors[level]);
+                    chartLabels.push(level);
+                });
+                levelChartInstance = new Chart(levelCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [{ data: chartData, backgroundColor: chartColors, borderWidth: 2, borderColor: '#273c5e' }]
+                    },
+                    options: {
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const index = elements[0].index;
+                                const level = levelChartInstance.data.labels[index % riskLevelOrder.length];
+                                isFiltered = true;
+                                resetButton.style.display = 'block';
+                                fetchStats({ level: level });
+                            }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        rotation: -90,
+                        circumference: 180,
+                        cutout: '40%',
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    boxWidth: 0,
+                                    boxHeight: 0,
+                                    padding: 10,
+                                    font: {
+                                        size: 15,
+                                        color: '#fff'
+                                    },
+                                    generateLabels: function(chart) {
+                                        return [{
+                                            text: 'فرص | تهديدات',
+                                            fillStyle: 'transparent',
+                                            strokeStyle: 'transparent',
+                                            fontColor: '#fff' 
+                                        }];
+                                    }
+
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const isOpportunity = context.dataIndex < levelData.labels.length;
+                                        const typeName = isOpportunity ? 'فرصة' : 'تهديد';
+                                        const levelName = context.label || '';
+                                        const value = context.raw;
+                                        const totalRisks = levelData.datasets.threats.reduce((a, b) => a + b, 0) + levelData.datasets.opportunities.reduce((a, b) => a + b, 0);
+                                        const percentage = totalRisks > 0 ? (value / totalRisks * 100).toFixed(1) : 0;
+                                        return `${typeName} - ${levelName}: ${value} (${percentage}%)`;
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                display: true,
+                                formatter: (value, ctx) => {
+                                    let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    if (value === 0 || sum === 0) return '';
+                                    const percentage = (value / sum * 100).toFixed(1);
+                                    return `${percentage}%`;
+                                },
+                                color: '#fff',
+                                font: { weight: 'bold' }
+                            }
+                        }
+                    }
+                });
+            }
+
+                      function updateDashboard(stats) {
+                document.getElementById('total-risks').textContent = stats.total_risks;
+                document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
+                
+                // --- [التعديل الأهم] ---
+                // الشريط الآن يأخذ بياناته من allStatsData الثابتة
+                // هذا يضمن عدم تأثره بالفلتر واستمرارية حركته
+                if (allStatsData && allStatsData.kpi_ticker_data) {
+                    renderKpiTicker(allStatsData.kpi_ticker_data);
+                }
+
+                // الرسوم البيانية تأخذ بياناتها من `stats` المتغيرة مع الفلتر
+                renderMatrixChart(stats.matrix_data);
+                renderStackedBarChart(stats.by_category_stacked);
+                renderSplitDoughnutChart(stats.by_level_nested);
+                renderStatusPieChart(stats.by_status);
+                renderTimelinessChart(stats.timeliness);
+                renderWatchlist(stats.top_risks);
+            }
+
             }
 
             fetchStats();
