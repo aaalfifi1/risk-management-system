@@ -15,7 +15,7 @@
             height: 420px; 
             display: flex;
             flex-direction: column;
-            position: relative; /* Needed for toggle buttons */
+            position: relative;
         }
         .chart-container canvas {
             flex-grow: 1;
@@ -64,7 +64,6 @@
         .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
         .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
 
-        /* --- [بداية التعديل الجديد] تنسيقات الميزات الجديدة --- */
         .kpi-ticker-container {
             background-color: #273c5e;
             border-radius: 10px;
@@ -92,19 +91,12 @@
             100% { transform: translateX(-100%); }
         }
 
-       .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem; /* نفس قيمة mb-3 */
-        }
         .chart-toggle-buttons {
-            /* لم نعد بحاجة لـ position: absolute */
-            width: 120px; /* نعطيها عرضاً ثابتاً للموازنة */
-            text-align: right;
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            z-index: 10;
         }
-
-        /* --- [نهاية التعديل الجديد] --- */
     </style>
 {% endblock %}
 
@@ -118,55 +110,38 @@
         </div>
     </div>
 
-    <!-- [بداية التعديل الجديد] إضافة حاوية مؤشر الأداء -->
     <div class="kpi-ticker-container">
         <div id="kpi-ticker-content" class="kpi-ticker-content">
             <!-- سيتم ملء المؤشرات هنا -->
         </div>
     </div>
-    <!-- [نهاية التعديل الجديد] -->
 
     <div id="dashboard-to-print">
-        <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
-            <!-- [بداية التعديل الجديد] إضافة id لكل بطاقة -->
             <div class="col"><div id="total-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
             <div class="col"><div id="threats-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">التهديدات</h5><div class="stat-value-container" id="threats-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-down-arrow stat-icon text-danger"></i></div></div></div>
             <div class="col"><div id="opportunities-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">الفرص</h5><div class="stat-value-container" id="opportunities-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-graph-up-arrow stat-icon text-success"></i></div></div></div>
             <div class="col"><div id="active-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر النشطة</h5><div class="stat-value-container" id="active-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-activity stat-icon text-warning"></i></div></div></div>
             <div class="col"><div id="closed-risks-card" class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">المخاطر المغلقة</h5><div class="stat-value-container" id="closed-risks-container"><h2 class="fw-bold text-white mb-0">0</h2><small class="percentage-text">(0.0%)</small></div></div><i class="bi bi-check-circle-fill stat-icon text-success"></i></div></div></div>
-            <!-- [نهاية التعديل الجديد] -->
         </div>
 
-        <!-- هيكل الشبكة (Grid) للرسوم البيانية -->
         <div class="row g-4">
-            <!-- العمود الأيمن -->
             <div class="col-lg-6 d-flex flex-column gap-4">
-            <div class="chart-container">
-                    <!-- --- [بداية التعديل] --- -->
-                    <div class="chart-header">
-                        <div class="btn-group btn-group-sm chart-toggle-buttons" role="group">
-                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-all" autocomplete="off" checked>
-                            <label class="btn btn-outline-light" for="matrix-view-all">الكل</label>
-
-                            <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-active" autocomplete="off">
-                            <label class="btn btn-outline-light" for="matrix-view-active">النشطة فقط</label>
-                        </div>
-                        <h5 class="mb-0 card-title-white">خريطة التهديدات والفرص</h5>
-                        <!-- عنصر فارغ للموازنة -->
-                        <div style="width: 120px;"></div> 
+                <div class="chart-container">
+                    <div class="btn-group btn-group-sm chart-toggle-buttons" role="group">
+                        <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-all" autocomplete="off" checked>
+                        <label class="btn btn-outline-light" for="matrix-view-all">الكل</label>
+                        <input type="radio" class="btn-check" name="matrix-view" id="matrix-view-active" autocomplete="off">
+                        <label class="btn btn-outline-light" for="matrix-view-active">النشطة فقط</label>
                     </div>
-                    <!-- --- [نهاية التعديل] --- -->
+                    <h5 class="mb-3 card-title-white">خريطة التهديدات والفرص</h5>
                     <canvas id="matrixChart"></canvas>
                 </div>
-
                 <div class="row g-4">
                     <div class="col-md-6">
                         <div class="watchlist-container" style="height: 380px;">
                             <h5 class="mb-3 card-title-white"><i class="bi bi-exclamation-triangle-fill text-danger"></i> قائمة المراقبة</h5>
-                            <div id="watchlist-body" class="flex-grow-1 overflow-auto">
-                                <!-- سيتم ملء القائمة هنا -->
-                            </div>
+                            <div id="watchlist-body" class="flex-grow-1 overflow-auto"></div>
                         </div>
                     </div>
                     <div class="col-md-6">
@@ -179,8 +154,6 @@
                     </div>
                 </div>
             </div>
-
-            <!-- العمود الأيسر -->
             <div class="col-lg-6 d-flex flex-column gap-4">
                 <div class="chart-container">
                     <h5 class="mb-3 card-title-white">المخاطر حسب الفئة ومستوى الخطورة</h5>
@@ -236,7 +209,7 @@
             resetButton.addEventListener('click', () => {
                 isFiltered = false;
                 resetButton.style.display = 'none';
-                fetchStats();
+                updateDashboard(allStatsData);
             });
 
             exportButton.addEventListener('click', () => {
@@ -265,15 +238,17 @@
                 }
             });
 
-            // --- [بداية التعديل الجديد] ربط أزرار تبديل عرض الخريطة ---
-            document.getElementById('matrix-view-all').addEventListener('change', () => renderMatrixChart(allStatsData.matrix_data));
-            document.getElementById('matrix-view-active').addEventListener('change', () => {
-                const activeRisks = allStatsData.matrix_data.filter(r => allStatsData.active_risk_codes.includes(r.code));
-                renderMatrixChart(activeRisks);
+            document.getElementById('matrix-view-all').addEventListener('change', () => {
+                if (allStatsData.matrix_data) renderMatrixChart(allStatsData.matrix_data);
             });
-            // --- [نهاية التعديل الجديد] ---
+            document.getElementById('matrix-view-active').addEventListener('change', () => {
+                if (allStatsData.matrix_data) {
+                    const activeRisks = allStatsData.matrix_data.filter(r => allStatsData.active_risk_codes.includes(r.code));
+                    renderMatrixChart(activeRisks);
+                }
+            });
 
-                async function fetchStats(filters = {}) {
+            async function fetchStats(filters = {}) {
                 try {
                     const params = new URLSearchParams(filters);
                     const url = `/api/stats?${params.toString()}`;
@@ -281,37 +256,35 @@
                     const response = await fetch(url);
                     const data = await response.json();
                     if (data.success) {
-                        // --- [بداية التعديل] ---
-                        // دائماً نحدث المتغير العام بالبيانات الجديدة عند عدم وجود فلاتر
+                        // **الإصلاح هنا: نحدث البيانات العامة فقط عند عدم وجود فلاتر**
                         if (Object.keys(filters).length === 0) {
                             allStatsData = data.stats;
                         }
-                        // ونعرض البيانات المستلمة دائماً
                         updateDashboard(data.stats);
-                        // --- [نهاية التعديل] ---
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [بداية التعديل الجديد] دوال الميزات الجديدة ---
             function renderKpiTicker(kpiData) {
                 const tickerContent = document.getElementById('kpi-ticker-content');
                 if (!kpiData) return;
-                
                 const items = [
                     `<span class="kpi-item">متوسط عمر المخاطر النشطة: <strong>${kpiData.avg_risk_age} يوم</strong></span>`,
                     `<span class="kpi-item">نسبة الإغلاق هذا الشهر: <strong>${kpiData.closure_rate_this_month}%</strong></span>`,
                     `<span class="kpi-item">أخطر فئة حالياً: <strong>${kpiData.most_dangerous_category}</strong></span>`
                 ];
-                
-                // تكرار المحتوى لضمان استمرارية الحركة
                 tickerContent.innerHTML = (items.join('')).repeat(5);
             }
 
             function updateTooltips(tooltipData) {
                 if (!tooltipData) return;
+                ['total-risks-card', 'threats-card', 'opportunities-card', 'active-risks-card', 'closed-risks-card'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el && el._tooltip) {
+                        el._tooltip.dispose();
+                    }
+                });
 
-                // تلميح بطاقة المخاطر النشطة
                 const activeCard = document.getElementById('active-risks-card');
                 let activeDetails = Object.entries(tooltipData.active_risks_details)
                     .map(([level, count]) => `${level}: ${count}`)
@@ -320,56 +293,39 @@
                 if (!activeDetails) activeDetails = "لا توجد مخاطر نشطة حالياً.";
                 
                 new bootstrap.Tooltip(activeCard, {
-                    title: activeDetails,
-                    html: true,
-                    placement: 'bottom',
-                    trigger: 'hover',
-                    container: 'body'
+                    title: activeDetails, html: true, placement: 'bottom', trigger: 'hover', container: 'body'
                 });
 
-                // تلميح بطاقة التهديدات
                 const threatsCard = document.getElementById('threats-card');
                 const threatDetails = `أخطر تهديد حالياً:  
 <strong>${tooltipData.most_dangerous_threat}</strong>`;
                 new bootstrap.Tooltip(threatsCard, {
-                    title: threatDetails,
-                    html: true,
-                    placement: 'bottom',
-                    trigger: 'hover',
-                    container: 'body'
+                    title: threatDetails, html: true, placement: 'bottom', trigger: 'hover', container: 'body'
                 });
             }
-            // --- [نهاية التعديل الجديد] ---
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
                 watchlistBody.innerHTML = '';
-
-                if (topRisks.length === 0) {
+                if (!topRisks || topRisks.length === 0) {
                     watchlistBody.innerHTML = '<div class="watchlist-placeholder">لا توجد مخاطر مرتفعة حالياً.</div>';
                     return;
                 }
-
                 topRisks.forEach(risk => {
                     const item = document.createElement('div');
                     item.className = 'watchlist-item';
-                    
                     item.innerHTML = `
                         <div>
                             <div class="watchlist-title">${risk.title}</div>
                             <div class="watchlist-code">${risk.code}</div>
                         </div>
-                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">
-                            ${risk.level}
-                        </span>
+                        <span class="watchlist-level" style="background-color: ${riskLevelColors[risk.level] || '#6c757d'}">${risk.level}</span>
                     `;
-                    
                     item.addEventListener('click', () => {
                         isFiltered = true;
                         resetButton.style.display = 'block';
                         fetchStats({ code: risk.code });
                     });
-
                     watchlistBody.appendChild(item);
                 });
             }
@@ -381,18 +337,12 @@
                     data: {
                         labels: timelinessData.labels,
                         datasets: [{
-                            label: 'عدد المخاطر',
-                            data: timelinessData.data,
-                            backgroundColor: ['#198754', '#dc3545'],
-                            borderColor: '#273c5e',
-                            borderWidth: 2,
-                            borderRadius: 5
+                            label: 'عدد المخاطر', data: timelinessData.data, backgroundColor: ['#198754', '#dc3545'],
+                            borderColor: '#273c5e', borderWidth: 2, borderRadius: 5
                         }]
                     },
                     options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
                         scales: {
                             x: { ticks: { color: '#fff', stepSize: 1, display: false } },
                             y: { ticks: { color: '#fff' } }
@@ -426,8 +376,7 @@
                                 fetchStats({ status: status });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         plugins: {
                             legend: { position: 'top', labels: { color: '#fff' } },
                             tooltip: { callbacks: { label: function(context) { let label = context.label || ''; if (label) { label += ': '; } if (context.parsed !== null) { label += context.parsed; } return label; } } },
@@ -438,8 +387,7 @@
                                     let percentage = (value*100 / sum).toFixed(1)+"%";
                                     return value > 0 ? percentage : '';
                                 },
-                                color: '#fff',
-                                font: { weight: 'bold' }
+                                color: '#fff', font: { weight: 'bold' }
                             }
                         }
                     }
@@ -463,8 +411,7 @@
                                 fetchStats({ type: type });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         scales: { y: { title: { display: true, text: 'التأثير', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','ضئيل','محدود','مؤثر','حرج','كارثي'][val] || '' } }, x: { title: { display: true, text: 'الاحتمالية', color: '#fff' }, min: 0.5, max: 5.5, ticks: { stepSize: 1, color: '#fff', callback: (val) => ['','نادر','متوقع','محتمل','وارد','مؤكد'][val] || '' } } },
                         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => context.raw.label || context.dataset.label } } }
                     }
@@ -474,9 +421,7 @@
             function renderStackedBarChart(categoryData) {
                 if (categoryChartInstance) categoryChartInstance.destroy();
                 const datasets = Object.keys(categoryData.datasets).map(level => ({
-                    label: level,
-                    data: categoryData.datasets[level],
-                    backgroundColor: riskLevelColors[level]
+                    label: level, data: categoryData.datasets[level], backgroundColor: riskLevelColors[level]
                 }));
                 categoryChartInstance = new Chart(categoryCtx, {
                     type: 'bar',
@@ -491,8 +436,7 @@
                                 fetchStats({ category: category });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
+                        responsive: true, maintainAspectRatio: false,
                         scales: { y: { stacked: true, ticks: { color: '#fff', display: false } }, x: { stacked: true, ticks: { color: '#fff' } } },
                         plugins: { legend: { position: 'top', labels: { color: '#fff', usePointStyle: true, pointStyle: 'rectRounded' } } }
                     }
@@ -501,11 +445,8 @@
 
             function renderSplitDoughnutChart(levelData) {
                 if (levelChartInstance) levelChartInstance.destroy();
-                const chartData = [];
-                const chartColors = [];
-                const chartLabels = [];
+                const chartData = [], chartColors = [], chartLabels = [];
                 const riskLevelOrder = Object.keys(riskLevelColors);
-
                 levelData.labels.forEach((level, index) => {
                     chartData.push(levelData.datasets.opportunities[index]);
                     chartColors.push(riskLevelColors[level]);
@@ -532,27 +473,16 @@
                                 fetchStats({ level: level });
                             }
                         },
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        rotation: -90,
-                        circumference: 180,
-                        cutout: '40%',
+                        responsive: true, maintainAspectRatio: false,
+                        rotation: -90, circumference: 180, cutout: '40%',
                         plugins: {
                             legend: { 
-                                display: true,
-                                position: 'top',
+                                display: true, position: 'top',
                                 labels: {
-                                    boxWidth: 0,
-                                    boxHeight: 0,
-                                    padding: 10,
+                                    boxWidth: 0, boxHeight: 0, padding: 10,
                                     font: { size: 14 },
                                     generateLabels: function(chart) {
-                                        return [{
-                                            text: 'فرص | تهديدات',
-                                            fillStyle: 'transparent',
-                                            strokeStyle: 'transparent',
-                                            fontColor: '#fff'
-                                        }];
+                                        return [{ text: 'فرص | تهديدات', fillStyle: 'transparent', strokeStyle: 'transparent', fontColor: '#fff' }];
                                     }
                                 }
                             },
@@ -577,8 +507,7 @@
                                     const percentage = (value / sum * 100).toFixed(1);
                                     return `${percentage}%`;
                                 },
-                                color: '#fff',
-                                font: { weight: 'bold' }
+                                color: '#fff', font: { weight: 'bold' }
                             }
                         }
                     }
@@ -592,10 +521,8 @@
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
-                // --- [بداية التعديل الجديد] استدعاء دوال الميزات الجديدة ---
                 renderKpiTicker(stats.kpi_data);
                 updateTooltips(stats.tooltip_data);
-                // --- [نهاية التعديل الجديد] ---
 
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
