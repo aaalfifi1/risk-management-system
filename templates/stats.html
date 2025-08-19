@@ -85,14 +85,14 @@
         }
 
         /* ================================================================== */
-        /* == ▼▼▼ [بداية الإضافة] تنسيقات شريط مؤشرات الأداء (KPI Ticker) ▼▼▼ == */
+        /* == ▼▼▼ [تنسيقات شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ == */
         /* ================================================================== */
         .kpi-ticker-wrap {
             position: relative;
             background-color: #1a2a45;
             width: 100%;
             overflow: hidden;
-            height: 2.5rem; /* شريط رفيع */
+            height: 2.5rem;
             padding: 0;
             border-radius: 10px;
             border: 1px solid var(--border-color);
@@ -107,6 +107,10 @@
             white-space: nowrap;
             padding-right: 100%;
             box-sizing: content-box;
+            /* سيتم التحكم بالحركة عبر JavaScript لضمان الدقة */
+        }
+
+        .kpi-ticker-wrap .ticker-content.animate {
             animation: ticker-animation 60s infinite linear;
         }
 
@@ -121,13 +125,13 @@
         }
         
         .kpi-ticker-wrap .kpi-item .kpi-label {
-            color: var(--accent-yellow); /* لون أصفر للعنوان */
-            font-weight: bold; /* خط عريض للعنوان */
+            color: var(--accent-yellow);
+            font-weight: bold;
             margin-left: 8px;
         }
 
         .kpi-ticker-wrap .kpi-item .kpi-value {
-            color: var(--light-text); /* لون أبيض للمعلومة */
+            color: var(--light-text);
         }
 
         @keyframes ticker-animation {
@@ -135,7 +139,7 @@
             100% { transform: translate3d(-100%, 0, 0); }
         }
         /* ================================================================ */
-        /* == ▲▲▲ [نهاية الإضافة] تنسيقات شريط مؤشرات الأداء (KPI Ticker) ▲▲▲ == */
+        /* == ▲▲▲ [نهاية تنسيقات شريط مؤشرات الأداء] ▲▲▲ == */
         /* ================================================================ */
 
     </style>
@@ -153,15 +157,15 @@
 
     <div id="dashboard-to-print">
         <!-- ================================================================== -->
-        <!-- == ▼▼▼ [بداية الإضافة] هيكل شريط مؤشرات الأداء (KPI Ticker) ▼▼▼ == -->
+        <!-- == ▼▼▼ [هيكل شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ == -->
         <!-- ================================================================== -->
         <div class="kpi-ticker-wrap" id="kpi-ticker-container" style="display: none;">
             <div class="ticker-content" id="kpi-ticker-content">
-                <!-- سيتم ملء البيانات هنا عبر JavaScript -->
+                <!-- البيانات تملأ هنا -->
             </div>
         </div>
         <!-- ================================================================ -->
-        <!-- == ▲▲▲ [نهاية الإضافة] هيكل شريط مؤشرات الأداء (KPI Ticker) ▲▲▲ == -->
+        <!-- == ▲▲▲ [نهاية هيكل شريط مؤشرات الأداء] ▲▲▲ == -->
         <!-- ================================================================ -->
 
         <!-- الصف الأول: البطاقات الخمس -->
@@ -303,7 +307,7 @@
             }
 
             // ==================================================================
-            // == ▼▼▼ [بداية الإضافة] دالة عرض شريط مؤشرات الأداء (KPI Ticker) ▼▼▼ ==
+            // == ▼▼▼ [دالة عرض شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ ==
             // ==================================================================
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
@@ -314,7 +318,8 @@
                     return;
                 }
 
-                tickerContent.innerHTML = ''; // مسح المحتوى القديم
+                tickerContent.innerHTML = '';
+                tickerContent.classList.remove('animate');
 
                 const createKpiItem = (kpi) => {
                     const item = document.createElement('div');
@@ -323,40 +328,32 @@
                     return item;
                 };
 
-                // إضافة المؤشرات إلى الشريط
                 kpiData.forEach(kpi => {
                     tickerContent.appendChild(createKpiItem(kpi));
                 });
 
-                // مضاعفة المحتوى لضمان استمرارية الحركة بدون فراغات
-                if (kpiData.length > 0) {
-                    // ننتظر لحظة قصيرة ليتم عرض المحتوى وحساب عرضه بشكل صحيح
-                    setTimeout(() => {
-                        const contentWidth = tickerContent.scrollWidth / 2; // عرض المحتوى الأصلي
-                        const containerWidth = tickerContainer.offsetWidth;
-                        if (contentWidth < containerWidth) {
-                             // إذا كان المحتوى أصغر من الشاشة، نكرره حتى يملأها
-                            const cloneCount = Math.ceil(containerWidth / contentWidth);
-                             const originalItems = Array.from(tickerContent.children);
-                             for (let i = 0; i < cloneCount; i++) {
-                                originalItems.forEach(child => {
-                                    tickerContent.appendChild(child.cloneNode(true));
-                                });
-                            }
-                        } else {
-                            // إذا كان المحتوى أكبر من الشاشة، نكرره مرة واحدة فقط لضمان سلاسة الحركة
-                            const originalItems = Array.from(tickerContent.children);
+                // ننتظر قليلاً ليتمكن المتصفح من حساب عرض المحتوى
+                setTimeout(() => {
+                    const originalItems = Array.from(tickerContent.children);
+                    const contentWidth = tickerContent.scrollWidth;
+                    const containerWidth = tickerContainer.offsetWidth;
+
+                    // نكرر المحتوى لضمان عدم وجود فراغات أثناء الحركة
+                    if (contentWidth > 0 && containerWidth > 0) {
+                        const cloneCount = Math.ceil(containerWidth / contentWidth) + 1;
+                        for (let i = 0; i < cloneCount; i++) {
                             originalItems.forEach(child => {
                                 tickerContent.appendChild(child.cloneNode(true));
                             });
                         }
-                    }, 100);
-                }
-
-                tickerContainer.style.display = 'block';
+                    }
+                    
+                    tickerContent.classList.add('animate');
+                    tickerContainer.style.display = 'block';
+                }, 100);
             }
             // ================================================================
-            // == ▲▲▲ [نهاية الإضافة] دالة عرض شريط مؤشرات الأداء (KPI Ticker) ▲▲▲ ==
+            // == ▲▲▲ [نهاية دالة عرض شريط مؤشرات الأداء] ▲▲▲ ==
             // ================================================================
 
             function renderWatchlist(topRisks) {
@@ -616,8 +613,8 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
-                document.getElementById('opportunities-container').innerHTML = `<h2 class="
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
+                document.getElementById('active-risks-container
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
@@ -628,17 +625,13 @@
                 renderTimelinessChart(stats.timeliness);
                 renderWatchlist(stats.top_risks);
 
-                // ==================================================================
-                // == ▼▼▼ [بداية الإضافة] استدعاء دالة عرض شريط مؤشرات الأداء ▼▼▼ ==
-                // ==================================================================
+                // استدعاء دالة عرض شريط مؤشرات الأداء
                 if (stats.kpi_ticker_data) {
                     renderKpiTicker(stats.kpi_ticker_data);
                 }
-                // ================================================================
-                // == ▲▲▲ [نهاية الإضافة] استدعاء دالة عرض شريط مؤشرات الأداء ▲▲▲ ==
-                // ================================================================
             }
 
+            // بدء جلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
