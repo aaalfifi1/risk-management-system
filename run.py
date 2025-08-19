@@ -76,7 +76,11 @@ class Risk(db.Model):
     lessons_learned = db.Column(db.Text, nullable=True)
     was_modified = db.Column(db.Boolean, default=False, nullable=False)
     linked_risk_id = db.Column(db.String(20), nullable=True)
+    # ==================================================================
+    # == ▼▼▼ [الإضافة الوحيدة هنا] إضافة حقل تاريخ الإغلاق ▼▼▼ ==
+    # ==================================================================
     closed_at = db.Column(db.DateTime, nullable=True)
+    # ================================================================
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -315,8 +319,6 @@ def add_risk():
         db.session.rollback()
         print(f"An error occurred in add_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
-
-# هذه هي النسخة الصحيحة والوحيدة من الدالة
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
 def update_risk(risk_id):
@@ -328,8 +330,12 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
+        # ==================================================================
+        # == ▼▼▼ [تعديل] تتبع الحالة القديمة والجديدة لتسجيل تاريخ الإغلاق ▼▼▼ ==
+        # ==================================================================
         old_status = risk.status
         new_status = data.get('status', risk.status)
+        # ================================================================
         
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
@@ -357,14 +363,18 @@ def update_risk(risk_id):
         risk.owner = data.get('owner', risk.owner)
         risk.risk_location = data.get('risk_location', risk.risk_location)
         risk.action_effectiveness = effectiveness
-        risk.status = new_status
+        risk.status = new_status # استخدام الحالة الجديدة
         risk.residual_risk = residual
         risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
+        # ==================================================================
+        # == ▼▼▼ [تعديل] تسجيل تاريخ الإغلاق عند تغيير الحالة إلى "مغلق" ▼▼▼ ==
+        # ==================================================================
         if new_status == 'مغلق' and old_status != 'مغلق':
             risk.closed_at = datetime.utcnow()
         elif new_status != 'مغلق':
             risk.closed_at = None
+        # ================================================================
 
         target_date = None
         if data.get('target_completion_date'):
@@ -610,7 +620,7 @@ def get_stats_api():
             else:
                 on_time_risks_count += 1
 
-        # --- [بداية الكود المصحح والمبسط لحساب مؤشرات الأداء] ---
+        # --- حساب مؤشرات الأداء الرئيسية (KPIs) ---
         kpi_data = []
         now = datetime.utcnow()
 
@@ -620,8 +630,7 @@ def get_stats_api():
             avg_age = total_age_days / len(active_risks_list)
             kpi_data.append({'label': 'متوسط عمر المخاطر النشطة:', 'value': f'{int(avg_age)} يوم'})
 
-        # 2. نسبة إغلاق المخاطر هذا الشهر (طريقة مبسطة ومضمونة)
-        # نحتاج لجلب كل المخاطر غير المحذوفة لهذا المستخدم لحساب النسبة بشكل صحيح
+        # 2. معدل الإغلاق الشهري
         all_risks_for_user_query = Risk.query.filter_by(is_deleted=False)
         if current_user.username != 'admin':
             all_risks_for_user_query = all_risks_for_user_query.filter_by(user_id=current_user.id)
@@ -632,7 +641,6 @@ def get_stats_api():
         closed_this_month_count = sum(1 for r in all_risks_for_user if r.status == 'مغلق' and r.closed_at and r.closed_at >= first_day_of_month)
         total_created_this_month = sum(1 for r in all_risks_for_user if r.created_at >= first_day_of_month)
         
-        # لتجنب القسمة على صفر
         closure_rate = (closed_this_month_count / total_created_this_month * 100) if total_created_this_month > 0 else 0
         kpi_data.append({'label': 'معدل الإغلاق الشهري:', 'value': f'{closure_rate:.1f}%'})
 
@@ -655,7 +663,6 @@ def get_stats_api():
         kpi_data.append({'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)})
         kpi_data.append({'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)})
         kpi_data.append({'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)})
-        # --- [نهاية الكود المصحح] ---
 
         stats_data = {
             'total_risks': total, 'active_risks': active, 'closed_risks': closed, 
@@ -676,7 +683,6 @@ def get_stats_api():
         print("!!!!!!!!!!!!!!!!! ERROR IN get_stats_api !!!!!!!!!!!!!!!")
         traceback.print_exc()
         print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        # في حالة حدوث أي خطأ، نرجع استجابة فارغة ولكن ناجحة لتجنب كسر الواجهة
         return jsonify({'success': True, 'stats': {
             'total_risks': 0, 'active_risks': 0, 'closed_risks': 0, 'active_risks_percentage': 0, 'closed_risks_percentage': 0,
             'total_threats': 0, 'total_opportunities': 0, 'threats_percentage': 0, 'opportunities_percentage': 0,
@@ -684,7 +690,7 @@ def get_stats_api():
             'by_status': {'labels': [], 'data': []}, 'timeliness': {'labels': [], 'data': []}, 'top_risks': [], 'kpi_ticker_data': []
         }})
 
-
+@app.route('/api/notifications')
 @login_required
 def get_notifications():
     if current_user.username != 'admin':
@@ -845,5 +851,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
