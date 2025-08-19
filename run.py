@@ -636,7 +636,7 @@ def get_stats_api():
             on_time_risks_count += 1
     # --- [نهاية التعديل الجديد] ---
 
-    stats_data = [
+    stats_data = {
         'total_risks': total, 
         'active_risks': active, 
         'closed_risks': closed, 
@@ -648,8 +648,8 @@ def get_stats_api():
         'opportunities_percentage': opportunities_percentage,
         'matrix_data': matrix_data,
         'by_category_stacked': {
-            'labels': categories,
-            'datasets': by_category_stacked
+         'labels': categories,
+         'datasets': by_category_stacked
         },
         'by_level_nested': {
             'labels': risk_level_order,
@@ -696,8 +696,7 @@ def get_stats_api():
     }
     return jsonify({'success': True, 'stats': stats_data})
 
-    return jsonify({'success': True, 'stats': stats_data})
-
+   
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
@@ -859,6 +858,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
