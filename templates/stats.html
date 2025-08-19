@@ -237,20 +237,17 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-            function renderKpiTicker(kpiData) {
+                function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
                 if (!tickerContainer || !tickerContent) return;
-
                 if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
                     tickerContainer.style.display = 'none';
                     return;
                 }
 
-                tickerContent.innerHTML = '';
-                tickerContent.classList.remove('animate');
-
+                // الخطوة 1: بناء المحتوى الأصلي مرة واحدة
                 let itemsHtml = '';
                 kpiData.forEach(kpi => {
                     if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
@@ -264,21 +261,33 @@
                 }
 
                 tickerContainer.style.display = 'block';
-                // نكرر المحتوى مرتين مبدئياً لضمان وجود ما يكفي للحركة
-                tickerContent.innerHTML = itemsHtml + itemsHtml;
+                tickerContent.innerHTML = itemsHtml;
+                tickerContent.classList.remove('animate');
 
+                // الخطوة 2: استخدام requestAnimationFrame لضمان أن المتصفح قد رسم المحتوى
                 requestAnimationFrame(() => {
-                    // نحسب عرض الجزء الأصلي (غير المكرر)
-                    const originalContentWidth = tickerContent.scrollWidth / 2;
+                    const containerWidth = tickerContainer.offsetWidth;
+                    const contentWidth = tickerContent.scrollWidth;
 
-                    // نضبط متغير الـ CSS بقيمة العرض السالبة
-                    tickerContent.style.setProperty('--ticker-scroll-width', `-${originalContentWidth}px`);
+                    // الخطوة 3: تكرار المحتوى فقط إذا كان أقصر من الحاوية
+                    if (contentWidth < containerWidth) {
+                        const repeatCount = Math.ceil(containerWidth / contentWidth);
+                        tickerContent.innerHTML = itemsHtml.repeat(repeatCount + 1);
+                    }
                     
-                    // نضبط مدة الأنيميشن بناءً على العرض لضمان سرعة ثابتة
-                    const animationDuration = originalContentWidth / 50; // سرعة 50 بكسل في الثانية
+                    // الخطوة 4: تكرار المحتوى مرة أخرى لإنشاء الحلقة السلسة
+                    // هذا يضمن وجود نسخة جاهزة للدخول بمجرد خروج النسخة الأصلية
+                    const finalHtml = tickerContent.innerHTML;
+                    tickerContent.innerHTML = finalHtml + finalHtml;
+
+                    // الخطوة 5: حساب العرض والمدة بدقة
+                    const finalContentWidth = tickerContent.scrollWidth / 2;
+                    tickerContent.style.setProperty('--ticker-scroll-width', `-${finalContentWidth}px`);
+                    
+                    const animationDuration = finalContentWidth / 50; // سرعة 50 بكسل في الثانية
                     tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
 
-                    // الآن نبدأ الحركة بأمان
+                    // الخطوة 6: بدء الحركة
                     tickerContent.classList.add('animate');
                 });
             }
@@ -580,4 +589,5 @@
         });
     </script>
 {% endblock %}
+
 
