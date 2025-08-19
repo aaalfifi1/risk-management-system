@@ -14,6 +14,8 @@ import io
 from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+# --- [إضافة جديدة] استيراد للتعامل مع التاريخ والوقت ---
+from sqlalchemy import func 
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -74,6 +76,9 @@ class Risk(db.Model):
     lessons_learned = db.Column(db.Text, nullable=True)
     was_modified = db.Column(db.Boolean, default=False, nullable=False)
     linked_risk_id = db.Column(db.String(20), nullable=True)
+    # --- [إضافة جديدة] حقل لتاريخ الإغلاق ---
+    closed_at = db.Column(db.DateTime, nullable=True)
+
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -238,7 +243,7 @@ def download_risk_log():
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
-# --- دوال الـ API (لا تغيير هنا إلا في get_stats_api) ---
+# --- دوال الـ API ---
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
@@ -323,6 +328,10 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
+        # --- [تعديل بسيط] التحقق من تغيير حالة الخطر إلى "مغلق" ---
+        old_status = risk.status
+        new_status = data.get('status', risk.status)
+        
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         
         def preserve_improvements(old_value, new_value_from_form):
@@ -338,8 +347,14 @@ def update_risk(risk_id):
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
         
         risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness; risk.status = data.get('status', risk.status); risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
+        risk.action_effectiveness = effectiveness; risk.status = new_status; risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
+        # --- [إضافة جديدة] تسجيل تاريخ الإغلاق ---
+        if new_status == 'مغلق' and old_status != 'مغلق':
+            risk.closed_at = datetime.utcnow()
+        elif new_status != 'مغلق':
+            risk.closed_at = None # إعادة تعيينه إذا تم فتح الخطر مرة أخرى
+
         target_date = None
         if data.get('target_completion_date'):
             try:
@@ -521,17 +536,16 @@ def delete_attachment(risk_id):
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
+    # هذا الجزء من الكود يبقى كما هو تماماً
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
 
-    # --- [بداية التعديل الجديد] ---
-    # التعامل مع الفلاتر القادمة من الواجهة
     filter_category = request.args.get('category')
     filter_level = request.args.get('level')
     filter_type = request.args.get('type')
     filter_status = request.args.get('status')
-    filter_code = request.args.get('code') # <-- هذا هو الفلتر الجديد
+    filter_code = request.args.get('code')
 
     if filter_category:
         query = query.filter(Risk.category == filter_category)
@@ -542,10 +556,8 @@ def get_stats_api():
     if filter_status:
         query = query.filter(Risk.status == filter_status)
     if filter_code:
-        query = query.filter(Risk.risk_code == filter_code) # <-- تطبيق الفلتر الجديد
-    # --- [نهاية التعديل الجديد] ---
-
-    # --- [نهاية التعديل الجديد] ---
+        query = query.filter(Risk.risk_code == filter_code)
+    
     risks = query.all()
     total = len(risks)
     active = len([r for r in risks if r.status != 'مغلق'])
@@ -589,25 +601,74 @@ def get_stats_api():
 
     status_counts = Counter(r.status for r in risks)
 
-    # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
     overdue_risks_count = 0
     on_time_risks_count = 0
     today = datetime.utcnow().date()
+    active_risks_list = [r for r in risks if r.status != 'مغلق']
 
-    # نحن نهتم فقط بالمخاطر التي لم تغلق بعد
-    active_risks = [r for r in risks if r.status != 'مغلق']
-
-    for risk in active_risks:
+    for risk in active_risks_list:
         if risk.target_completion_date:
-            # إذا كان تاريخ الإكمال المستهدف في الماضي، فهو متأخر
             if risk.target_completion_date.date() < today:
                 overdue_risks_count += 1
             else:
                 on_time_risks_count += 1
         else:
-            # إذا لم يكن هناك تاريخ مستهدف، نعتبره ملتزماً بالوقت افتراضياً
             on_time_risks_count += 1
-    # --- [نهاية التعديل الجديد] ---
+
+    # =======================================================================
+    # == ▼▼▼ [بداية الإضافة الجديدة] حساب مؤشرات الأداء الرئيسية (KPIs) ▼▼▼ ==
+    # =======================================================================
+    
+    kpi_data = []
+    now = datetime.utcnow()
+
+    # 1. متوسط عمر المخاطر النشطة
+    total_age_days = 0
+    if active_risks_list:
+        for r in active_risks_list:
+            total_age_days += (now - r.created_at).days
+        avg_age = total_age_days / len(active_risks_list)
+        kpi_data.append({'label': 'متوسط عمر المخاطر النشطة:', 'value': f'{int(avg_age)} يوم'})
+
+    # 2. نسبة إغلاق المخاطر هذا الشهر
+    first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    closed_this_month_count = Risk.query.filter(
+        Risk.is_deleted == False,
+        Risk.status == 'مغلق',
+        Risk.closed_at >= first_day_of_month
+    ).count()
+    opened_this_month_count = Risk.query.filter(
+        Risk.is_deleted == False,
+        Risk.created_at >= first_day_of_month
+    ).count()
+    
+    total_for_closure_rate = closed_this_month_count + opened_this_month_count
+    closure_rate = (closed_this_month_count / total_for_closure_rate * 100) if total_for_closure_rate > 0 else 0
+    kpi_data.append({'label': 'نسبة إغلاق المخاطر هذا الشهر:', 'value': f'{closure_rate:.1f}%'})
+
+    # 3. أخطر فئة حالياً
+    if active_risks_list:
+        category_scores = {}
+        for r in active_risks_list:
+            if r.category:
+                score = r.probability * r.impact
+                category_scores[r.category] = category_scores.get(r.category, 0) + score
+        if category_scores:
+            most_dangerous_category = max(category_scores, key=category_scores.get)
+            kpi_data.append({'label': 'أخطر فئة حالياً:', 'value': most_dangerous_category})
+
+    # 4. إحصائيات المخاطر الخاصة (مترابطة، ثانوية، متبقية)
+    linked_risks_count = len([r for r in risks if r.linked_risk_id])
+    secondary_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر ثانوي)')])
+    residual_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')])
+
+    kpi_data.append({'label': 'إجمالي المخاطر المترابطة:', 'value': str(linked_risks_count)})
+    kpi_data.append({'label': 'إجمالي المخاطر الثانوية:', 'value': str(secondary_risks_count)})
+    kpi_data.append({'label': 'إجمالي المخاطر المتبقية:', 'value': str(residual_risks_count)})
+
+    # =====================================================================
+    # == ▲▲▲ [نهاية الإضافة الجديدة] حساب مؤشرات الأداء الرئيسية (KPIs) ▲▲▲ ==
+    # =====================================================================
 
     stats_data = {
         'total_risks': total, 
@@ -632,7 +693,6 @@ def get_stats_api():
             'labels': list(status_counts.keys()),
             'data': list(status_counts.values())
         },
-        # --- [تعديل جديد] إضافة بيانات الالتزام بالوقت ---
         'timeliness': {
             'labels': ['ملتزم بالوقت', 'متأخر'],
             'data': [on_time_risks_count, overdue_risks_count]
@@ -645,21 +705,17 @@ def get_stats_api():
                 'score': r.probability * r.impact
             }
             for r in sorted(
-                # --- [بداية التعديل] ---
-                # فلترة المخاطر لتشمل فقط "مرتفع" و "مرتفع جدا / كارثي"
                 [
                     risk for risk in risks 
                     if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']
                 ], 
-                # --- [نهاية التعديل] ---
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
-        ][:5]
-
+        ][:5],
+        # --- [إضافة جديدة] إرسال بيانات المؤشرات إلى الواجهة ---
+        'kpi_ticker_data': kpi_data
     }
-    return jsonify({'success': True, 'stats': stats_data})
-
     return jsonify({'success': True, 'stats': stats_data})
 
 @app.route('/api/notifications')
@@ -807,6 +863,8 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
+        # --- [تعديل بسيط] التأكد من أن الأعمدة الجديدة تضاف عند الحاجة ---
+        # db.create_all() لا تحذف البيانات الموجودة، بل تضيف الأعمدة الجديدة فقط
         db.create_all() 
         
         users_to_create = {
@@ -823,9 +881,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
-
-
-
-
