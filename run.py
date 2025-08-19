@@ -521,51 +521,50 @@ def delete_attachment(risk_id):
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
-    query = Risk.query.filter_by(is_deleted=False)
+    base_query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
-        query = query.filter_by(user_id=current_user.id)
+        base_query = base_query.filter_by(user_id=current_user.id)
+    
+    all_risks = base_query.all()
 
-    # --- [بداية التعديل الجديد] ---
-    # التعامل مع الفلاتر القادمة من الواجهة
+    filtered_risks = all_risks
     filter_category = request.args.get('category')
     filter_level = request.args.get('level')
     filter_type = request.args.get('type')
     filter_status = request.args.get('status')
-    filter_code = request.args.get('code') # <-- هذا هو الفلتر الجديد
+    filter_code = request.args.get('code')
 
-    if filter_category:
-        query = query.filter(Risk.category == filter_category)
+    if filter_category:        filtered_risks = [r for r in filtered_risks if r.category == filter_category]
     if filter_level:
-        query = query.filter(Risk.risk_level == filter_level)
+        filtered_risks = [r for r in filtered_risks if r.risk_level == filter_level]
     if filter_type:
-        query = query.filter(Risk.risk_type == filter_type)
+        filtered_risks = [r for r in filtered_risks if r.risk_type == filter_type]
     if filter_status:
-        query = query.filter(Risk.status == filter_status)
+        filtered_risks = [r for r in filtered_risks if r.status == filter_status]
     if filter_code:
-        query = query.filter(Risk.risk_code == filter_code) # <-- تطبيق الفلتر الجديد
-    # --- [نهاية التعديل الجديد] ---
+        filtered_risks = [r for r in filtered_risks if r.risk_code == filter_code]
 
-    # --- [نهاية التعديل الجديد] ---
-    risks = query.all()
-    total = len(risks)
-    active = len([r for r in risks if r.status != 'مغلق'])
+    # --- جميع الحسابات التالية تعتمد على `filtered_risks` ---
+    total = len(filtered_risks)
+    active = len([r for r in filtered_risks if r.status != 'مغلق'])
     closed = total - active
     
-    threats = len([r for r in risks if r.risk_type == 'تهديد'])
-    opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
+    threats = len([r for r in filtered_risks if r.risk_type == 'تهديد'])
+    opportunities = len([r for r in filtered_risks if r.risk_type == 'فرصة'])
     
-    threats_percentage = (threats / total * 100) if total > 0 else 0
-    opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
+    # النسب المئوية تحسب دائماً من إجمالي المخاطر (غير المفلترة) لتعطي سياقاً صحيحاً
+    total_unfiltered = len(all_risks)
+    threats_percentage = (threats / total_unfiltered * 100) if total_unfiltered > 0 else 0
+    opportunities_percentage = (opportunities / total_unfiltered * 100) if total_unfiltered > 0 else 0
+    active_percentage = (active / total_unfiltered * 100) if total_unfiltered > 0 else 0
+    closed_percentage = (closed / total_unfiltered * 100) if total_unfiltered > 0 else 0
     
-    matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks]
-    
-    active_percentage = (active / total * 100) if total > 0 else 0
-    closed_percentage = (closed / total * 100) if total > 0 else 0
+    matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in filtered_risks]
     
     risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
-    categories = sorted(list(set(r.category for r in risks if r.category)))
+    categories = sorted(list(set(r.category for r in filtered_risks if r.category)))
     by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
-    for risk in risks:
+    for risk in filtered_risks:
         if risk.category:
             try:
                 cat_index = categories.index(risk.category)
@@ -577,66 +576,56 @@ def get_stats_api():
         'threats': [0] * len(risk_level_order),
         'opportunities': [0] * len(risk_level_order)
     }
-    for risk in risks:
+    for risk in filtered_risks:
         try:
             level_index = risk_level_order.index(risk.risk_level)
             if risk.risk_type == 'تهديد':
                 by_level_nested['threats'][level_index] += 1
             else:
-             by_level_nested['opportunities'][level_index] += 1
+                by_level_nested['opportunities'][level_index] += 1
         except ValueError:
             continue
 
-    status_counts = Counter(r.status for r in risks)
-    # --- [بداية التعديل الجديد] حساب المؤشرات الذكية ---
-    today = datetime.utcnow().date()
-    first_day_of_month = today.replace(day=1)
-    
-    # 1. متوسط عمر المخاطر النشطة
-    total_age = 0
-    # نستخدم `risks` (البيانات المفلترة) لنعكس الفلترة على المؤشرات
-    active_risks_for_kpi = [r for r in risks if r.status != 'مغلق']
-    if active_risks_for_kpi:
-        for r in active_risks_for_kpi:
-            total_age += (today - r.created_at.date()).days
-        avg_risk_age = round(total_age / len(active_risks_for_kpi))
-    else:
-        avg_risk_age = 0
+    status_counts = Counter(r.status for r in filtered_risks)
 
-    # 2. نسبة الإغلاق هذا الشهر (ضمن البيانات المفلترة)
-    closed_this_month = len([r for r in risks if r.status == 'مغلق' and r.created_at.date() >= first_day_of_month])
-    opened_this_month = len([r for r in risks if r.created_at.date() >= first_day_of_month])
-    closure_rate_this_month = round((closed_this_month / opened_this_month) * 100) if opened_this_month > 0 else 0
-
-    # 3. أخطر فئة حالياً (ضمن البيانات المفلترة)
-    category_scores = {}
-    for r in active_risks_for_kpi:
-        score = r.probability * r.impact
-        category_scores[r.category] = category_scores.get(r.category, 0) + score
-    most_dangerous_category = max(category_scores, key=category_scores.get) if category_scores else "لا يوجد"
-    # --- [نهاية التعديل الجديد] ---
-
-    # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
     overdue_risks_count = 0
     on_time_risks_count = 0
     today = datetime.utcnow().date()
-
-    # نحن نهتم فقط بالمخاطر التي لم تغلق بعد
-    active_risks = [r for r in risks if r.status != 'مغلق']
-
-    for risk in active_risks:
+    active_risks_for_timeliness = [r for r in filtered_risks if r.status != 'مغلق']
+    for risk in active_risks_for_timeliness:
         if risk.target_completion_date:
-            # إذا كان تاريخ الإكمال المستهدف في الماضي، فهو متأخر
             if risk.target_completion_date.date() < today:
                 overdue_risks_count += 1
             else:
                 on_time_risks_count += 1
         else:
-            # إذا لم يكن هناك تاريخ مستهدف، نعتبره ملتزماً بالوقت افتراضياً
             on_time_risks_count += 1
-    # --- [نهاية التعديل الجديد] ---
 
-    stats_data = [
+    # --- حسابات المؤشرات الذكية (KPIs) ---
+    # هذه المؤشرات تحسب دائماً من كامل البيانات (all_risks) لتعطي نظرة عامة
+    kpi_active_risks = [r for r in all_risks if r.status != 'مغلق']
+    avg_risk_age = 0
+    if kpi_active_risks:
+        total_age = sum([(today - r.created_at.date()).days for r in kpi_active_risks])
+        avg_risk_age = round(total_age / len(kpi_active_risks))
+
+    first_day_of_month = today.replace(day=1)
+    closed_this_month_count = len([r for r in all_risks if r.status == 'مغلق' and r.created_at.date() >= first_day_of_month])
+    opened_this_month_count = len([r for r in all_risks if r.created_at.date() >= first_day_of_month])
+    closure_rate_this_month = round((closed_this_month_count / opened_this_month_count) * 100) if opened_this_month_count > 0 else 0
+
+    category_scores = {}
+    for r in kpi_active_risks:
+        score = r.probability * r.impact
+        category_scores[r.category] = category_scores.get(r.category, 0) + score
+    most_dangerous_category = max(category_scores, key=category_scores.get) if category_scores else "لا يوجد"
+
+    # --- حسابات بيانات التلميحات (Tooltips) ---
+    active_risks_details = Counter(r.risk_level for r in kpi_active_risks)
+    most_dangerous_threat_obj = max([r for r in kpi_active_risks if r.risk_type == 'تهديد'], key=lambda r: r.probability * r.impact, default=None)
+    most_dangerous_threat = most_dangerous_threat_obj.title if most_dangerous_threat_obj else "لا يوجد"
+
+    stats_data = {
         'total_risks': total, 
         'active_risks': active, 
         'closed_risks': closed, 
@@ -647,56 +636,31 @@ def get_stats_api():
         'threats_percentage': threats_percentage,
         'opportunities_percentage': opportunities_percentage,
         'matrix_data': matrix_data,
-        'by_category_stacked': {
-         'labels': categories,
-         'datasets': by_category_stacked
-        },
-        'by_level_nested': {
-            'labels': risk_level_order,
-            'datasets': by_level_nested
-        },
-        'by_status': {
-            'labels': list(status_counts.keys()),
-            'data': list(status_counts.values())
-        },
-        # --- [تعديل جديد] إضافة بيانات الالتزام بالوقت ---
-        'timeliness': {
-            'labels': ['ملتزم بالوقت', 'متأخر'],
-            'data': [on_time_risks_count, overdue_risks_count]
-        },
+        'active_risk_codes': [r.risk_code for r in active_risks_for_timeliness],
+        'by_category_stacked': { 'labels': categories, 'datasets': by_category_stacked },
+        'by_level_nested': { 'labels': risk_level_order, 'datasets': by_level_nested },
+        'by_status': { 'labels': list(status_counts.keys()), 'data': list(status_counts.values()) },
+        'timeliness': { 'labels': ['ملتزم بالوقت', 'متأخر'], 'data': [on_time_risks_count, overdue_risks_count] },
         'top_risks': [
-            {
-                'code': r.risk_code,
-                'title': r.title,
-                'level': r.risk_level,
-                'score': r.probability * r.impact
-            }
+            { 'code': r.risk_code, 'title': r.title, 'level': r.risk_level }
             for r in sorted(
-                # --- [بداية التعديل] ---
-                # فلترة المخاطر لتشمل فقط "مرتفع" و "مرتفع جدا / كارثي"
-                [
-                    risk for risk in risks 
-                    if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']
-                ], 
-                # --- [نهاية التعديل] ---
+                [risk for risk in all_risks if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']], 
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
-        ][:5]
-                ], # <--- تأكد من وجود هذه الفاصلة
-
-        # --- [بداية الإضافة الجديدة] ---
-         'kpi_data': {
+        ][:5],
+        'kpi_data': {
             'avg_risk_age': avg_risk_age,
             'closure_rate_this_month': closure_rate_this_month,
             'most_dangerous_category': most_dangerous_category
+        },
+        'tooltip_data': {
+            'active_risks_details': dict(active_risks_details),
+            'most_dangerous_threat': most_dangerous_threat
         }
-        # --- [نهاية الإضافة الجديدة] ---
- 
     }
     return jsonify({'success': True, 'stats': stats_data})
 
-   
 @app.route('/api/notifications')
 @login_required
 def get_notifications():
@@ -858,14 +822,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
-
-
-
-
-
-
-
-
 
