@@ -14,8 +14,8 @@ import io
 from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-# --- [إضافة جديدة] استيراد للتعامل مع التاريخ والوقت ---
-from sqlalchemy import func 
+from sqlalchemy import func
+import traceback
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -37,7 +37,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- نماذج قاعدة البيانات (لا تغيير هنا) ---
+# --- نماذج قاعدة البيانات ---
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(150), unique=True, nullable=False)
@@ -76,9 +76,7 @@ class Risk(db.Model):
     lessons_learned = db.Column(db.Text, nullable=True)
     was_modified = db.Column(db.Boolean, default=False, nullable=False)
     linked_risk_id = db.Column(db.String(20), nullable=True)
-    # --- [إضافة جديدة] حقل لتاريخ الإغلاق ---
     closed_at = db.Column(db.DateTime, nullable=True)
-
 
 class AuditLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -97,7 +95,7 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- دوال مساعدة (لا تغيير هنا) ---
+# --- دوال مساعدة ---
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -128,7 +126,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- مسارات الصفحات (لا تغيير هنا) ---
+# --- مسارات الصفحات ---
 @app.route('/')
 @login_required
 def home():
@@ -200,7 +198,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- دالة تصدير CSV (لا تغيير هنا) ---
+# --- دالة تصدير CSV ---
 @app.route('/download-risk-log')
 @login_required
 def download_risk_log():
@@ -318,88 +316,7 @@ def add_risk():
         print(f"An error occurred in add_risk: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
-@app.route('/api/risks/<int:risk_id>', methods=['PUT'])
-@login_required
-def update_risk(risk_id):
-    try:
-        risk = Risk.query.get_or_404(risk_id)
-        if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
-        
-        data = request.form
-        was_modified_before = risk.was_modified
-        
-        # --- [تعديل بسيط] التحقق من تغيير حالة الخطر إلى "مغلق" ---
-        old_status = risk.status
-        new_status = data.get('status', risk.status)
-        
-        IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
-        
-        def preserve_improvements(old_value, new_value_from_form):
-            if old_value and IMPROVEMENT_SEPARATOR in old_value:
-                parts = old_value.split(IMPROVEMENT_SEPARATOR)
-                return f"{new_value_from_form}{IMPROVEMENT_SEPARATOR}{parts[1]}"
-            return new_value_from_form
-
-        risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
-        risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
-
-        prob = int(data.get('probability', risk.probability)); imp = int(data.get('impact', risk.impact))
-        effectiveness = data.get('action_effectiveness', risk.action_effectiveness); residual = calculate_residual_risk(effectiveness)
-        
-        risk.title = data.get('title', risk.title); risk.description = data.get('description', risk.description); risk.risk_type = data.get('risk_type', risk.risk_type); risk.category = data.get('category', risk.category); risk.probability = prob; risk.impact = imp; risk.risk_level = calculate_risk_level(prob, imp); risk.owner = data.get('owner', risk.owner); risk.risk_location = data.get('risk_location', risk.risk_location)
-        risk.action_effectiveness = effectiveness; risk.status = new_status; risk.residual_risk = residual; risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
-        
-        # --- [إضافة جديدة] تسجيل تاريخ الإغلاق ---
-        if new_status == 'مغلق' and old_status != 'مغلق':
-            risk.closed_at = datetime.utcnow()
-        elif new_status != 'مغلق':
-            risk.closed_at = None # إعادة تعيينه إذا تم فتح الخطر مرة أخرى
-
-        target_date = None
-        if data.get('target_completion_date'):
-            try:
-                target_date = datetime.strptime(data.get('target_completion_date'), '%Y-%m-%d')
-            except (ValueError, TypeError):
-                target_date = None
-        risk.target_completion_date = target_date
-        
-        risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
-        
-        linked_risk_value = data.get('linked_risk_id')
-        risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
-
-        if current_user.username != 'admin':
-            risk.is_read = False
-            risk.was_modified = True
-        else:
-            risk.is_read = True
-            
-        upload_folder = app.config['UPLOAD_FOLDER']
-        if not os.path.exists(upload_folder): os.makedirs(upload_folder)
-        if 'attachment' in request.files:
-            file = request.files['attachment']
-            if file.filename != '':
-                filename = secure_filename(file.filename)
-                file.save(os.path.join(upload_folder, filename))
-                risk.attachment_filename = filename
-                
-        log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
-        db.session.add(log_entry)
-        db.session.commit()
-        
-        if current_user.username != 'admin' and not was_modified_before:
-            admin_user = User.query.filter_by(username='admin').first()
-            if admin_user and admin_user.email:
-                subject = f"تحديث على الخطر: {risk.risk_code}"
-                html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
-                send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
-                
-        return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
-    except Exception as e:
-        db.session.rollback()
-        print(f"An error occurred in update_risk: {e}")
-        return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
-
+# هذه هي النسخة الصحيحة والوحيدة من الدالة
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
 def update_risk(risk_id):
@@ -411,7 +328,6 @@ def update_risk(risk_id):
         data = request.form
         was_modified_before = risk.was_modified
         
-        # [تصحيح مهم] تتبع الحالة القديمة والجديدة بشكل صحيح
         old_status = risk.status
         new_status = data.get('status', risk.status)
         
@@ -441,11 +357,10 @@ def update_risk(risk_id):
         risk.owner = data.get('owner', risk.owner)
         risk.risk_location = data.get('risk_location', risk.risk_location)
         risk.action_effectiveness = effectiveness
-        risk.status = new_status  # استخدام الحالة الجديدة
+        risk.status = new_status
         risk.residual_risk = residual
         risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
         
-        # [تصحيح مهم] تسجيل تاريخ الإغلاق عند تغيير الحالة إلى "مغلق"
         if new_status == 'مغلق' and old_status != 'مغلق':
             risk.closed_at = datetime.utcnow()
         elif new_status != 'مغلق':
@@ -494,8 +409,48 @@ def update_risk(risk_id):
     except Exception as e:
         db.session.rollback()
         print(f"An error occurred in update_risk: {e}")
-        import traceback
-        traceback.print_exc() # لطباعة تفاصيل الخطأ بدقة
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
+
+@app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
+@login_required
+def update_risk_action(risk_id):
+    try:
+        risk = Risk.query.get_or_404(risk_id)
+        if current_user.username != 'admin' and risk.user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
+
+        data = request.get_json()
+        field_to_update = data.get('field')
+        new_value = data.get('value')
+
+        if field_to_update not in ['proactive_actions', 'immediate_actions']:
+            return jsonify({'success': False, 'message': 'حقل غير صالح للتحديث'}), 400
+
+        IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
+        
+        current_db_value = getattr(risk, field_to_update) or ""
+        original_text = current_db_value.split(IMPROVEMENT_SEPARATOR)[0]
+
+        final_value = f"{original_text}{IMPROVEMENT_SEPARATOR}{new_value}"
+        
+        setattr(risk, field_to_update, final_value)
+        
+        if current_user.username != 'admin':
+            risk.is_read = False
+            risk.was_modified = True
+
+        log_details = f"إضافة/تعديل إجراء تحسيني في حقل '{field_to_update}' للخطر بكود: '{risk.risk_code}'"
+        log_entry = AuditLog(user_id=current_user.id, action='إجراء تحسيني', details=log_details, risk_id=risk.id)
+        db.session.add(log_entry)
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'تم تحديث الإجراء بنجاح', 'newValue': final_value})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"An error occurred in update_risk_action: {e}")
         return jsonify({'success': False, 'message': f'حدث خطأ غير متوقع: {str(e)}'}), 500
 
 @app.route('/api/risks', methods=['GET'])
@@ -584,7 +539,7 @@ def delete_attachment(risk_id):
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename)
         if os.path.exists(file_path): os.remove(file_path)
         risk.attachment_filename = None
-        log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
+               log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
@@ -593,7 +548,6 @@ def delete_attachment(risk_id):
 @app.route('/api/stats', methods=['GET'])
 @login_required
 def get_stats_api():
-    # هذا الجزء من الكود يبقى كما هو تماماً
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.username != 'admin': 
         query = query.filter_by(user_id=current_user.id)
@@ -672,35 +626,29 @@ def get_stats_api():
         else:
             on_time_risks_count += 1
 
-    # =======================================================================
-    # == ▼▼▼ [بداية الإضافة الجديدة] حساب مؤشرات الأداء الرئيسية (KPIs) ▼▼▼ ==
-    # =======================================================================
-    
+    # --- حساب مؤشرات الأداء الرئيسية (KPIs) ---
     kpi_data = []
     now = datetime.utcnow()
 
     # 1. متوسط عمر المخاطر النشطة
-    total_age_days = 0
     if active_risks_list:
-        for r in active_risks_list:
-            total_age_days += (now - r.created_at).days
+        total_age_days = sum([(now - r.created_at).days for r in active_risks_list])
         avg_age = total_age_days / len(active_risks_list)
         kpi_data.append({'label': 'متوسط عمر المخاطر النشطة:', 'value': f'{int(avg_age)} يوم'})
 
     # 2. نسبة إغلاق المخاطر هذا الشهر
     first_day_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    closed_this_month_count = Risk.query.filter(
-        Risk.is_deleted == False,
+    all_risks_query_base = Risk.query.filter(Risk.is_deleted == False)
+    if current_user.username != 'admin':
+        all_risks_query_base = all_risks_query_base.filter_by(user_id=current_user.id)
+
+    closed_this_month_count = all_risks_query_base.filter(
         Risk.status == 'مغلق',
         Risk.closed_at >= first_day_of_month
     ).count()
-    opened_this_month_count = Risk.query.filter(
-        Risk.is_deleted == False,
-        Risk.created_at >= first_day_of_month
-    ).count()
     
-    total_for_closure_rate = closed_this_month_count + opened_this_month_count
-    closure_rate = (closed_this_month_count / total_for_closure_rate * 100) if total_for_closure_rate > 0 else 0
+    total_closed_count = all_risks_query_base.filter(Risk.status == 'مغلق').count()
+    closure_rate = (closed_this_month_count / total_closed_count * 100) if total_closed_count > 0 else 0
     kpi_data.append({'label': 'نسبة إغلاق المخاطر هذا الشهر:', 'value': f'{closure_rate:.1f}%'})
 
     # 3. أخطر فئة حالياً
@@ -714,7 +662,7 @@ def get_stats_api():
             most_dangerous_category = max(category_scores, key=category_scores.get)
             kpi_data.append({'label': 'أخطر فئة حالياً:', 'value': most_dangerous_category})
 
-    # 4. إحصائيات المخاطر الخاصة (مترابطة، ثانوية، متبقية)
+    # 4. إحصائيات المخاطر الخاصة
     linked_risks_count = len([r for r in risks if r.linked_risk_id])
     secondary_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر ثانوي)')])
     residual_risks_count = len([r for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')])
@@ -722,10 +670,6 @@ def get_stats_api():
     kpi_data.append({'label': 'إجمالي المخاطر المترابطة:', 'value': str(linked_risks_count)})
     kpi_data.append({'label': 'إجمالي المخاطر الثانوية:', 'value': str(secondary_risks_count)})
     kpi_data.append({'label': 'إجمالي المخاطر المتبقية:', 'value': str(residual_risks_count)})
-
-    # =====================================================================
-    # == ▲▲▲ [نهاية الإضافة الجديدة] حساب مؤشرات الأداء الرئيسية (KPIs) ▲▲▲ ==
-    # =====================================================================
 
     stats_data = {
         'total_risks': total, 
@@ -770,7 +714,6 @@ def get_stats_api():
                 reverse=True
             )
         ][:5],
-        # --- [إضافة جديدة] إرسال بيانات المؤشرات إلى الواجهة ---
         'kpi_ticker_data': kpi_data
     }
     return jsonify({'success': True, 'stats': stats_data})
@@ -920,8 +863,6 @@ def get_unread_reports_status():
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
-        # --- [تعديل بسيط] التأكد من أن الأعمدة الجديدة تضاف عند الحاجة ---
-        # db.create_all() لا تحذف البيانات الموجودة، بل تضيف الأعمدة الجديدة فقط
         db.create_all() 
         
         users_to_create = {
@@ -938,4 +879,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
