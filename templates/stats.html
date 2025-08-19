@@ -83,61 +83,6 @@
             color: rgba(255, 255, 255, 0.5);
             font-style: italic;
         }
-
-        /* ================================================================== */
-        /* == ▼▼▼ [تنسيقات شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ == */
-        /* ================================================================== */
-        .kpi-ticker-wrap {
-            position: relative;
-            background-color: #1a2a45;
-            width: 100%;
-            overflow: hidden;
-            height: 2.5rem;
-            padding: 0;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            box-sizing: border-box;
-            margin-bottom: 1.5rem;
-        }
-
-        .kpi-ticker-wrap .ticker-content {
-            display: inline-block;
-            height: 2.5rem;
-            line-height: 2.5rem;
-            white-space: nowrap;
-            padding-right: 100%;
-            box-sizing: content-box;
-            animation: ticker-animation 60s infinite linear;
-        }
-
-        .kpi-ticker-wrap .ticker-content:hover {
-            animation-play-state: paused;
-        }
-
-        .kpi-ticker-wrap .kpi-item {
-            display: inline-block;
-            padding: 0 2rem;
-            font-size: 0.95rem;
-        }
-        
-        .kpi-ticker-wrap .kpi-item .kpi-label {
-            color: var(--accent-yellow);
-            font-weight: bold;
-            margin-left: 8px;
-        }
-
-        .kpi-ticker-wrap .kpi-item .kpi-value {
-            color: var(--light-text);
-        }
-
-        @keyframes ticker-animation {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-100%, 0, 0); }
-        }
-        /* ================================================================ */
-        /* == ▲▲▲ [نهاية تنسيقات شريط مؤشرات الأداء] ▲▲▲ == */
-        /* ================================================================ */
-
     </style>
 {% endblock %}
 
@@ -152,18 +97,6 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- ================================================================== -->
-        <!-- == ▼▼▼ [هيكل شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ == -->
-        <!-- ================================================================== -->
-        <div class="kpi-ticker-wrap" id="kpi-ticker-container" style="display: none;">
-            <div class="ticker-content" id="kpi-ticker-content">
-                <!-- البيانات تملأ هنا بواسطة JavaScript -->
-            </div>
-        </div>
-        <!-- ================================================================ -->
-        <!-- == ▲▲▲ [نهاية هيكل شريط مؤشرات الأداء] ▲▲▲ == -->
-        <!-- ================================================================ -->
-
         <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
@@ -232,7 +165,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function (  ) {
+        document.addEventListener('DOMContentLoaded', function ( ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
@@ -301,85 +234,6 @@
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
-
-            // ==================================================================
-            // == ▼▼▼ [دالة عرض شريط مؤشرات الأداء (KPI Ticker)] ▼▼▼ ==
-            // ==================================================================
-                // ==================================================================
-            // == ▼▼▼ [النسخة المصححة والنهائية لدالة عرض الشريط] ▼▼▼ ==
-            // ==================================================================
-                      // ==================================================================
-            // == ▼▼▼ [النسخة النهائية والمحسّنة لدالة عرض الشريط] ▼▼▼ ==
-            // ==================================================================
-                    // ==================================================================
-            // == ▼▼▼ [النسخة النهائية المطورة بناءً على الكود الناجح] ▼▼▼ ==
-            // ==================================================================
-            function renderKpiTicker(kpiData) {
-                const tickerContainer = document.getElementById('kpi-ticker-container');
-                const tickerContent = document.getElementById('kpi-ticker-content');
-
-                // التأكد من وجود البيانات
-                if (!kpiData || kpiData.length === 0) {
-                    if(tickerContainer) tickerContainer.style.display = 'none';
-                    return;
-                }
-
-                // تنظيف المحتوى القديم وإيقاف الحركة
-                tickerContent.innerHTML = '';
-                tickerContent.classList.remove('animate');
-
-                // دالة لإنشاء كل عنصر في الشريط
-                const createKpiItem = (kpi) => {
-                    const item = document.createElement('div');
-                    item.className = 'kpi-item';
-                    const label = kpi.label || '';
-                    const value = kpi.value !== null && kpi.value !== undefined ? kpi.value : '';
-                    // استخدام التنسيق المتفق عليه: العنوان أصفر عريض، والمعلومة أبيض
-                    item.innerHTML = `<span class="kpi-label">${label}</span><span class="kpi-value">${value}</span>`;
-                    return item;
-                };
-
-                // إضافة كل المؤشرات القادمة من الخادم إلى الشريط
-                kpiData.forEach(kpi => {
-                    tickerContent.appendChild(createKpiItem(kpi));
-                });
-                
-                // جعل الحاوية مرئية
-                if(tickerContainer) tickerContainer.style.display = 'block';
-
-                // ننتظر لحظة ليقوم المتصفح بحساب الأبعاد
-                requestAnimationFrame(() => {
-                    setTimeout(() => {
-                        const originalItems = Array.from(tickerContent.children);
-                        if (originalItems.length === 0) return;
-
-                        const contentWidth = tickerContent.scrollWidth;
-                        const containerWidth = tickerContainer.offsetWidth;
-
-                        // تكرار المحتوى لضمان حركة سلسة
-                        if (contentWidth > 0 && containerWidth > 0) {
-                            const cloneCount = Math.ceil(containerWidth / contentWidth) + 2;
-                            for (let i = 0; i < cloneCount; i++) {
-                                originalItems.forEach(child => {
-                                    tickerContent.appendChild(child.cloneNode(true));
-                                });
-                            }
-                        }
-                        
-                        // بدء الحركة الآن بعد إضافة كل المحتوى
-                        tickerContent.classList.add('animate');
-                    }, 50);
-                });
-            }
-            // ================================================================
-            // == ▲▲▲ [نهاية النسخة النهائية المطورة] ▲▲▲ ==
-            // ================================================================
-
-            // ================================================================
-            // == ▲▲▲ [نهاية النسخة النهائية] ▲▲▲ ==
-            // ================================================================
-
-            // ================================================================
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -596,11 +450,15 @@
                                         color: '#fff'
                                     },
                                     generateLabels: function(chart) {
+                                        // نولد عنصر واحد فقط ليعرض النص المدمج
                                         return [{
                                             text: 'فرص | تهديدات',
                                             fillStyle: 'transparent',
                                             strokeStyle: 'transparent',
+                                            // --- [بداية التعديل] ---
+                                            // يجب تحديد لون الخط هنا مباشرةً
                                             fontColor: '#fff' 
+                                            // --- [نهاية التعديل] ---
                                         }];
                                     }
 
@@ -636,36 +494,22 @@
             }
 
             function updateDashboard(stats) {
-                // تحديث البطاقات الرئيسية
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
-                // عرض الرسوم البيانية
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
                 renderStatusPieChart(stats.by_status);
                 renderTimelinessChart(stats.timeliness);
                 renderWatchlist(stats.top_risks);
-
-                // ==================================================================
-                // == ▼▼▼ [استدعاء دالة عرض شريط مؤشرات الأداء] ▼▼▼ ==
-                // ==================================================================
-                if (stats.kpi_ticker_data) {
-                    renderKpiTicker(stats.kpi_ticker_data);
-                }
-                // ================================================================
             }
 
-            // بدء جلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
 {% endblock %}
-
-
-
 
