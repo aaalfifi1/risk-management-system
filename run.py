@@ -546,48 +546,86 @@ def delete_attachment(risk_id):
 @login_required
 def get_stats_api():
     try:
-        query = Risk.query.filter_by(is_deleted=False)
-        if current_user.username != 'admin': 
-            query = query.filter_by(user_id=current_user.id)
+        # --- [بداية التعديل] ---
+        # الاستعلام الأول: شامل وغير مفلتر (لحساب مؤشرات الشريط)
+        base_query_for_kpi = Risk.query.filter_by(is_deleted=False)
+        if current_user.username != 'admin':
+            base_query_for_kpi = base_query_for_kpi.filter_by(user_id=current_user.id)
+        
+        all_risks_for_kpi = base_query_for_kpi.all()
+
+        kpi_data = []
+        if all_risks_for_kpi:
+            # حساب المخاطر الخاصة
+            linked_risks_count = sum(1 for r in all_risks_for_kpi if r.linked_risk_id)
+            secondary_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر ثانوي)'))
+            residual_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر متبقٍ)'))
+            
+            # حساب أكثر فعالية وأكثر حالة
+            effectiveness_counts = Counter(r.action_effectiveness for r in all_risks_for_kpi if r.action_effectiveness)
+            status_counts_kpi = Counter(r.status for r in all_risks_for_kpi if r.status)
+            
+            most_common_effectiveness = effectiveness_counts.most_common(1)[0][0] if effectiveness_counts else "لا يوجد"
+            most_common_status = status_counts_kpi.most_common(1)[0][0] if status_counts_kpi else "لا يوجد"
+
+            kpi_data.extend([
+                {'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)},
+                {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
+                {'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)},
+                {'label': 'أكثر فعالية إجراءات:', 'value': most_common_effectiveness},
+                {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status}
+            ])
+
+        # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
+        query_for_charts = Risk.query.filter_by(is_deleted=False)
+        if current_user.username != 'admin':
+            query_for_charts = query_for_charts.filter_by(user_id=current_user.id)
 
         filter_category = request.args.get('category')
-        if filter_category: query = query.filter(Risk.category == filter_category)
-        filter_level = request.args.get('level')
-        if filter_level: query = query.filter(Risk.risk_level == filter_level)
-        filter_type = request.args.get('type')
-        if filter_type: query = query.filter(Risk.risk_type == filter_type)
-        filter_status = request.args.get('status')
-        if filter_status: query = query.filter(Risk.status == filter_status)
-        filter_code = request.args.get('code')
-        if filter_code: query = query.filter(Risk.risk_code == filter_code)
+        if filter_category: query_for_charts = query_for_charts.filter(Risk.category == filter_category)
         
-        risks = query.all()
-        total = len(risks)
-        active_risks_list = [r for r in risks if r.status != 'مغلق']
+        filter_level = request.args.get('level')
+        if filter_level: query_for_charts = query_for_charts.filter(Risk.risk_level == filter_level)
+        
+        filter_type = request.args.get('type')
+        if filter_type: query_for_charts = query_for_charts.filter(Risk.risk_type == filter_type)
+        
+        filter_status = request.args.get('status')
+        if filter_status: query_for_charts = query_for_charts.filter(Risk.status == filter_status)
+        
+        filter_code = request.args.get('code')
+        if filter_code: query_for_charts = query_for_charts.filter(Risk.risk_code == filter_code)
+        
+        risks_for_charts = query_for_charts.all()
+        # --- [نهاية التعديل] ---
+
+        # الآن، كل الحسابات التالية تعتمد على `risks_for_charts`
+        total = len(risks_for_charts)
+        active_risks_list = [r for r in risks_for_charts if r.status != 'مغلق']
         active = len(active_risks_list)
         closed = total - active
         
-        threats = len([r for r in risks if r.risk_type == 'تهديد'])
-        opportunities = len([r for r in risks if r.risk_type == 'فرصة'])
+        threats = len([r for r in risks_for_charts if r.risk_type == 'تهديد'])
+        opportunities = len([r for r in risks_for_charts if r.risk_type == 'فرصة'])
         
         threats_percentage = (threats / total * 100) if total > 0 else 0
         opportunities_percentage = (opportunities / total * 100) if total > 0 else 0
         
-        matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks]
+        matrix_data = [{'x': r.probability, 'y': r.impact, 'type': r.risk_type, 'title': r.title, 'code': r.risk_code} for r in risks_for_charts]
         
         active_percentage = (active / total * 100) if total > 0 else 0
         closed_percentage = (closed / total * 100) if total > 0 else 0
         
         risk_level_order = ['مرتفع جدا / كارثي', 'مرتفع', 'متوسط', 'منخفض', 'منخفض جدا']
-        categories = sorted(list(set(r.category for r in risks if r.category)))
+        categories = sorted(list(set(r.category for r in risks_for_charts if r.category)))
         by_category_stacked = {level: [0] * len(categories) for level in risk_level_order}
-        for risk in risks:
+        for risk in risks_for_charts:
             if risk.category and risk.category in categories:
                 cat_index = categories.index(risk.category)
                 by_category_stacked[risk.risk_level][cat_index] += 1
 
         by_level_nested = {'threats': [0] * 5, 'opportunities': [0] * 5}
-        for risk in risks:
+        for risk in risks_for_charts:
             if risk.risk_level in risk_level_order:
                 level_index = risk_level_order.index(risk.risk_level)
                 if risk.risk_type == 'تهديد':
@@ -595,45 +633,16 @@ def get_stats_api():
                 else:
                     by_level_nested['opportunities'][level_index] += 1
 
-        status_counts = Counter(r.status for r in risks)
+        status_counts = Counter(r.status for r in risks_for_charts)
 
-        # --- [الكود الجديد] حساب مؤشرات الأداء الرئيسية المبسطة ---
-        kpi_data = []
-
-        # 1. إحصائيات المخاطر الخاصة (مترابطة، ثانوية، متبقية)
-        kpi_data.append({'label': 'المخاطر المترابطة:', 'value': str(sum(1 for r in risks if r.linked_risk_id))})
-        kpi_data.append({'label': 'المخاطر الثانوية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر ثانوي)')))})
-        kpi_data.append({'label': 'المخاطر المتبقية:', 'value': str(sum(1 for r in risks if r.title and r.title.startswith('(خطر متبقٍ)')))})
-
-        # 2. الإجراء الأكثر فعالية
-        if risks:
-            effectiveness_counts = Counter(r.action_effectiveness for r in risks if r.action_effectiveness)
-            if effectiveness_counts:
-                most_effective_action = effectiveness_counts.most_common(1)[0][0]
-                kpi_data.append({'label': 'الإجراء الأكثر فعالية:', 'value': most_effective_action})
-
-        # 3. الحالة الأكثر شيوعاً (للمخاطر النشطة)
-        if active_risks_list:
-            status_counts_active = Counter(r.status for r in active_risks_list)
-            if status_counts_active:
-                most_common_status = status_counts_active.most_common(1)[0][0]
-                kpi_data.append({'label': 'الحالة الأكثر شيوعاً:', 'value': most_common_status})
-
-        # 4. الفئة الأكثر خطورة
-        high_level_risks = [r for r in active_risks_list if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'] and r.category]
-        if high_level_risks:
-            category_counts = Counter(r.category for r in high_level_risks)
-            if category_counts:
-                most_dangerous_category = category_counts.most_common(1)[0][0]
-                kpi_data.append({'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category})
-
-        # 5. عدد المخاطر المتأخرة
+        overdue_risks_count = 0
+        on_time_risks_count = 0
         today = datetime.utcnow().date()
-        overdue_count = sum(1 for r in active_risks_list if r.target_completion_date and r.target_completion_date.date() < today)
-        kpi_data.append({'label': 'المخاطر المتأخرة:', 'value': str(overdue_count)})
-        
-        overdue_risks_count = overdue_count
-        on_time_risks_count = len(active_risks_list) - overdue_risks_count
+        for risk in active_risks_list:
+            if risk.target_completion_date and risk.target_completion_date.date() < today:
+                overdue_risks_count += 1
+            else:
+                on_time_risks_count += 1
 
         stats_data = {
             'total_risks': total, 'active_risks': active, 'closed_risks': closed, 
@@ -645,21 +654,15 @@ def get_stats_api():
             'by_level_nested': {'labels': risk_level_order, 'datasets': by_level_nested},
             'by_status': {'labels': list(status_counts.keys()), 'data': list(status_counts.values())},
             'timeliness': {'labels': ['ملتزم بالوقت', 'متأخر'], 'data': [on_time_risks_count, overdue_risks_count]},
-            'top_risks': [{'code': r.risk_code, 'title': r.title, 'level': r.risk_level, 'score': r.probability * r.impact} for r in sorted([risk for risk in risks if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']], key=lambda x: (x.probability * x.impact, x.created_at), reverse=True)[:5]],
+            'top_risks': [{'code': r.risk_code, 'title': r.title, 'level': r.risk_level, 'score': r.probability * r.impact} for r in sorted([risk for risk in risks_for_charts if risk.status != 'مغلق' and risk.risk_level in ['مرتفع', 'مرتفع جدا / كارثي']], key=lambda x: (x.probability * x.impact, x.created_at), reverse=True)[:5]],
             'kpi_ticker_data': kpi_data
         }
         return jsonify({'success': True, 'stats': stats_data})
 
     except Exception as e:
-        print("!!!!!!!!!!!!!!!!! ERROR IN get_stats_api !!!!!!!!!!!!!!!")
-        traceback.print_exc()
-        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        return jsonify({'success': True, 'stats': {
-            'total_risks': 0, 'active_risks': 0, 'closed_risks': 0, 'active_risks_percentage': 0, 'closed_risks_percentage': 0,
-            'total_threats': 0, 'total_opportunities': 0, 'threats_percentage': 0, 'opportunities_percentage': 0,
-            'matrix_data': [], 'by_category_stacked': {'labels': [], 'datasets': {}}, 'by_level_nested': {'labels': [], 'datasets': {}},
-            'by_status': {'labels': [], 'data': []}, 'timeliness': {'labels': [], 'data': []}, 'top_risks': [], 'kpi_ticker_data': []
-        }})
+        print(f"!!!!!!!!!!!!!!!!! ERROR IN get_stats_api !!!!!!!!!!!!!!!\n{traceback.format_exc()}\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        return jsonify({'success': False, 'message': 'Internal Server Error'}), 500
+
 
 @app.route('/api/notifications')
 @login_required
@@ -822,3 +825,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
