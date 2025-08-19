@@ -249,7 +249,10 @@
                     `<span class="kpi-item">المخاطر المترابطة: <strong>${kpiData.linked_risks_count}</strong></span>`
                 ];
                 // نكرر المحتوى لضمان استمرارية الحركة بدون فراغات
-                tickerContent.innerHTML = (items.join('')).repeat(5);
+                               // نكرر المحتوى مرتين فقط لضمان التغطية الكافية للحركة
+                const singlePassContent = items.join('');
+                tickerContent.innerHTML = singlePassContent + singlePassContent;
+
             }
             // --- [نهاية الإضافة الجديدة] ---
 
@@ -491,4 +494,5 @@
         });
     </script>
 {% endblock %}
+
 
