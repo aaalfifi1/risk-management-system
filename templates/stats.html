@@ -236,21 +236,26 @@
             }
 
             // --- [بداية الإضافة الجديدة] دالة عرض شريط المؤشرات ---
+                      // --- [بداية الإصلاح النهائي] دالة عرض شريط المؤشرات ---
             function renderKpiTicker(kpiData) {
                 const tickerContent = document.getElementById('kpi-ticker-content');
-                if (!kpiData) {
-                    tickerContent.innerHTML = '';
-                    return;
-                }
+                // نستخدم قيمة افتراضية فارغة لضمان عدم حدوث أخطاء إذا كانت البيانات غير موجودة
+                const data = kpiData || {}; 
+                
                 const items = [
-                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${kpiData.avg_risk_age} يوم</strong></span>`,
-                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${kpiData.closure_rate_this_month}%</strong></span>`,
-                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${kpiData.most_dangerous_category}</strong></span>`,
-                    `<span class="kpi-item">المخاطر المترابطة: <strong>${kpiData.linked_risks_count}</strong></span>`
+                    // نستخدم || '...' كقيمة افتراضية لضمان عرض قيمة دائماً
+                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${data.avg_risk_age || '...'} يوم</strong></span>`,
+                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${data.closure_rate_this_month || '...'}%</strong></span>`,
+                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${data.most_dangerous_category || '...'}</strong></span>`,
+                    `<span class="kpi-item">المخاطر المترابطة: <strong>${data.linked_risks_count || '...'}</strong></span>`
                 ];
-                // نكرر المحتوى لضمان استمرارية الحركة بدون فراغات
-                tickerContent.innerHTML = (items.join('')).repeat(5);
+
+                // نكرر المحتوى 5 مرات لضمان أن العرض الإجمالي أطول بكثير من الشاشة
+                // هذا هو مفتاح الحركة المستمرة والسلسة
+                tickerContent.innerHTML = items.join('').repeat(5);
             }
+            // --- [نهاية الإصلاح النهائي] ---
+
             // --- [نهاية الإضافة الجديدة] ---
 
             function renderWatchlist(topRisks) {
@@ -491,4 +496,5 @@
         });
     </script>
 {% endblock %}
+
 
