@@ -82,42 +82,6 @@
             height: 100%;
             color: rgba(255, 255, 255, 0.5);
             font-style: italic;
-                    /* --- [بداية الإضافة الجديدة] تنسيقات شريط المؤشرات --- */
-        .kpi-ticker-container {
-            background-color: #273c5e;
-            border-radius: 10px;
-            padding: 10px 20px;
-            overflow: hidden;
-            white-space: nowrap;
-            margin-bottom: 1.5rem; /* لإعطاء مسافة قبل البطاقات */
-            border: 1px solid var(--border-color);
-        }
-        .kpi-ticker-content {
-            display: inline-block;
-            /* سرعة الحركة تعتمد على هذا الرقم، كلما زاد كان أبطأ */
-            animation: ticker-scroll 25s linear infinite;
-            color: #f8f9fa;
-            padding-left: 100%; /* لضمان بدء الحركة من خارج الشاشة */
-        }
-        .kpi-item {
-            display: inline-block;
-            margin-right: 70px; /* مسافة بين كل مؤشر والذي يليه */
-            font-size: 0.9rem;
-        }
-        .kpi-item strong {
-            color: var(--accent-yellow);
-            font-size: 1rem;
-        }
-        @keyframes ticker-scroll {
-            0% {
-                transform: translateX(0);
-            }
-            100% {
-                transform: translateX(-100%);
-            }
-        }
-        /* --- [نهاية الإضافة الجديدة] --- */
-
         }
     </style>
 {% endblock %}
@@ -131,13 +95,6 @@
             <button id="reset-filter" class="btn btn-sm btn-outline-light" style="display: none;"><i class="bi bi-arrow-clockwise"></i> إعادة تعيين الفلتر</button>
         </div>
     </div>
-    <!-- --- [بداية الإضافة الجديدة] حاوية شريط المؤشرات --- -->
-    <div class="kpi-ticker-container">
-        <div id="kpi-ticker-content" class="kpi-ticker-content">
-            <!-- سيتم ملء المؤشرات هنا بواسطة JavaScript -->
-        </div>
-    </div>
-    <!-- --- [نهاية الإضافة الجديدة] --- -->
 
     <div id="dashboard-to-print">
         <!-- الصف الأول: البطاقات الخمس -->
@@ -286,23 +243,6 @@
                     watchlistBody.innerHTML = '<div class="watchlist-placeholder">لا توجد مخاطر مرتفعة حالياً.</div>';
                     return;
                 }
-            // --- [بداية الإضافة الجديدة] دالة عرض شريط المؤشرات ---
-            function renderKpiTicker(kpiData) {
-                const tickerContent = document.getElementById('kpi-ticker-content');
-                if (!kpiData) {
-                    tickerContent.innerHTML = '';
-                    return;
-                }
-                const items = [
-                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${kpiData.avg_risk_age} يوم</strong></span>`,
-                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${kpiData.closure_rate_this_month}%</strong></span>`,
-                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${kpiData.most_dangerous_category}</strong></span>`,
-                    `<span class="kpi-item">المخاطر المترابطة: <strong>${kpiData.linked_risks_count}</strong></span>`
-                ];
-                // نكرر المحتوى لضمان استمرارية الحركة بدون فراغات
-                tickerContent.innerHTML = (items.join('')).repeat(5);
-            }
-            // --- [نهاية الإضافة الجديدة] ---
 
                 topRisks.forEach(risk => {
                     const item = document.createElement('div');
@@ -556,7 +496,6 @@
             function updateDashboard(stats) {
                 document.getElementById('total-risks').textContent = stats.total_risks;
                 document.getElementById('threats-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_threats}</h2><small class="percentage-text">(${stats.threats_percentage.toFixed(1)}%)</small>`;
-                renderKpiTicker(stats.kpi_data); // <-- [الإضافة الجديدة]
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
