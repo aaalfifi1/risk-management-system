@@ -82,6 +82,41 @@
             height: 100%;
             color: rgba(255, 255, 255, 0.5);
             font-style: italic;
+                    /* --- [بداية الإضافة الجديدة] تنسيقات شريط المؤشرات --- */
+        .kpi-ticker-container {
+            background-color: #273c5e;
+            border-radius: 10px;
+            padding: 10px 0;
+            overflow: hidden;
+            white-space: nowrap;
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+        }
+        .kpi-ticker-content {
+            display: inline-block;
+            /* سرعة الحركة تعتمد على هذا الرقم، كلما زاد كان أبطأ */
+            animation: ticker-scroll 60s linear infinite;
+            padding-left: 100%; /* هذا مهم لبدء الحركة من خارج الشاشة */
+        }
+        .kpi-item {
+            display: inline-block;
+            /* زيادة المسافة لضمان عدم وجود فراغات مرئية أثناء التكرار */
+            margin-right: 150px; 
+            font-size: 0.9rem;
+            /* لون العنوان أصفر */
+            color: var(--accent-yellow); 
+        }
+        .kpi-item strong {
+            /* لون البيانات أبيض */
+            color: #f8f9fa;
+            font-size: 1rem;
+        }
+        @keyframes ticker-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-100%); }
+        }
+        /* --- [نهاية الإضافة الجديدة] --- */
+
         }
     </style>
 {% endblock %}
@@ -95,8 +130,16 @@
             <button id="reset-filter" class="btn btn-sm btn-outline-light" style="display: none;"><i class="bi bi-arrow-clockwise"></i> إعادة تعيين الفلتر</button>
         </div>
     </div>
+    <!-- --- [بداية الإضافة الجديدة] حاوية شريط المؤشرات --- -->
+    <div class="kpi-ticker-container">
+        <div id="kpi-ticker-content" class="kpi-ticker-content">
+            <!-- سيتم ملء المؤشرات هنا بواسطة JavaScript -->
+        </div>
+    </div>
+    <!-- --- [نهاية الإضافة الجديدة] --- -->
 
     <div id="dashboard-to-print">
+
         <!-- الصف الأول: البطاقات الخمس -->
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-5 g-4 mb-4">
             <div class="col"><div class="card stat-card h-100" style="background-color: #273c5e !important; border-radius: 15px; transition: transform 0.2s; border: none;"><div class="card-body"><div><h5 class="card-title-white">إجمالي المخاطر</h5><h2 class="fw-bold text-white" id="total-risks">0</h2></div><i class="bi bi-shield-check stat-icon text-primary"></i></div></div></div>
@@ -234,6 +277,27 @@
                     }
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
+            // --- [بداية الإضافة الجديدة] دالة عرض شريط المؤشرات ---
+            function renderKpiTicker(kpiData) {
+                const tickerContent = document.getElementById('kpi-ticker-content');
+                // نستخدم قيمة افتراضية فارغة لضمان عدم حدوث أخطاء
+                const data = kpiData || {}; 
+                
+                const items = [
+                    // نستخدم || '...' كقيمة افتراضية لضمان عرض قيمة دائماً
+                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${data.avg_risk_age || '...'} يوم</strong></span>`,
+                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${data.closure_rate_this_month || '...'}%</strong></span>`,
+                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${data.most_dangerous_category || '...'}</strong></span>`,
+                    `<span class="kpi-item">المخاطر المترابطة: <strong>${data.linked_risks_count || '...'}</strong></span>`,
+                    `<span class="kpi-item">المخاطر الثانوية: <strong>${data.secondary_risks_count || '...'}</strong></span>`,
+                    `<span class="kpi-item">المخاطر المتبقية: <strong>${data.residual_risks_count || '...'}</strong></span>`
+                ];
+
+                // نكرر المحتوى 5 مرات لضمان أن العرض الإجمالي أطول بكثير من الشاشة
+                // هذا هو مفتاح الحركة المستمرة والسلسة
+                tickerContent.innerHTML = items.join('').repeat(5);
+            }
+            // --- [نهاية الإضافة الجديدة] ---
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -499,7 +563,12 @@
                 document.getElementById('opportunities-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.total_opportunities}</h2><small class="percentage-text">(${stats.opportunities_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
-                
+                 if (!isFiltered) {
+                    renderKpiTicker(stats.kpi_data || {});
+                }
+                renderMatrixChart(stats.matrix_data || []);
+                // ... (باقي استدعاءات دوال العرض تبقى كما هي) ...
+            }
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
@@ -512,4 +581,5 @@
         });
     </script>
 {% endblock %}
+
 
