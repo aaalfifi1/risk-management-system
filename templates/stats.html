@@ -4,6 +4,51 @@
 
 {% block styles %}
     <style>
+        /* --- تنسيقات شريط مؤشرات الأداء --- */
+        .kpi-ticker-wrap {
+            background-color: #1a2a45;
+            width: 100%;
+            overflow: hidden;
+            height: 2.5rem;
+            padding: 0;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            margin-bottom: 1.5rem; /* لإعطاء مسافة بينه وبين البطاقات */
+        }
+        .kpi-ticker-wrap .ticker-content {
+            display: inline-block;
+            height: 2.5rem;
+            line-height: 2.5rem;
+            white-space: nowrap;
+            padding-right: 100%;
+            box-sizing: content-box;
+        }
+        .kpi-ticker-wrap .ticker-content.animate {
+            animation: ticker-animation 60s infinite linear;
+        }
+        .kpi-ticker-wrap .ticker-content:hover {
+            animation-play-state: paused;
+        }
+        .kpi-ticker-wrap .kpi-item {
+            display: inline-block;
+            padding: 0 2rem;
+            font-size: 0.95rem;
+        }
+        .kpi-ticker-wrap .kpi-item .kpi-label {
+            color: var(--accent-yellow);
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        .kpi-ticker-wrap .kpi-item .kpi-value {
+            color: var(--light-text);
+        }
+        @keyframes ticker-animation {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
+        /* --- تنسيقات لوحة التحكم الأساسية --- */
         .stat-card:hover { transform: translateY(-5px); }
         .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
         .stat-icon { font-size: 3rem; opacity: 0.6; }
@@ -83,57 +128,6 @@
             color: rgba(255, 255, 255, 0.5);
             font-style: italic;
         }
-
-        /* --- تنسيقات شريط مؤشرات الأداء (KPI Ticker) --- */
-        .kpi-ticker-wrap {
-            background-color: #1a2a45;
-            width: 100%;
-            overflow: hidden;
-            height: 2.5rem;
-            padding: 0;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            box-sizing: border-box;
-            margin-bottom: 1.5rem;
-        }
-
-        .kpi-ticker-wrap .ticker-content {
-            display: inline-block;
-            height: 2.5rem;
-            line-height: 2.5rem;
-            white-space: nowrap;
-            padding-right: 100%;
-            box-sizing: content-box;
-        }
-        
-        .kpi-ticker-wrap .ticker-content.animate {
-            animation: ticker-animation 60s infinite linear;
-        }
-
-        .kpi-ticker-wrap .ticker-content:hover {
-            animation-play-state: paused;
-        }
-
-        .kpi-ticker-wrap .kpi-item {
-            display: inline-block;
-            padding: 0 2rem;
-            font-size: 0.95rem;
-        }
-        
-        .kpi-ticker-wrap .kpi-item .kpi-label {
-            color: var(--accent-yellow);
-            font-weight: bold;
-            margin-left: 8px;
-        }
-
-        .kpi-ticker-wrap .kpi-item .kpi-value {
-            color: var(--light-text);
-        }
-
-        @keyframes ticker-animation {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-100%, 0, 0); }
-        }
     </style>
 {% endblock %}
 
@@ -148,7 +142,7 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- --- هيكل شريط مؤشرات الأداء (KPI Ticker) --- -->
+        <!-- هيكل شريط مؤشرات الأداء -->
         <div class="kpi-ticker-wrap" id="kpi-ticker-container" style="display: none;">
             <div class="ticker-content" id="kpi-ticker-content">
                 <!-- البيانات تملأ هنا بواسطة JavaScript -->
@@ -223,7 +217,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function (  ) {
+        document.addEventListener('DOMContentLoaded', function ( ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
@@ -293,67 +287,52 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-    function renderKpiTicker(kpiData) {
-    const tickerContainer = document.getElementById('kpi-ticker-container');
-    const tickerContent = document.getElementById('kpi-ticker-content');
+            function renderKpiTicker(kpiData) {
+                const tickerContainer = document.getElementById('kpi-ticker-container');
+                const tickerContent = document.getElementById('kpi-ticker-content');
 
-    // التحقق من وجود العناصر في الصفحة لتجنب الأخطاء
-    if (!tickerContainer || !tickerContent) {
-        console.error("Ticker container or content not found in HTML.");
-        return;
-    }
+                if (!tickerContainer || !tickerContent) {
+                    console.error("Ticker container or content not found in HTML.");
+                    return;
+                }
 
-    // التحقق من أن البيانات موجودة وأنها مصفوفة وليست فارغة
-    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
-        tickerContainer.style.display = 'none'; // إخفاء الحاوية إذا لا توجد بيانات
-        return;
-    }
+                if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
+                    tickerContainer.style.display = 'none';
+                    return;
+                }
 
-    // إعادة تعيين المحتوى والحركة قبل البدء
-    tickerContent.innerHTML = '';
-    tickerContent.classList.remove('animate');
+                tickerContent.innerHTML = '';
+                tickerContent.classList.remove('animate');
 
-    // بناء عناصر الشريط
-    let itemsHtml = '';
-    kpiData.forEach(kpi => {
-        // التحقق من أن كل عنصر هو كائن ويحتوي على الخصائص المطلوبة
-        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-        }
-    });
+                let itemsHtml = '';
+                kpiData.forEach(kpi => {
+                    if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
+                        itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+                    }
+                });
 
-    // إذا لم يتم بناء أي عناصر (بسبب بيانات غير صالحة)، لا تعرض الشريط
-    if (itemsHtml === '') {
-        tickerContainer.style.display = 'none';
-        return;
-    }
+                if (itemsHtml === '') {
+                    tickerContainer.style.display = 'none';
+                    return;
+                }
 
-    // إظهار الحاوية وملء المحتوى
-    tickerContainer.style.display = 'block';
-    tickerContent.innerHTML = itemsHtml;
+                tickerContainer.style.display = 'block';
+                tickerContent.innerHTML = itemsHtml;
 
-    // استخدام requestAnimationFrame لضمان أن المتصفح قد عرض العناصر قبل قياسها
-    requestAnimationFrame(() => {
-        // التأكد من أن العناصر موجودة فعلاً قبل محاولة تكرارها
-        if (tickerContent.children.length === 0) return;
-
-        const contentWidth = tickerContent.scrollWidth;
-        const containerWidth = tickerContainer.offsetWidth;
-
-        // تكرار المحتوى فقط إذا كان أصغر من الحاوية لضمان استمرارية الحركة
-        if (contentWidth > 0 && containerWidth > 0 && contentWidth < containerWidth * 1.5) {
-            const cloneCount = Math.ceil((containerWidth * 1.5) / contentWidth);
-            const initialHtml = tickerContent.innerHTML;
-            for (let i = 0; i < cloneCount; i++) {
-                tickerContent.innerHTML += initialHtml;
+                requestAnimationFrame(() => {
+                    if (tickerContent.children.length === 0) return;
+                    const contentWidth = tickerContent.scrollWidth;
+                    const containerWidth = tickerContainer.offsetWidth;
+                    if (contentWidth > 0 && containerWidth > 0 && contentWidth < containerWidth * 1.5) {
+                        const cloneCount = Math.ceil((containerWidth * 1.5) / contentWidth);
+                        const initialHtml = tickerContent.innerHTML;
+                        for (let i = 0; i < cloneCount; i++) {
+                            tickerContent.innerHTML += initialHtml;
+                        }
+                    }
+                    tickerContent.classList.add('animate');
+                });
             }
-        }
-        
-        // إضافة كلاس الحركة
-        tickerContent.classList.add('animate');
-    });
-}
-
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -616,20 +595,19 @@
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
+                // استدعاء دالة عرض الشريط
+                renderKpiTicker(stats.kpi_ticker_data);
+
+                // استدعاء دوال عرض الرسوم البيانية
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
                 renderStatusPieChart(stats.by_status);
                 renderTimelinessChart(stats.timeliness);
                 renderWatchlist(stats.top_risks);
-
-                if (stats.kpi_ticker_data) {
-                    renderKpiTicker(stats.kpi_ticker_data);
-                }
             }
 
             fetchStats();
         });
     </script>
 {% endblock %}
-
