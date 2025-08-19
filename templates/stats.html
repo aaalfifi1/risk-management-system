@@ -4,7 +4,7 @@
 
 {% block styles %}
     <style>
-        /* --- تنسيقات شريط مؤشرات الأداء --- */
+        /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
         .kpi-ticker-wrap {
             background-color: #1a2a45;
             width: 100%;
@@ -14,18 +14,18 @@
             border-radius: 10px;
             border: 1px solid var(--border-color);
             box-sizing: border-box;
-            margin-bottom: 1.5rem; /* لإعطاء مسافة بينه وبين البطاقات */
+            margin-bottom: 1.5rem;
         }
         .kpi-ticker-wrap .ticker-content {
             display: inline-block;
             height: 2.5rem;
             line-height: 2.5rem;
             white-space: nowrap;
-            padding-right: 100%;
             box-sizing: content-box;
         }
         .kpi-ticker-wrap .ticker-content.animate {
-            animation: ticker-animation 60s infinite linear;
+            /* الحركة الآن تعتمد على متغيرات نحددها من جافاسكريبت */
+            animation: ticker-animation var(--animation-duration, 60s) infinite linear;
         }
         .kpi-ticker-wrap .ticker-content:hover {
             animation-play-state: paused;
@@ -43,29 +43,18 @@
         .kpi-ticker-wrap .kpi-item .kpi-value {
             color: var(--light-text);
         }
+        /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
         @keyframes ticker-animation {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-100%, 0, 0); }
+            0% { transform: translateX(0); }
+            100% { transform: translateX(var(--ticker-scroll-width, -100%)); }
         }
 
-        /* --- تنسيقات لوحة التحكم الأساسية --- */
+        /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
         .stat-card:hover { transform: translateY(-5px); }
         .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
         .stat-icon { font-size: 3rem; opacity: 0.6; }
-        
-        .chart-container { 
-            background-color: #273c5e; 
-            padding: 20px; 
-            border-radius: 15px; 
-            height: 420px; 
-            display: flex;
-            flex-direction: column;
-        }
-        .chart-container canvas {
-            flex-grow: 1;
-            min-height: 0;
-        }
-
+        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+        .chart-container canvas { flex-grow: 1; min-height: 0; }
         .card-title-white { color: #ffffff; font-weight: bold; }
         .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
         .stat-value-container { display: flex; align-items: baseline; }
@@ -75,59 +64,19 @@
                 linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
             background-size: calc(100% / 5) calc(100% / 5);
         }
-        
         .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
         body.tv-mode .sidebar, 
         body.tv-mode .navbar,
         body.tv-mode .header-controls { display: none !important; }
         body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
-
-        .watchlist-container {
-            background-color: rgba(220, 53, 69, 0.15);
-            border: 1px solid rgba(220, 53, 69, 0.4);
-            padding: 20px;
-            border-radius: 15px;
-            height: 420px;
-            display: flex;
-            flex-direction: column;
-        }
-        .watchlist-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .watchlist-item:hover {
-            background-color: rgba(220, 53, 69, 0.3);
-        }
-        .watchlist-item:last-child {
-            border-bottom: none;
-        }
-        .watchlist-title {
-            font-weight: bold;
-            color: #f8f9fa;
-        }
-        .watchlist-code {
-            font-size: 0.85rem;
-            color: #adb5bd;
-        }
-        .watchlist-level {
-            font-size: 0.9rem;
-            font-weight: bold;
-            padding: 0.3em 0.6em;
-            border-radius: 5px;
-        }
-        .watchlist-placeholder {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100%;
-            color: rgba(255, 255, 255, 0.5);
-            font-style: italic;
-        }
+        .watchlist-container { background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: background-color 0.2s; }
+        .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
+        .watchlist-item:last-child { border-bottom: none; }
+        .watchlist-title { font-weight: bold; color: #f8f9fa; }
+        .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
+        .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
+        .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
     </style>
 {% endblock %}
 
@@ -287,14 +236,12 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
+            // --- [الكود الجديد والمحصن لدالة الشريط] ---
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!tickerContainer || !tickerContent) {
-                    console.error("Ticker container or content not found in HTML.");
-                    return;
-                }
+                if (!tickerContainer || !tickerContent) return;
 
                 if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
                     tickerContainer.style.display = 'none';
@@ -317,24 +264,22 @@
                 }
 
                 tickerContainer.style.display = 'block';
-                tickerContent.innerHTML = itemsHtml;
+                // نكرر المحتوى مرتين مبدئياً لضمان وجود ما يكفي للحركة
+                tickerContent.innerHTML = itemsHtml + itemsHtml;
 
                 requestAnimationFrame(() => {
-                    if (tickerContent.children.length === 0) return;
-                    const contentWidth = tickerContent.scrollWidth;
-                    const containerWidth = tickerContainer.offsetWidth;
-                    if (contentWidth > 0 && containerWidth > 0 && contentWidth < containerWidth * 1.5) {
-                        const cloneCount = Math.ceil((containerWidth * 1.5) / contentWidth);
-                        const initialHtml = tickerContent.innerHTML;
-                        for (let i = 0; i < cloneCount; i++) {
-                            tickerContent.innerHTML += initialHtml;
-                        }
-                    }
-                   // نستخدم تأخير بسيط جداً لضمان أن المتصفح قد رسم المحتوى المكرر قبل بدء الحركة
-                setTimeout(() => {
-                            tickerContent.classList.add('animate');
-              }, 100); // 100 ميلي ثانية
+                    // نحسب عرض الجزء الأصلي (غير المكرر)
+                    const originalContentWidth = tickerContent.scrollWidth / 2;
 
+                    // نضبط متغير الـ CSS بقيمة العرض السالبة
+                    tickerContent.style.setProperty('--ticker-scroll-width', `-${originalContentWidth}px`);
+                    
+                    // نضبط مدة الأنيميشن بناءً على العرض لضمان سرعة ثابتة
+                    const animationDuration = originalContentWidth / 50; // سرعة 50 بكسل في الثانية
+                    tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
+
+                    // الآن نبدأ الحركة بأمان
+                    tickerContent.classList.add('animate');
                 });
             }
 
@@ -599,10 +544,8 @@
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
-                // استدعاء دالة عرض الشريط
                 renderKpiTicker(stats.kpi_ticker_data);
 
-                // استدعاء دوال عرض الرسوم البيانية
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
@@ -615,4 +558,3 @@
         });
     </script>
 {% endblock %}
-
