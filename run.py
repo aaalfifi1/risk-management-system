@@ -588,33 +588,6 @@ def get_stats_api():
             continue
 
     status_counts = Counter(r.status for r in risks)
-      # --- [بداية الإضافة الجديدة] حساب المؤشرات الذكية (KPIs) ---
-    # هذه المؤشرات تحسب دائماً من كامل البيانات (all_risks) لتعطي نظرة عامة
-    today = datetime.utcnow().date()
-    first_day_of_month = today.replace(day=1)
-    
-    # 1. متوسط عمر المخاطر النشطة
-    kpi_active_risks = [r for r in all_risks if r.status != 'مغلق']
-    avg_risk_age = 0
-    if kpi_active_risks:
-        total_age = sum([(today - r.created_at.date()).days for r in kpi_active_risks])
-        avg_risk_age = round(total_age / len(kpi_active_risks))
-
-    # 2. نسبة الإغلاق هذا الشهر
-    closed_this_month_count = len([r for r in all_risks if r.status == 'مغلق' and r.created_at.date() >= first_day_of_month])
-    opened_this_month_count = len([r for r in all_risks if r.created_at.date() >= first_day_of_month])
-    closure_rate_this_month = round((closed_this_month_count / opened_this_month_count) * 100) if opened_this_month_count > 0 else 0
-
-    # 3. أخطر فئة حالياً
-    category_scores = {}
-    for r in kpi_active_risks:
-        score = r.probability * r.impact
-        category_scores[r.category] = category_scores.get(r.category, 0) + score
-    most_dangerous_category = max(category_scores, key=category_scores.get) if category_scores else "لا يوجد"
-
-    # 4. عدد المخاطر المترابطة
-    linked_risks_count = len([r for r in all_risks if r.linked_risk_id is not None and r.linked_risk_id != 'لا يوجد'])
-    # --- [نهاية الإضافة الجديدة] ---
 
     # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
     overdue_risks_count = 0
@@ -682,16 +655,7 @@ def get_stats_api():
                 key=lambda x: (x.probability * x.impact, x.created_at), 
                 reverse=True
             )
-        ][:5],        
-        # --- [بداية الإضافة الجديدة] ---
-        'kpi_data': {
-            'avg_risk_age': avg_risk_age,
-            'closure_rate_this_month': closure_rate_this_month,
-            'most_dangerous_category': most_dangerous_category,
-            'linked_risks_count': linked_risks_count
-        }
-        # --- [نهاية الإضافة الجديدة] ---
-
+        ][:5]
 
     }
     return jsonify({'success': True, 'stats': stats_data})
@@ -859,8 +823,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
 
 
 
