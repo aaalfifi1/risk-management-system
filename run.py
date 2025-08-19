@@ -539,7 +539,7 @@ def delete_attachment(risk_id):
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename)
         if os.path.exists(file_path): os.remove(file_path)
         risk.attachment_filename = None
-               log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
+        log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
@@ -879,3 +879,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
