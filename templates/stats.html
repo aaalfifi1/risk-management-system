@@ -70,10 +70,8 @@
         }
         .kpi-item {
             display: inline-block;
-            margin-right: 150px; /* <-- [التعديل] زيادة المسافة */
+            margin-right: 70px;
             font-size: 0.9rem;
-        }
-
         }
         .kpi-item strong {
             color: var(--accent-yellow);
@@ -238,24 +236,21 @@
             }
 
             // --- [بداية الإضافة الجديدة] دالة عرض شريط المؤشرات ---
-             function renderKpiTicker(kpiData) {
+            function renderKpiTicker(kpiData) {
                 const tickerContent = document.getElementById('kpi-ticker-content');
-                // نستخدم قيمة افتراضية فارغة لضمان عدم حدوث أخطاء
-                const data = kpiData || {}; 
-                
+                if (!kpiData) {
+                    tickerContent.innerHTML = '';
+                    return;
+                }
                 const items = [
-                    // نستخدم || '...' لضمان عرض قيمة حتى لو كانت البيانات غير موجودة مؤقتاً
-                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${data.avg_risk_age || '...'} يوم</strong></span>`,
-                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${data.closure_rate_this_month || '...'}%</strong></span>`,
-                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${data.most_dangerous_category || '...'}</strong></span>`,
-                    `<span class="kpi-item">المخاطر المترابطة: <strong>${data.linked_risks_count || '...'}</strong></span>`
+                    `<span class="kpi-item">متوسط عمر المخاطر: <strong>${kpiData.avg_risk_age} يوم</strong></span>`,
+                    `<span class="kpi-item">كفاءة الإغلاق (شهري): <strong>${kpiData.closure_rate_this_month}%</strong></span>`,
+                    `<span class="kpi-item">أخطر فئة حالياً: <strong>${kpiData.most_dangerous_category}</strong></span>`,
+                    `<span class="kpi-item">المخاطر المترابطة: <strong>${kpiData.linked_risks_count}</strong></span>`
                 ];
-
-                // نكرر المحتوى عدة مرات لضمان أن العرض الإجمالي أطول من الشاشة
-                const singlePassContent = items.join('');
-                tickerContent.innerHTML = singlePassContent.repeat(5);
+                // نكرر المحتوى لضمان استمرارية الحركة بدون فراغات
+                tickerContent.innerHTML = (items.join('')).repeat(5);
             }
-
             // --- [نهاية الإضافة الجديدة] ---
 
             function renderWatchlist(topRisks) {
@@ -496,6 +491,4 @@
         });
     </script>
 {% endblock %}
-
-
 
