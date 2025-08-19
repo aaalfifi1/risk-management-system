@@ -588,6 +588,33 @@ def get_stats_api():
             continue
 
     status_counts = Counter(r.status for r in risks)
+    # --- [بداية التعديل الجديد] حساب المؤشرات الذكية ---
+    today = datetime.utcnow().date()
+    first_day_of_month = today.replace(day=1)
+    
+    # 1. متوسط عمر المخاطر النشطة
+    total_age = 0
+    # نستخدم `risks` (البيانات المفلترة) لنعكس الفلترة على المؤشرات
+    active_risks_for_kpi = [r for r in risks if r.status != 'مغلق']
+    if active_risks_for_kpi:
+        for r in active_risks_for_kpi:
+            total_age += (today - r.created_at.date()).days
+        avg_risk_age = round(total_age / len(active_risks_for_kpi))
+    else:
+        avg_risk_age = 0
+
+    # 2. نسبة الإغلاق هذا الشهر (ضمن البيانات المفلترة)
+    closed_this_month = len([r for r in risks if r.status == 'مغلق' and r.created_at.date() >= first_day_of_month])
+    opened_this_month = len([r for r in risks if r.created_at.date() >= first_day_of_month])
+    closure_rate_this_month = round((closed_this_month / opened_this_month) * 100) if opened_this_month > 0 else 0
+
+    # 3. أخطر فئة حالياً (ضمن البيانات المفلترة)
+    category_scores = {}
+    for r in active_risks_for_kpi:
+        score = r.probability * r.impact
+        category_scores[r.category] = category_scores.get(r.category, 0) + score
+    most_dangerous_category = max(category_scores, key=category_scores.get) if category_scores else "لا يوجد"
+    # --- [نهاية التعديل الجديد] ---
 
     # --- [بداية التعديل الجديد] حساب المخاطر المتأخرة ---
     overdue_risks_count = 0
@@ -656,6 +683,15 @@ def get_stats_api():
                 reverse=True
             )
         ][:5]
+                ], # <--- تأكد من وجود هذه الفاصلة
+
+        # --- [بداية الإضافة الجديدة] ---
+         'kpi_data': {
+            'avg_risk_age': avg_risk_age,
+            'closure_rate_this_month': closure_rate_this_month,
+            'most_dangerous_category': most_dangerous_category
+        }
+        # --- [نهاية الإضافة الجديدة] ---
 
     }
     return jsonify({'success': True, 'stats': stats_data})
@@ -823,6 +859,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
