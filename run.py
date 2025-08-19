@@ -660,7 +660,6 @@ def get_stats_api():
     }
     return jsonify({'success': True, 'stats': stats_data})
 
-    return jsonify({'success': True, 'stats': stats_data})
 
 @app.route('/api/notifications')
 @login_required
@@ -823,6 +822,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
