@@ -311,45 +311,52 @@
                       // ==================================================================
             // == ▼▼▼ [النسخة النهائية والمحسّنة لدالة عرض الشريط] ▼▼▼ ==
             // ==================================================================
+                    // ==================================================================
+            // == ▼▼▼ [النسخة النهائية المطورة بناءً على الكود الناجح] ▼▼▼ ==
+            // ==================================================================
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
+                // التأكد من وجود البيانات
                 if (!kpiData || kpiData.length === 0) {
-                    tickerContainer.style.display = 'none';
+                    if(tickerContainer) tickerContainer.style.display = 'none';
                     return;
                 }
 
-                // الخطوة 1: تنظيف المحتوى القديم وإيقاف أي حركة سابقة
+                // تنظيف المحتوى القديم وإيقاف الحركة
                 tickerContent.innerHTML = '';
                 tickerContent.classList.remove('animate');
 
+                // دالة لإنشاء كل عنصر في الشريط
                 const createKpiItem = (kpi) => {
                     const item = document.createElement('div');
                     item.className = 'kpi-item';
                     const label = kpi.label || '';
                     const value = kpi.value !== null && kpi.value !== undefined ? kpi.value : '';
+                    // استخدام التنسيق المتفق عليه: العنوان أصفر عريض، والمعلومة أبيض
                     item.innerHTML = `<span class="kpi-label">${label}</span><span class="kpi-value">${value}</span>`;
                     return item;
                 };
 
-                // الخطوة 2: إضافة العناصر الأصلية وجعل الحاوية مرئية
+                // إضافة كل المؤشرات القادمة من الخادم إلى الشريط
                 kpiData.forEach(kpi => {
                     tickerContent.appendChild(createKpiItem(kpi));
                 });
                 
-                // *** التعديل الجوهري: نجعل الحاوية مرئية أولاً ***
-                tickerContainer.style.display = 'block';
+                // جعل الحاوية مرئية
+                if(tickerContainer) tickerContainer.style.display = 'block';
 
-                // الخطوة 3: ننتظر لحظة بسيطة جداً (دورة تحديث واحدة للمتصفح)
-                // هذا يضمن أن المتصفح قد قام بحساب أبعاد الحاوية بعد جعلها مرئية
+                // ننتظر لحظة ليقوم المتصفح بحساب الأبعاد
                 requestAnimationFrame(() => {
                     setTimeout(() => {
                         const originalItems = Array.from(tickerContent.children);
+                        if (originalItems.length === 0) return;
+
                         const contentWidth = tickerContent.scrollWidth;
                         const containerWidth = tickerContainer.offsetWidth;
 
-                        // الخطوة 4: تكرار المحتوى لضمان حركة سلسة
+                        // تكرار المحتوى لضمان حركة سلسة
                         if (contentWidth > 0 && containerWidth > 0) {
                             const cloneCount = Math.ceil(containerWidth / contentWidth) + 2;
                             for (let i = 0; i < cloneCount; i++) {
@@ -359,12 +366,15 @@
                             }
                         }
                         
-                        // الخطوة 5: الآن فقط، وبعد كل شيء، نبدأ الحركة
+                        // بدء الحركة الآن بعد إضافة كل المحتوى
                         tickerContent.classList.add('animate');
-
-                    }, 50); // تأخير بسيط إضافي للاحتياط
+                    }, 50);
                 });
             }
+            // ================================================================
+            // == ▲▲▲ [نهاية النسخة النهائية المطورة] ▲▲▲ ==
+            // ================================================================
+
             // ================================================================
             // == ▲▲▲ [نهاية النسخة النهائية] ▲▲▲ ==
             // ================================================================
@@ -655,6 +665,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
