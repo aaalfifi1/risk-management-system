@@ -6,15 +6,25 @@
     <style>
         /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
         .kpi-ticker-wrap {
-            background-color: #1a2a45;
-            width: 100%;
-            overflow: hidden;
-            height: 2.5rem;
-            padding: 0;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            box-sizing: border-box;
-            margin-bottom: 1.5rem;
+    background-color: #1a2a45;
+    width: 100%;
+    overflow: hidden; /* هذا هو الحل الأساسي */
+    height: 2.5rem;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+    margin-bottom: 1.5rem;
+    position: relative; /* إضافة مهمة */
+}
+.kpi-ticker-wrap .ticker-content {
+    display: flex;
+    height: 100%;
+    white-space: nowrap;
+    position: absolute; /* إضافة مهمة */
+    top: 0;
+    left: 0;
+
         }
         .kpi-ticker-wrap .ticker-content {
             display: inline-block;
@@ -553,6 +563,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
