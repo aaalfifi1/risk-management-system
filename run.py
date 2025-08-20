@@ -572,6 +572,7 @@ def get_stats_api():
             high_risk_levels = ['مرتفع', 'مرتفع جدا / كارثي']
             high_risks = [r for r in all_risks_for_kpi if r.risk_level in high_risk_levels]
          # --- السطر الذي قبل التعديل ---
+           # --- السطر الذي قبل التعديل ---
             high_risk_category_counts = Counter(r.category for r in high_risks if r.category)
 
 # ▼▼▼ قم بلصق هذا الكود الجديد بالكامل هنا ▼▼▼
@@ -624,7 +625,6 @@ def get_stats_api():
 
 # --- السطر الذي بعد التعديل ---
             kpi_data.extend([
-
 
             # 6. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
@@ -894,6 +894,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
