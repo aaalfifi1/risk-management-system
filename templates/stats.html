@@ -8,9 +8,9 @@
 
         /* 1. تنسيق الحاوية الجديدة للشريط (نحيفة وعرضية) */
         .kpi-container {
-            height: auto;
-            min-height: 0;
-            padding: 0.5rem 1rem; /* تقليل المساحة الداخلية لجعلها أنحف */
+            height: auto !important; /* [تصحيح] استخدام !important لإلغاء الارتفاع الموروث */
+            min-height: 0 !important; /* [تصحيح] استخدام !important لإلغاء الارتفاع الموروث */
+            padding: 0.5rem 1rem;
             visibility: hidden; /* إخفاء الحاوية بالكامل بشكل افتراضي حتى تجهز البيانات */
             display: flex;
             align-items: center;
@@ -26,7 +26,7 @@
         .kpi-ticker-wrap .ticker-content {
             display: flex;
             white-space: nowrap;
-            width: fit-content; /* مهم جداً للقياس */
+            width: fit-content;
         }
 
         /* 4. تطبيق الأنيميشن فقط عند إضافة كلاس 'animate' */
@@ -43,13 +43,13 @@
         }
 
         .kpi-label {
-            color: #ffc107; /* اللون الأصفر */
-            font-weight: bold; /* خط عريض */
-            margin-left: 8px; /* مسافة بين العنوان والبيانات */
+            color: #ffc107;
+            font-weight: bold;
+            margin-left: 8px;
         }
 
         .kpi-value {
-            color: #ffffff; /* اللون الأبيض */
+            color: #ffffff;
         }
 
         .kpi-separator {
@@ -65,7 +65,6 @@
                 transform: translateX(0);
             }
             100% {
-                /* يتحرك بنصف العرض فقط لأن المحتوى مكرر */
                 transform: translateX(-50%);
             }
         }
@@ -112,7 +111,7 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- [تعديل] هيكل شريط مؤشرات الأداء داخل حاوية مخصصة -->
+        <!-- هيكل شريط مؤشرات الأداء داخل حاوية مخصصة -->
         <div class="chart-container kpi-container mb-4">
             <div class="kpi-ticker-wrap" id="kpi-ticker-container">
                 <div class="ticker-content" id="kpi-ticker-content">
@@ -259,7 +258,7 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [النسخة النهائية] دالة الشريط المتحرك الذكية ---
+            // --- [النسخة النهائية والمصححة] دالة الشريط المتحرك ---
             function renderKpiTicker(kpiData) {
                 const mainContainer = document.querySelector('.kpi-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
@@ -269,7 +268,6 @@
                     return;
                 }
 
-                // 1. بناء المحتوى الأساسي
                 let singlePassHtml = '';
                 kpiData.forEach((kpi, index) => {
                     singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
@@ -278,28 +276,20 @@
                     }
                 });
 
-                // 2. وضع المحتوى في الشريط لقياس عرضه
                 tickerContent.innerHTML = singlePassHtml;
                 tickerContent.classList.remove('animate');
 
-                // 3. القياس والمقارنة
-                // نستخدم .parentElement لأن ticker-wrap يأخذ عرض 100%
                 const containerWidth = tickerContent.parentElement.offsetWidth;
                 const contentWidth = tickerContent.offsetWidth;
 
-                // 4. اتخاذ القرار
                 if (contentWidth > containerWidth) {
-                    // المحتوى أطول من الحاوية، لذا نحتاج للحركة
                     const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
                     tickerContent.innerHTML = finalHtml;
                     
-                    // إعادة تشغيل الأنيميشن
                     void tickerContent.offsetWidth;
-                    tickerContent.classList.add('animate');
+                    tickerContent.classList.add('animate'); // [تصحيح] إعادة السطر المسؤول عن الحركة
                 }
-                // إذا كان المحتوى أقصر، سيبقى ثابتاً بدون حركة
 
-                // 5. إظهار الحاوية الرئيسية بعد أن يصبح كل شيء جاهزاً
                 mainContainer.style.visibility = 'visible';
             }
 
