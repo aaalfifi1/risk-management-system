@@ -44,12 +44,12 @@
             color: var(--light-text);
         }
         /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
-       @keyframes ticker-animation {
-       from {
+    @keyframes ticker-animation {
+    from {
         transform: translateX(0);
     }
-       to {
-        transform: translateX(-50%);
+    to {
+        transform: translateX(-100%);
     }
 }
 
@@ -242,42 +242,52 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-                function renderKpiTicker(kpiData) {
-                const tickerContainer = document.getElementById('kpi-ticker-container');
-                const tickerContent = document.getElementById('kpi-ticker-content');
+    function renderKpiTicker(kpiData) {
+    const tickerContainer = document.getElementById('kpi-ticker-container');
+    const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!tickerContainer || !tickerContent) return;
-                if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
-                    tickerContainer.style.display = 'none';
-                    return;
-                }
+    if (!tickerContainer || !tickerContent) return;
+    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
+        tickerContainer.style.display = 'none';
+        return;
+    }
 
-                let itemsHtml = '';
-                kpiData.forEach(kpi => {
-                    if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-                        itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-                    }
-                });
+    let itemsHtml = '';
+    kpiData.forEach(kpi => {
+        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
+            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+        }
+    });
 
-                if (itemsHtml === '') {
-                    tickerContainer.style.display = 'none';
-                    return;
-                }
+    if (itemsHtml === '') {
+        tickerContainer.style.display = 'none';
+        return;
+    }
 
-                // الخدعة السحرية هنا: نكرر المحتوى مرتين فقط
-                tickerContent.innerHTML = itemsHtml + itemsHtml;
-                tickerContainer.style.display = 'block';
-                
-                // نحسب عرض المحتوى الأصلي (النصف)
-                const contentWidth = tickerContent.scrollWidth / 2;
-                
-                // نضبط مدة الحركة بناءً على العرض لضمان سرعة ثابتة
-                const animationDuration = contentWidth / 50; // سرعة 50 بكسل في الثانية
-                tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
-
-                // نبدأ الحركة
-                tickerContent.classList.add('animate');
-            }
+    // إزالة الحركة أولاً
+    tickerContent.classList.remove('animate');
+    
+    // وضع المحتوى مرة واحدة لقياس العرض
+    tickerContent.innerHTML = itemsHtml;
+    tickerContainer.style.display = 'block';
+    
+    // قياس عرض المحتوى الأصلي
+    const singleContentWidth = tickerContent.scrollWidth;
+    const containerWidth = tickerContainer.offsetWidth;
+    
+    // تكرار المحتوى بناءً على العرض المطلوب
+    const repeatCount = Math.ceil(containerWidth / singleContentWidth) + 2;
+    tickerContent.innerHTML = itemsHtml.repeat(repeatCount);
+    
+    // حساب المدة بناءً على العرض الفعلي
+    const animationDuration = singleContentWidth / 50; // سرعة 50 بكسل في الثانية
+    tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
+    
+    // تطبيق الحركة
+    requestAnimationFrame(() => {
+        tickerContent.classList.add('animate');
+    });
+}
 
 
             function renderWatchlist(topRisks) {
@@ -555,4 +565,5 @@
         });
     </script>
 {% endblock %}
+
 
