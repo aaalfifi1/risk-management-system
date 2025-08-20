@@ -4,79 +4,71 @@
 
 {% block styles %}
     <style>
-        /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-   /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-/* --- [النسخة النهائية والمضبوطة] تنسيقات شريط مؤشرات الأداء --- */
-.kpi-ticker-wrap {
-    background-color: #1a2a45;
-    width: 100%;
-    overflow: hidden;
-    height: auto;
-    min-height: 2.5rem;
-    padding: 0.5rem 0;
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
-    box-sizing: border-box;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-}
+        /* --- [النسخة النهائية والمكتملة] --- */
 
-.kpi-ticker-wrap .ticker-content {
-    display: flex;
-    white-space: nowrap;
-    will-change: transform; /* تحسين أداء الأنيميشن */
-}
+        /* 1. تنسيق الحاوية الجديدة للشريط (نحيفة وعرضية) */
+        .kpi-container {
+            height: auto;
+            min-height: 0;
+            padding: 0.5rem 1rem; /* تقليل المساحة الداخلية لجعلها أنحف */
+            visibility: hidden; /* إخفاء الحاوية بالكامل بشكل افتراضي حتى تجهز البيانات */
+            display: flex;
+            align-items: center;
+        }
 
-.kpi-ticker-wrap .ticker-content.animate {
-    animation: ticker-animation 40s linear infinite;
-}
+        /* 2. تنسيق الغلاف الداخلي للشريط */
+        .kpi-ticker-wrap {
+            width: 100%;
+            overflow: hidden;
+        }
 
-/* تنسيق العنصر الواحد في الشريط */
-.kpi-item {
-    display: inline-flex;
-    align-items: baseline;
-    margin: 0 15px;
-    font-size: 1rem;
-}
+        /* 3. تنسيق المحتوى المتحرك */
+        .kpi-ticker-wrap .ticker-content {
+            display: flex;
+            white-space: nowrap;
+            width: fit-content; /* مهم جداً للقياس */
+        }
 
-/* تنسيق العنوان (أصفر عريض) */
-.kpi-label {
-    color: #ffc107;
-    font-weight: bold;
-    margin-left: 8px; /* مسافة بين العنوان والبيانات */
-}
+        /* 4. تطبيق الأنيميشن فقط عند إضافة كلاس 'animate' */
+        .kpi-ticker-wrap .ticker-content.animate {
+            animation: ticker-animation 40s linear infinite;
+        }
 
-/* تنسيق البيانات (أبيض) */
-.kpi-value {
-    color: #ffffff;
-    font-weight: normal;
-}
+        /* 5. تنسيق كل عنصر في الشريط */
+        .kpi-item {
+            display: inline-flex;
+            align-items: baseline;
+            margin: 0 15px;
+            font-size: 1rem;
+        }
 
-/* فاصل أنيق بين العناصر */
-.kpi-separator {
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 1rem;
-    margin: 0 20px;
-    align-self: center;
-}
+        .kpi-label {
+            color: #ffc107; /* اللون الأصفر */
+            font-weight: bold; /* خط عريض */
+            margin-left: 8px; /* مسافة بين العنوان والبيانات */
+        }
 
-@keyframes ticker-animation {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        /* 
-           هنا السر: نحرك المحتوى بمقدار عرضه بالكامل فقط.
-           لأننا سنضع نسختين من المحتوى بجانب بعضهما،
-           فعندما تنتهي النسخة الأولى، تكون الثانية قد بدأت بالفعل.
-        */
-        transform: translateX(-100%);
-    }
-}
+        .kpi-value {
+            color: #ffffff; /* اللون الأبيض */
+        }
 
+        .kpi-separator {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1rem;
+            margin: 0 20px;
+            align-self: center;
+        }
 
-
+        /* 6. تعريف الحركة الصحيح للتكرار السلس */
+        @keyframes ticker-animation {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                /* يتحرك بنصف العرض فقط لأن المحتوى مكرر */
+                transform: translateX(-50%);
+            }
+        }
 
         /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
         .stat-card:hover { transform: translateY(-5px); }
@@ -120,10 +112,12 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- هيكل شريط مؤشرات الأداء -->
-        <div class="kpi-ticker-wrap" id="kpi-ticker-container" style="display: none;">
-            <div class="ticker-content" id="kpi-ticker-content">
-                <!-- البيانات تملأ هنا بواسطة JavaScript -->
+        <!-- [تعديل] هيكل شريط مؤشرات الأداء داخل حاوية مخصصة -->
+        <div class="chart-container kpi-container mb-4">
+            <div class="kpi-ticker-wrap" id="kpi-ticker-container">
+                <div class="ticker-content" id="kpi-ticker-content">
+                    <!-- البيانات تملأ هنا بواسطة JavaScript -->
+                </div>
             </div>
         </div>
 
@@ -195,7 +189,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function ( ) {
+        document.addEventListener('DOMContentLoaded', function (  ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
@@ -265,35 +259,49 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [الكود الجديد والمحصن لدالة الشريط] ---
-    function renderKpiTicker(kpiData) {
-    const tickerContainer = document.getElementById('kpi-ticker-container');
-    const tickerContent = document.getElementById('kpi-ticker-content');
+            // --- [النسخة النهائية] دالة الشريط المتحرك الذكية ---
+            function renderKpiTicker(kpiData) {
+                const mainContainer = document.querySelector('.kpi-container');
+                const tickerContent = document.getElementById('kpi-ticker-content');
 
-    if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
-        tickerContainer.style.display = 'none';
-        return;
-    }
+                if (!mainContainer || !tickerContent || !kpiData || kpiData.length === 0) {
+                    if(mainContainer) mainContainer.style.display = 'none';
+                    return;
+                }
 
-    // 1. بناء المحتوى الأساسي مرة واحدة
-    let singlePassHtml = '';
-    kpiData.forEach((kpi, index) => {
-        singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-        // إضافة فاصل بين العناصر
-        singlePassHtml += `<span class="kpi-separator">◆</span>`;
-    });
+                // 1. بناء المحتوى الأساسي
+                let singlePassHtml = '';
+                kpiData.forEach((kpi, index) => {
+                    singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+                    if (index < kpiData.length - 1) {
+                        singlePassHtml += `<span class="kpi-separator">◆</span>`;
+                    }
+                });
 
-    // 2. إنشاء حاوية لكل نسخة من المحتوى
-    // هذا يضمن أن transform: translateX(-100%) يعمل على كل كتلة بشكل صحيح
-    const finalHtml = `
-        <div style="display: inline-block;">${singlePassHtml}</div>
-        <div style="display: inline-block;">${singlePassHtml}</div>
-    `;
+                // 2. وضع المحتوى في الشريط لقياس عرضه
+                tickerContent.innerHTML = singlePassHtml;
+                tickerContent.classList.remove('animate');
 
-    tickerContent.innerHTML = finalHtml;
-    tickerContainer.style.display = 'flex'; // إظهار الحاوية
-    tickerContent.classList.add('animate'); // تشغيل الأنيميشن
-}
+                // 3. القياس والمقارنة
+                // نستخدم .parentElement لأن ticker-wrap يأخذ عرض 100%
+                const containerWidth = tickerContent.parentElement.offsetWidth;
+                const contentWidth = tickerContent.offsetWidth;
+
+                // 4. اتخاذ القرار
+                if (contentWidth > containerWidth) {
+                    // المحتوى أطول من الحاوية، لذا نحتاج للحركة
+                    const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
+                    tickerContent.innerHTML = finalHtml;
+                    
+                    // إعادة تشغيل الأنيميشن
+                    void tickerContent.offsetWidth;
+                    tickerContent.classList.add('animate');
+                }
+                // إذا كان المحتوى أقصر، سيبقى ثابتاً بدون حركة
+
+                // 5. إظهار الحاوية الرئيسية بعد أن يصبح كل شيء جاهزاً
+                mainContainer.style.visibility = 'visible';
+            }
 
 
             function renderWatchlist(topRisks) {
@@ -571,11 +579,3 @@
         });
     </script>
 {% endblock %}
-
-
-
-
-
-
-
-
