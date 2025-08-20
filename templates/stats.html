@@ -56,9 +56,18 @@
 
 
 @keyframes ticker-animation {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); } /* يتحرك بنصف العرض فقط لأن المحتوى مكرر */
 }
+
+/* [إضافة جديدة] تنسيق الفاصل بين العناصر */
+.kpi-separator {
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0 25px;
+    font-size: 0.8rem;
+    align-self: center;
+}
+
 
 
 
@@ -250,7 +259,7 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-   function renderKpiTicker(kpiData) {
+    function renderKpiTicker(kpiData) {
     const tickerContainer = document.getElementById('kpi-ticker-container');
     const tickerContent = document.getElementById('kpi-ticker-content');
 
@@ -263,7 +272,8 @@
     let itemsHtml = '';
     kpiData.forEach(kpi => {
         if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+            // أضفنا فاصلاً بصرياً أنيقاً بين كل عنصر لزيادة الوضوح
+            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div> <span class="kpi-separator">◆</span> `;
         }
     });
 
@@ -272,8 +282,18 @@
         return;
     }
 
+    // --- [التعديل الرئيسي هنا] ---
+    // نضاعف المحتوى لضمان التكرار السلس
+    // ونزيل الفاصل الأخير لتجنب ظهوره في نهاية الشريط المكرر
+    itemsHtml = itemsHtml.slice(0, -26); // إزالة آخر فاصل
+    itemsHtml += itemsHtml; // مضاعفة المحتوى
+
     tickerContent.innerHTML = itemsHtml;
-    tickerContainer.style.display = 'block';
+    tickerContainer.style.display = 'flex'; // تم التغيير من 'block' إلى 'flex'
+
+    // إعادة تعيين الأنيميشن لضمان تطبيقه بعد تحديث المحتوى
+    tickerContent.classList.remove('animate');
+    void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
     tickerContent.classList.add('animate');
 }
 
@@ -553,6 +573,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
