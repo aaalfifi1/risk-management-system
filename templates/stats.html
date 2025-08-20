@@ -3,101 +3,95 @@
 {% block title %}لوحة التحكم - نظام إدارة المخاطر{% endblock %}
 
 {% block styles %}
-    <style>
-        /* --- [النسخة النهائية والمكتملة] --- */
+<style>
+    /* --- [النسخة النهائية المبنية على الصورة] --- */
 
-        /* 1. تنسيق الحاوية الجديدة للشريط (نحيفة وعرضية) */
-        .kpi-container {
-            height: auto !important; /* [تصحيح] استخدام !important لإلغاء الارتفاع الموروث */
-            min-height: 0 !important; /* [تصحيح] استخدام !important لإلغاء الارتفاع الموروث */
-            padding: 0.5rem 1rem;
-            visibility: hidden; /* إخفاء الحاوية بالكامل بشكل افتراضي حتى تجهز البيانات */
-            display: flex;
-            align-items: center;
-        }
+    /* 1. تنسيق الغلاف الرئيسي للشريط */
+    .kpi-ticker-wrap {
+        background-color: transparent; /* بدون خلفية منفصلة */
+        width: 100%;
+        overflow: hidden;
+        padding: 0.5rem 0; /* مساحة داخلية بسيطة */
+        margin-bottom: 1.5rem; /* مسافة بينه وبين البطاقات */
+        visibility: hidden; /* إخفاء الشريط حتى تجهز البيانات */
+    }
 
-        /* 2. تنسيق الغلاف الداخلي للشريط */
-        .kpi-ticker-wrap {
-            width: 100%;
-            overflow: hidden;
-        }
+    /* 2. تنسيق المحتوى المتحرك */
+    .kpi-ticker-wrap .ticker-content {
+        display: flex;
+        white-space: nowrap;
+        width: fit-content;
+    }
 
-        /* 3. تنسيق المحتوى المتحرك */
-        .kpi-ticker-wrap .ticker-content {
-            display: flex;
-            white-space: nowrap;
-            width: fit-content;
-        }
+    /* 3. تطبيق الأنيميشن */
+    .kpi-ticker-wrap .ticker-content.animate {
+        animation: ticker-animation 40s linear infinite;
+    }
 
-        /* 4. تطبيق الأنيميشن فقط عند إضافة كلاس 'animate' */
-        .kpi-ticker-wrap .ticker-content.animate {
-            animation: ticker-animation 40s linear infinite;
-        }
+    /* 4. تنسيق كل عنصر في الشريط */
+    .kpi-item {
+        display: inline-flex;
+        align-items: baseline;
+        margin: 0 15px;
+        font-size: 1rem;
+    }
 
-        /* 5. تنسيق كل عنصر في الشريط */
-        .kpi-item {
-            display: inline-flex;
-            align-items: baseline;
-            margin: 0 15px;
-            font-size: 1rem;
-        }
+    .kpi-label {
+        color: #ffc107; /* اللون الأصفر */
+        font-weight: bold;
+        margin-left: 8px;
+    }
 
-        .kpi-label {
-            color: #ffc107;
-            font-weight: bold;
-            margin-left: 8px;
-        }
+    .kpi-value {
+        color: #ffffff; /* اللون الأبيض */
+    }
 
-        .kpi-value {
-            color: #ffffff;
-        }
+    .kpi-separator {
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 1rem;
+        margin: 0 20px;
+        align-self: center;
+    }
 
-        .kpi-separator {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 1rem;
-            margin: 0 20px;
-            align-self: center;
+    /* 5. تعريف الحركة الصحيح للتكرار السلس */
+    @keyframes ticker-animation {
+        0% {
+            transform: translateX(0);
         }
+        100% {
+            transform: translateX(-50%);
+        }
+    }
 
-        /* 6. تعريف الحركة الصحيح للتكرار السلس */
-        @keyframes ticker-animation {
-            0% {
-                transform: translateX(0);
-            }
-            100% {
-                transform: translateX(-50%);
-            }
-        }
-
-        /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
-        .stat-card:hover { transform: translateY(-5px); }
-        .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
-        .stat-icon { font-size: 3rem; opacity: 0.6; }
-        .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
-        .chart-container canvas { flex-grow: 1; min-height: 0; }
-        .card-title-white { color: #ffffff; font-weight: bold; }
-        .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
-        .stat-value-container { display: flex; align-items: baseline; }
-        #matrixChart {
-            background-image: 
-                linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: calc(100% / 5) calc(100% / 5);
-        }
-        .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
-        body.tv-mode .sidebar, 
-        body.tv-mode .navbar,
-        body.tv-mode .header-controls { display: none !important; }
-        body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
-        .watchlist-container { background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
-        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: background-color 0.2s; }
-        .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
-        .watchlist-item:last-child { border-bottom: none; }
-        .watchlist-title { font-weight: bold; color: #f8f9fa; }
-        .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
-        .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
-        .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
-    </style>
+    /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
+    .stat-card:hover { transform: translateY(-5px); }
+    .stat-card .card-body { display: flex; align-items: center; justify-content: space-between; }
+    .stat-icon { font-size: 3rem; opacity: 0.6; }
+    .chart-container { background-color: #273c5e; padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+    .chart-container canvas { flex-grow: 1; min-height: 0; }
+    .card-title-white { color: #ffffff; font-weight: bold; }
+    .percentage-text { color: var(--accent-yellow); font-weight: bold; font-size: 0.9rem; margin-right: 8px; }
+    .stat-value-container { display: flex; align-items: baseline; }
+    #matrixChart {
+        background-image: 
+            linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);
+        background-size: calc(100% / 5) calc(100% / 5);
+    }
+    .reset-filter-btn { position: absolute; top: 15px; left: 20px; z-index: 10; }
+    body.tv-mode .sidebar, 
+    body.tv-mode .navbar,
+    body.tv-mode .header-controls { display: none !important; }
+    body.tv-mode .main-content { padding: 20px !important; margin: 0 !important; max-width: 100% !important; }
+    .watchlist-container { background-color: rgba(220, 53, 69, 0.15); border: 1px solid rgba(220, 53, 69, 0.4); padding: 20px; border-radius: 15px; height: 420px; display: flex; flex-direction: column; }
+    .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; transition: background-color 0.2s; }
+    .watchlist-item:hover { background-color: rgba(220, 53, 69, 0.3); }
+    .watchlist-item:last-child { border-bottom: none; }
+    .watchlist-title { font-weight: bold; color: #f8f9fa; }
+    .watchlist-code { font-size: 0.85rem; color: #adb5bd; }
+    .watchlist-level { font-size: 0.9rem; font-weight: bold; padding: 0.3em 0.6em; border-radius: 5px; }
+    .watchlist-placeholder { display: flex; justify-content: center; align-items: center; height: 100%; color: rgba(255, 255, 255, 0.5); font-style: italic; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -111,12 +105,10 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- هيكل شريط مؤشرات الأداء داخل حاوية مخصصة -->
-        <div class="chart-container kpi-container mb-4">
-            <div class="kpi-ticker-wrap" id="kpi-ticker-container">
-                <div class="ticker-content" id="kpi-ticker-content">
-                    <!-- البيانات تملأ هنا بواسطة JavaScript -->
-                </div>
+        <!-- [تعديل] هيكل الشريط المبسط بناءً على الصورة -->
+        <div class="kpi-ticker-wrap" id="kpi-ticker-container">
+            <div class="ticker-content" id="kpi-ticker-content">
+                <!-- البيانات تملأ هنا بواسطة JavaScript -->
             </div>
         </div>
 
@@ -260,11 +252,11 @@
 
             // --- [النسخة النهائية والمصححة] دالة الشريط المتحرك ---
             function renderKpiTicker(kpiData) {
-                const mainContainer = document.querySelector('.kpi-container');
+                const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!mainContainer || !tickerContent || !kpiData || kpiData.length === 0) {
-                    if(mainContainer) mainContainer.style.display = 'none';
+                if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
+                    if(tickerContainer) tickerContainer.style.display = 'none';
                     return;
                 }
 
@@ -279,7 +271,7 @@
                 tickerContent.innerHTML = singlePassHtml;
                 tickerContent.classList.remove('animate');
 
-                const containerWidth = tickerContent.parentElement.offsetWidth;
+                const containerWidth = tickerContainer.offsetWidth;
                 const contentWidth = tickerContent.offsetWidth;
 
                 if (contentWidth > containerWidth) {
@@ -287,10 +279,10 @@
                     tickerContent.innerHTML = finalHtml;
                     
                     void tickerContent.offsetWidth;
-                    tickerContent.classList.add('animate'); // [تصحيح] إعادة السطر المسؤول عن الحركة
+                    tickerContent.classList.add('animate');
                 }
 
-                mainContainer.style.visibility = 'visible';
+                tickerContainer.style.visibility = 'visible';
             }
 
 
@@ -565,7 +557,9 @@
                 renderWatchlist(stats.top_risks);
             }
 
+            // استدعاء الدالة الرئيسية لجلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
 {% endblock %}
+
