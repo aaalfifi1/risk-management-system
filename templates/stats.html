@@ -10,6 +10,9 @@
    /* --- [CSS نهائي] لحل مشكلة المسافات --- */
 
 /* 1. الحاوية الرئيسية للمؤشرات */
+/* --- [CSS نهائي] لعرض كل المؤشرات في سطر واحد --- */
+
+/* 1. الحاوية الرئيسية للمؤشرات */
 .kpi-blinking-container {
     background-color: transparent;
     width: 100%;
@@ -17,20 +20,33 @@
     margin-bottom: 1.5rem;
     margin-top: 1rem;
     display: flex;
-    /* [الحل] توزيع المسافات بشكل متساوٍ على طول الشريط */
     justify-content: space-around; 
     align-items: center;
-    flex-wrap: wrap;
+    /* [التعديل] إجبار العناصر على البقاء في سطر واحد */
+    flex-wrap: nowrap; 
+    /* [إضافة] التعامل مع المحتوى الزائد عن حجم الشاشة (للأمان) */
+    overflow-x: auto; 
+    /* إخفاء شريط التمرير الذي قد يظهر بسبب overflow-x */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
     visibility: hidden;
 }
+/* إخفاء شريط التمرير لمتصفحات Webkit (Chrome, Safari) */
+.kpi-blinking-container::-webkit-scrollbar {
+    display: none;
+}
+
 
 /* 2. العنصر الواحد (المؤشر) */
 .kpi-item {
     display: inline-flex;
     align-items: baseline;
-    font-size: 1.1rem;
-    /* [الحل] إضافة هامش أفقي لكل عنصر لضمان التباعد */
-    margin: 5px 15px; 
+    /* [التعديل] تصغير حجم الخط قليلاً */
+    font-size: 1rem; 
+    /* [التعديل] تقليل الهامش الأفقي قليلاً */
+    margin: 5px 10px; 
+    /* [إضافة] منع النص من النزول لسطر جديد داخل المؤشر نفسه */
+    white-space: nowrap; 
 }
 
 
@@ -540,4 +556,5 @@
         });
     </script>
 {% endblock %}
+
 
