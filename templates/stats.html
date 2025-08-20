@@ -4,7 +4,7 @@
 
 {% block styles %}
 <style>
-    /* --- [CSS جديد] تنسيقات وميض المؤشرات في مكانها --- */
+    /* --- [CSS معدل] تنسيقات وميض المؤشرات في مكانها --- */
 
     /* 1. الحاوية الرئيسية للمؤشرات */
     .kpi-blinking-container {
@@ -12,13 +12,14 @@
         width: 100%;
         min-height: 2.5rem;
         margin-bottom: 1.5rem;
-        margin-top: 1rem; /* [تطبيق 1] زيادة المسافة العلوية */
+        margin-top: 1rem;
         display: flex;
-        justify-content: center; /* توسيط مجموعة المؤشرات أفقياً */
+        justify-content: center;
         align-items: center;
-        flex-wrap: wrap; /* للسماح بالالتفاف على الشاشات الصغيرة */
-        gap: 10px 30px; /* مسافات بين العناصر */
-        visibility: hidden; /* إخفاؤها حتى تكون جاهزة */
+        flex-wrap: wrap;
+        /* [تطبيق 1] زيادة المسافة الأفقية بين العناصر */
+        gap: 15px 40px;
+        visibility: hidden;
     }
 
     /* 2. العنصر الواحد (المؤشر) */
@@ -26,22 +27,17 @@
         display: inline-flex;
         align-items: baseline;
         font-size: 1.1rem;
-        /* تطبيق الأنيميشن على كل العناصر */
-        animation-duration: 1.5s; /* [تطبيق 2] مدة الوميض الكاملة */
-        animation-iteration-count: infinite;
-        animation-timing-function: ease-in-out;
-        animation-name: none; /* لا يوجد وميض بشكل افتراضي */
     }
 
-    /* 3. كلاس 'blinking' هو الذي يفعل الوميض للمؤشر النشط */
+    /* 3. كلاس 'blinking' هو الذي يفعل الوميض */
     .kpi-item.blinking {
-        animation-name: blink-animation;
+        animation: blink-animation 2s ease-in-out infinite; /* مدة الوميض ثانيتان */
     }
 
     /* 4. تعريف حركة الوميض */
     @keyframes blink-animation {
         0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; } /* يختفي جزئياً في المنتصف */
+        50% { opacity: 0.3; }
     }
 
     /* 5. تنسيق العنوان والبيانات */
@@ -97,9 +93,9 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- [هيكل جديد] حاوية الوميض في المكان -->
+        <!-- حاوية الوميض الجماعي -->
         <div class="kpi-blinking-container" id="kpi-container">
-            <!-- المؤشرات ستظهر هنا كلها بجانب بعضها -->
+            <!-- المؤشرات ستظهر هنا وتومض معاً -->
         </div>
 
         <!-- الصف الأول: البطاقات الخمس -->
@@ -182,7 +178,6 @@
             const exportButton = document.getElementById('export-pdf');
             const tvModeButton = document.getElementById('tv-mode');
             let tvModeInterval = null;
-            let kpiInterval = null;
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance, timelinessChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
@@ -241,7 +236,7 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [JavaScript جديد] دالة الوميض في المكان ---
+            // --- [JavaScript معدل] دالة الوميض الجماعي ---
             function renderKpiTicker(kpiData) {
                 const container = document.getElementById('kpi-container');
 
@@ -250,45 +245,18 @@
                     return;
                 }
 
-                // إيقاف المؤقت القديم لمنع التكرار المتعدد
-                if (kpiInterval) {
-                    clearInterval(kpiInterval);
-                }
-
-                // [تطبيق 3] بناء كل المؤشرات في صف واحد
+                // بناء كل المؤشرات في صف واحد
                 container.innerHTML = '';
                 kpiData.forEach(kpi => {
                     const item = document.createElement('div');
-                    item.className = 'kpi-item';
+                    // [تطبيق 2] إضافة كلاس الوميض مباشرة لكل العناصر
+                    item.className = 'kpi-item blinking';
                     item.innerHTML = `<span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span>`;
                     container.appendChild(item);
                 });
 
-                const items = container.querySelectorAll('.kpi-item');
-                if (items.length === 0) return;
-
-                let currentIndex = 0;
-
-                function cycleItems() {
-                    // إزالة الوميض من العنصر السابق
-                    const currentBlinking = container.querySelector('.kpi-item.blinking');
-                    if (currentBlinking) {
-                        currentBlinking.classList.remove('blinking');
-                    }
-
-                    // إضافة الوميض للعنصر الحالي في الدور
-                    items[currentIndex].classList.add('blinking');
-                    
-                    // الانتقال للمؤشر التالي
-                    currentIndex = (currentIndex + 1) % items.length;
-                }
-
-                // بدء الدورة لأول مرة
-                cycleItems();
+                // إظهار الحاوية بعد أن تصبح جاهزة
                 container.style.visibility = 'visible';
-
-                // ضبط مؤقت جديد لتكرار الدورة كل 3 ثوانٍ
-                kpiInterval = setInterval(cycleItems, 3000);
             }
 
 
