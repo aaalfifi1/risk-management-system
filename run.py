@@ -667,7 +667,7 @@ def get_stats_api():
                 {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
                 {'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)},
                 {'label': 'فعالية الإجراءات الأكثر تكراراً:', 'value': most_common_effectiveness},
-                {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status},
+                {'label': 'الحالة الأكثر تكراراً:', 'value': most_common_status},
                 {'label': 'المالك الأكثر تكليفاً:', 'value': most_common_owner},
                 {'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category},
                 {'label': 'المخاطر المرتفعة:', 'value': str(high_level_count)},
@@ -929,6 +929,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
