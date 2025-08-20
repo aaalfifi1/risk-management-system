@@ -4,7 +4,7 @@
 
 {% block styles %}
     <style>
-        /* --- [النسخة النهائية] تنسيقات شريط مؤشرات الأداء مع التكرار السلس --- */
+        /* --- [النسخة النهائية] تنسيقات شريط مؤشرات الأداء --- */
         .kpi-ticker-wrap {
             background-color: #1a2a45;
             width: 100%;
@@ -22,20 +22,21 @@
 
         .kpi-ticker-wrap .ticker-content {
             display: flex;
+            height: 100%;
             white-space: nowrap;
             width: fit-content;
             align-items: center;
         }
 
         .kpi-ticker-wrap .ticker-content.animate {
-            /* مدة الحركة يمكن تعديلها حسب كمية البيانات */
-            animation: ticker-animation 45s linear infinite;
+            animation: ticker-animation 40s linear infinite;
         }
 
+        /* تنسيق العنصر الواحد في الشريط */
         .kpi-item {
             display: inline-flex;
             align-items: baseline;
-            margin: 0 20px; /* هامش أفقي للفصل بين العناصر */
+            margin: 0 15px; /* هامش أفقي للفصل */
             font-size: 1rem;
         }
 
@@ -43,7 +44,7 @@
         .kpi-label {
             color: #ffc107; /* اللون الأصفر */
             font-weight: bold; /* خط عريض */
-            margin-left: 8px; /* مسافة بين العنوان والبيانات (تم عكسها لتناسب العربية) */
+            margin-left: 8px; /* مسافة بين العنوان والنقطتين */
         }
 
         /* تنسيق البيانات (أبيض) */
@@ -55,13 +56,14 @@
         /* فاصل أنيق بين العناصر */
         .kpi-separator {
             color: rgba(255, 255, 255, 0.4);
-            font-size: 0.8rem;
+            font-size: 1rem;
+            margin: 0 20px;
             align-self: center;
         }
 
         @keyframes ticker-animation {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); } /* حركة بنصف العرض لأن المحتوى مكرر */
+            0% { transform: translateX(100%); }
+            100% { transform: translateX(-100%); }
         }
 
         /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
@@ -237,11 +239,40 @@
 
             async function fetchStats(filters = {}) {
                 try {
-                    const params = new URLSearchParams(filters);
-                    const url = `/api/stats?${params.toString()}`;
-
-                    const response = await fetch(url);
-                    const data = await response.json();
+                    // بيانات وهمية للتجربة
+                    const fakeStats = {
+                        success: true,
+                        stats: {
+                            total_risks: 150,
+                            total_threats: 100,
+                            threats_percentage: 66.7,
+                            total_opportunities: 50,
+                            opportunities_percentage: 33.3,
+                            active_risks: 120,
+                            active_risks_percentage: 80.0,
+                            closed_risks: 30,
+                            closed_risks_percentage: 20.0,
+                            kpi_ticker_data: {
+                                secondary_risks_count: 12,
+                                residual_risks_count: 5,
+                                top_category: "فئة التشغيل",
+                                top_control_effectiveness: "فعال",
+                                top_status: "نشط"
+                            },
+                            matrix_data: [{x: 4, y: 5, type: 'تهديد', code: 'R-001', title: 'خطر تشغيلي'}],
+                            by_category_stacked: {labels: ['فئة 1', 'فئة 2'], datasets: {'مرتفع': [5, 10], 'متوسط': [15, 20]}},
+                            by_level_nested: {labels: ['مرتفع', 'متوسط'], datasets: {opportunities: [10, 20], threats: [30, 40]}},
+                            by_status: {labels: ['نشط', 'مغلق'], data: [120, 30]},
+                            timeliness: {labels: ['في الوقت', 'متأخر'], data: [140, 10]},
+                            top_risks: [{title: 'خطر كبير جدا', code: 'R-002', level: 'مرتفع جدا / كارثي'}]
+                        }
+                    };
+                    // في الوضع الحقيقي، ستستخدم fetch
+                    // const params = new URLSearchParams(filters);
+                    // const url = `/api/stats?${params.toString()}`;
+                    // const response = await fetch(url);
+                    // const data = await response.json();
+                    const data = fakeStats; // استخدام البيانات الوهمية
                     if (data.success) {
                         if (Object.keys(filters).length === 0) {
                             allStatsData = data.stats;
@@ -251,53 +282,50 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [النسخة النهائية] دالة الشريط المتحرك مع التعديلات المطلوبة ---
             function renderKpiTicker(kpiData) {
                 const tickerContainer = document.getElementById('kpi-ticker-container');
                 const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!tickerContainer || !tickerContent) return;
-                
-                // --- [التعديل المطلوب] إضافة الحقول الجديدة وتغيير المسميات ---
+                if (!tickerContainer || !tickerContent || !kpiData) {
+                    tickerContainer.style.display = 'none';
+                    return;
+                }
+
+                // [التعديل المطلوب] بناء مصفوفة البيانات مع المسميات الجديدة
                 const kpiItems = [
                     { label: "المخاطر الثانوية", value: kpiData.secondary_risks_count },
                     { label: "المخاطر المتبقية", value: kpiData.residual_risks_count },
                     { label: "أكثر الفئات مخاطر", value: kpiData.top_category || "لا يوجد" },
                     { label: "فعالية الإجراءات الأكثر تكراراً", value: kpiData.top_control_effectiveness || "لا يوجد" },
                     { label: "أكثر الحالات تكراراً", value: kpiData.top_status || "لا يوجد" }
-                ];
+                ].filter(item => item.value !== undefined && item.value !== null);
 
                 if (kpiItems.length === 0) {
                     tickerContainer.style.display = 'none';
                     return;
                 }
 
-                let itemsHtml = '';
-                kpiItems.forEach(kpi => {
-                    if (kpi && kpi.label && kpi.value !== undefined) {
-                        // بناء العنصر مع فاصل بصري
-                        itemsHtml += `<div class="kpi-item"><span class="kpi-value">${kpi.value}</span><span class="kpi-label">${kpi.label}</span></div> <span class="kpi-separator">◆</span> `;
+                let singlePassHtml = '';
+                kpiItems.forEach((kpi, index) => {
+                    // [التعديل المطلوب] بناء العنصر بالتنسيق الصحيح (العنوان: البيانات)
+                    singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}:</span><span class="kpi-value">${kpi.value}</span></div>`;
+                    // إضافة فاصل بين العناصر
+                    if (index < kpiItems.length - 1) {
+                        singlePassHtml += `<span class="kpi-separator">◆</span>`;
                     }
                 });
+                
+                // مضاعفة المحتوى لضمان التكرار السلس
+                let finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
 
-                if (itemsHtml === '') {
-                    tickerContainer.style.display = 'none';
-                    return;
-                }
-
-                // إزالة الفاصل الأخير ومضاعفة المحتوى لضمان التكرار السلس
-                itemsHtml = itemsHtml.slice(0, -38); // إزالة آخر فاصل والعنصر المحيط به
-                itemsHtml += itemsHtml;
-
-                tickerContent.innerHTML = itemsHtml;
-                tickerContainer.style.display = 'flex';
-
-                // إعادة تعيين الأنيميشن لضمان تطبيقه بعد تحديث المحتوى
+                tickerContent.innerHTML = finalHtml;
+                tickerContainer.style.display = 'flex'; // استخدام flex لعرض الحاوية
+                
+                // إعادة تشغيل الأنيميشن
                 tickerContent.classList.remove('animate');
                 void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
                 tickerContent.classList.add('animate');
             }
-
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -527,7 +555,7 @@
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
-                                        const isOpportunity = context.dataIndex < levelData.labels.length;
+                                        const isOpportunity = context.dataIndex< levelData.labels.length;
                                         const typeName = isOpportunity ? 'فرصة' : 'تهديد';
                                         const levelName = context.label || '';
                                         const value = context.raw;
@@ -560,12 +588,8 @@
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
-                // استدعاء دالة الشريط المتحرك مع تمرير البيانات الخاصة به
-                // ملاحظة: تأكد من أن `stats.kpi_ticker_data` يحتوي على البيانات المطلوبة
-                // مثل: secondary_risks_count, residual_risks_count, top_category, إلخ.
                 renderKpiTicker(stats.kpi_ticker_data);
 
-                // استدعاء دوال رسم المخططات والبيانات الأخرى
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
@@ -574,7 +598,6 @@
                 renderWatchlist(stats.top_risks);
             }
 
-            // بدء جلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
