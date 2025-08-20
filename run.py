@@ -585,6 +585,22 @@ def get_stats_api():
             high_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'])
             medium_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level == 'متوسط')
             low_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['منخفض', 'منخفض جدا'])
+# ▼▼▼ قم بلصق هذا الكود المفقود هنا ▼▼▼
+
+            # 5. [تصحيح] حساب الالتزام الزمني من القائمة الكاملة للمخاطر (الجزء المنسي)
+            kpi_overdue_risks_count = 0
+            kpi_on_time_risks_count = 0
+            today_for_kpi = datetime.utcnow().date()
+            # يجب أن يتم الحساب فقط على المخاطر النشطة
+            active_risks_for_kpi = [r for r in all_risks_for_kpi if r.status != 'مغلق']
+            for risk in active_risks_for_kpi:
+                if risk.target_completion_date and risk.target_completion_date.date() < today_for_kpi:
+                    kpi_overdue_risks_count += 1
+                else:
+                    # أي خطر نشط ليس متأخراً يعتبر ملتزماً (سواء كان له تاريخ أم لا)
+                    kpi_on_time_risks_count += 1
+            
+# ▲▲▲ انتهى الكود المفقود ▲▲▲
 
             # 6. تحديد الفئة الأكثر خطورة بذكاء (المنطق من المرة السابقة)
             most_dangerous_category = "لا يوجد"
@@ -891,6 +907,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
