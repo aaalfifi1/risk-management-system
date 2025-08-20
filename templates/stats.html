@@ -5,16 +5,20 @@
 {% block styles %}
     <style>
         /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-      .kpi-ticker-wrap {
+   /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
+.kpi-ticker-wrap {
     background-color: #1a2a45;
     width: 100%;
     overflow: hidden;
-    height: 2.5rem;
-    padding: 0;
+    height: auto; /* نجعل الارتفاع تلقائياً ليتناسب مع المحتوى */
+    min-height: 2.5rem; /* نحافظ على الحد الأدنى للارتفاع */
+    padding: 0.5rem 0; /* نضيف مساحة داخلية علوية وسفلية */
     border-radius: 10px;
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     margin-bottom: 1.5rem;
+    display: flex; /* نستخدم flexbox لمحاذاة المحتوى عمودياً */
+    align-items: center; /* توسيط المحتوى عمودياً */
 }
 
 .kpi-ticker-wrap .ticker-content {
@@ -22,16 +26,40 @@
     height: 100%;
     white-space: nowrap;
     width: fit-content;
+    align-items: center; /* للتأكيد على المحاذاة العمودية للعناصر */
 }
 
 .kpi-ticker-wrap .ticker-content.animate {
-    animation: ticker-animation 30s linear infinite;
+    animation: ticker-animation 40s linear infinite; /* يمكن تعديل مدة الحركة حسب الحاجة */
 }
+
+/* --- [إضافة جديدة] تنسيق كل عنصر في الشريط --- */
+.kpi-item {
+    display: inline-flex; /* نجعل العناصر مرنة */
+    align-items: baseline; /* محاذاة خط الأساس للنصوص */
+    margin: 0 25px; /* نضيف هامش أفقي كبير للفصل بين العناصر */
+    font-size: 1rem; /* حجم خط موحد */
+}
+
+/* --- [إضافة جديدة] تنسيق العنوان (Label) --- */
+.kpi-label {
+    color: #ffc107; /* اللون الأصفر */
+    font-weight: bold; /* خط عريض */
+    margin-right: 10px; /* مسافة بين العنوان والبيانات */
+}
+
+/* --- [إضافة جديدة] تنسيق البيانات (Value) --- */
+.kpi-value {
+    color: #ffffff; /* اللون الأبيض */
+    font-weight: normal; /* خط عادي */
+}
+
 
 @keyframes ticker-animation {
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
+
 
 
         /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
@@ -525,6 +553,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
