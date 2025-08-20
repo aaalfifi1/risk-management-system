@@ -6,59 +6,60 @@
     <style>
         /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
    /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
+/* --- [تعديل نهائي ومضمون] تنسيقات شريط مؤشرات الأداء --- */
 .kpi-ticker-wrap {
     background-color: #1a2a45;
     width: 100%;
     overflow: hidden;
-    height: auto; /* نجعل الارتفاع تلقائياً ليتناسب مع المحتوى */
-    min-height: 2.5rem; /* نحافظ على الحد الأدنى للارتفاع */
-    padding: 0.5rem 0; /* نضيف مساحة داخلية علوية وسفلية */
+    height: auto;
+    min-height: 2.5rem;
+    padding: 0.5rem 0;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     margin-bottom: 1.5rem;
-    display: flex; /* نستخدم flexbox لمحاذاة المحتوى عمودياً */
-    align-items: center; /* توسيط المحتوى عمودياً */
+    display: flex;
+    align-items: center;
 }
 
 .kpi-ticker-wrap .ticker-content {
-    display: flex;
-    height: 100%;
+    /* نجعل المحتوى يتحرك باستخدام الأنيميشن */
+    display: inline-block; /* مهم جداً لعمل الأنيميشن بشكل صحيح */
     white-space: nowrap;
-    width: fit-content;
-    align-items: center; /* للتأكيد على المحاذاة العمودية للعناصر */
+    padding-left: 100%; /* يبدأ من خارج الشاشة على اليمين */
+    animation: ticker-animation 30s linear infinite; /* المدة يمكن تعديلها */
 }
 
-.kpi-ticker-wrap .ticker-content.animate {
-    animation: ticker-animation 40s linear infinite; /* يمكن تعديل مدة الحركة حسب الحاجة */
-}
-
-/* --- [إضافة جديدة] تنسيق كل عنصر في الشريط --- */
+/* --- تنسيق العناصر داخل الشريط --- */
 .kpi-item {
-    display: inline-flex; /* نجعل العناصر مرنة */
-    align-items: baseline; /* محاذاة خط الأساس للنصوص */
-    margin: 0 25px; /* نضيف هامش أفقي كبير للفصل بين العناصر */
-    font-size: 1rem; /* حجم خط موحد */
+    display: inline-flex;
+    align-items: baseline;
+    margin: 0 25px;
+    font-size: 1rem;
 }
 
-/* --- [إضافة جديدة] تنسيق العنوان (Label) --- */
 .kpi-label {
-    color: #ffc107; /* اللون الأصفر */
-    font-weight: bold; /* خط عريض */
-    margin-right: 10px; /* مسافة بين العنوان والبيانات */
+    color: #ffc107;
+    font-weight: bold;
+    margin-right: 10px;
 }
 
-/* --- [إضافة جديدة] تنسيق البيانات (Value) --- */
 .kpi-value {
-    color: #ffffff; /* اللون الأبيض */
-    font-weight: normal; /* خط عادي */
+    color: #ffffff;
+    font-weight: normal;
 }
 
-
+/* --- [تعديل رئيسي] تعريف الحركة الجديد --- */
 @keyframes ticker-animation {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); } /* يتحرك بنصف العرض فقط لأن المحتوى مكرر */
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        /* نحرك العنصر بمقدار عرضه بالكامل إلى اليسار */
+        transform: translateX(-100%);
+    }
 }
+
 
 /* [إضافة جديدة] تنسيق الفاصل بين العناصر */
 .kpi-separator {
@@ -259,7 +260,7 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-    function renderKpiTicker(kpiData) {
+  function renderKpiTicker(kpiData) {
     const tickerContainer = document.getElementById('kpi-ticker-container');
     const tickerContent = document.getElementById('kpi-ticker-content');
 
@@ -272,8 +273,7 @@
     let itemsHtml = '';
     kpiData.forEach(kpi => {
         if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-            // أضفنا فاصلاً بصرياً أنيقاً بين كل عنصر لزيادة الوضوح
-            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div> <span class="kpi-separator">◆</span> `;
+            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
         }
     });
 
@@ -282,18 +282,11 @@
         return;
     }
 
-    // --- [التعديل الرئيسي هنا] ---
-    // نضاعف المحتوى لضمان التكرار السلس
-    // ونزيل الفاصل الأخير لتجنب ظهوره في نهاية الشريط المكرر
-    itemsHtml = itemsHtml.slice(0, -26); // إزالة آخر فاصل
-    itemsHtml += itemsHtml; // مضاعفة المحتوى
-
+    // لا حاجة لمضاعفة المحتوى الآن، CSS سيتولى الأمر
     tickerContent.innerHTML = itemsHtml;
-    tickerContainer.style.display = 'flex'; // تم التغيير من 'block' إلى 'flex'
+    tickerContainer.style.display = 'flex';
 
-    // إعادة تعيين الأنيميشن لضمان تطبيقه بعد تحديث المحتوى
-    tickerContent.classList.remove('animate');
-    void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
+    // لا نحتاج لإعادة تعيين الأنيميشن هنا
     tickerContent.classList.add('animate');
 }
 
@@ -573,6 +566,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
