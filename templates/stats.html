@@ -251,39 +251,52 @@
             }
 
             // --- [النسخة النهائية والمصححة] دالة الشريط المتحرك ---
-            function renderKpiTicker(kpiData) {
-                const tickerContainer = document.getElementById('kpi-ticker-container');
-                const tickerContent = document.getElementById('kpi-ticker-content');
+          // --- [النسخة النهائية والمضبوطة] دالة الشريط المتحرك الذكية ---
+    function renderKpiTicker(kpiData) {
+    const tickerContainer = document.getElementById('kpi-ticker-container');
+    const tickerContent = document.getElementById('kpi-ticker-content');
 
-                if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
-                    if(tickerContainer) tickerContainer.style.display = 'none';
-                    return;
-                }
+    // التحقق من وجود العناصر والبيانات
+    if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
+        if(tickerContainer) tickerContainer.style.display = 'none';
+        return;
+    }
 
-                let singlePassHtml = '';
-                kpiData.forEach((kpi, index) => {
-                    singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-                    if (index < kpiData.length - 1) {
-                        singlePassHtml += `<span class="kpi-separator">◆</span>`;
-                    }
-                });
+    // 1. بناء المحتوى الأساسي مرة واحدة
+    let singlePassHtml = '';
+    kpiData.forEach((kpi, index) => {
+        singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+        if (index < kpiData.length - 1) {
+            singlePassHtml += `<span class="kpi-separator">◆</span>`;
+        }
+    });
 
-                tickerContent.innerHTML = singlePassHtml;
-                tickerContent.classList.remove('animate');
+    // 2. وضع المحتوى في الشريط وإلغاء أي حركة سابقة للقياس
+    tickerContent.innerHTML = singlePassHtml;
+    tickerContent.classList.remove('animate');
 
-                const containerWidth = tickerContainer.offsetWidth;
-                const contentWidth = tickerContent.offsetWidth;
+    // 3. القياس والمقارنة
+    const containerWidth = tickerContainer.offsetWidth;
+    const contentWidth = tickerContent.offsetWidth;
 
-                if (contentWidth > containerWidth) {
-                    const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
-                    tickerContent.innerHTML = finalHtml;
-                    
-                    void tickerContent.offsetWidth;
-                    tickerContent.classList.add('animate');
-                }
+    // 4. اتخاذ القرار الذكي
+    if (contentWidth > containerWidth) {
+        // المحتوى أطول من الحاوية، لذا نحتاج للحركة
+        // مضاعفة المحتوى لضمان التكرار السلس
+        const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
+        tickerContent.innerHTML = finalHtml;
+        
+        // خدعة لإعادة تشغيل الأنيميشن بشكل صحيح
+        void tickerContent.offsetWidth; 
+        
+        // إضافة كلاس 'animate' لتفعيل الحركة
+        tickerContent.classList.add('animate');
+    }
+    // إذا كان المحتوى أقصر، سيبقى ثابتاً بدون حركة (لا نفعل شيئاً)
 
-                tickerContainer.style.visibility = 'visible';
-            }
+    // 5. إظهار الشريط بعد أن يصبح كل شيء جاهزاً
+    tickerContainer.style.visibility = 'visible';
+}
 
 
             function renderWatchlist(topRisks) {
@@ -562,4 +575,5 @@
         });
     </script>
 {% endblock %}
+
 
