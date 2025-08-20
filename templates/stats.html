@@ -66,8 +66,12 @@
         transform: translateX(0);
     }
     100% {
-        /* سيتم تحريكه بنسبة 50% لأننا سنضاعف المحتوى */
-        transform: translateX(-50%);
+        /* 
+           هنا السر: نحرك المحتوى بمقدار عرضه بالكامل فقط.
+           لأننا سنضع نسختين من المحتوى بجانب بعضهما،
+           فعندما تنتهي النسخة الأولى، تكون الثانية قد بدأت بالفعل.
+        */
+        transform: translateX(-100%);
     }
 }
 
@@ -266,45 +270,31 @@
     const tickerContainer = document.getElementById('kpi-ticker-container');
     const tickerContent = document.getElementById('kpi-ticker-content');
 
-    // التأكد من وجود العناصر والبيانات
     if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
         tickerContainer.style.display = 'none';
         return;
     }
 
-    // 1. بناء المحتوى الأساسي (Single Pass)
+    // 1. بناء المحتوى الأساسي مرة واحدة
     let singlePassHtml = '';
     kpiData.forEach((kpi, index) => {
-        // بناء العنصر بالتنسيق المطلوب (العنوان: البيانات)
         singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-        // إضافة فاصل بين العناصر، وليس بعد العنصر الأخير
-        if (index < kpiData.length - 1) {
-            singlePassHtml += `<span class="kpi-separator">◆</span>`;
-        }
+        // إضافة فاصل بين العناصر
+        singlePassHtml += `<span class="kpi-separator">◆</span>`;
     });
 
-    // وضع المحتوى في الشريط لقياس عرضه
-    tickerContent.innerHTML = singlePassHtml;
-    tickerContainer.style.display = 'flex';
-    tickerContent.classList.remove('animate'); // إيقاف الأنيميشن مؤقتاً
+    // 2. إنشاء حاوية لكل نسخة من المحتوى
+    // هذا يضمن أن transform: translateX(-100%) يعمل على كل كتلة بشكل صحيح
+    const finalHtml = `
+        <div style="display: inline-block;">${singlePassHtml}</div>
+        <div style="display: inline-block;">${singlePassHtml}</div>
+    `;
 
-    // 2. القياس والمقارنة
-    const containerWidth = tickerContainer.offsetWidth;
-    const contentWidth = tickerContent.offsetWidth;
-
-    // 3. اتخاذ القرار
-    if (contentWidth > containerWidth) {
-        // المحتوى أطول من الحاوية، لذا نحتاج للحركة
-        // مضاعفة المحتوى مع فاصل إضافي لضمان التكرار السلس
-        const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
-        tickerContent.innerHTML = finalHtml;
-        
-        // إعادة تشغيل الأنيميشن
-        void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
-        tickerContent.classList.add('animate');
-    }
-    // إذا كان المحتوى أقصر، لا نفعل شيئاً (سيبقى ثابتاً بدون حركة)
+    tickerContent.innerHTML = finalHtml;
+    tickerContainer.style.display = 'flex'; // إظهار الحاوية
+    tickerContent.classList.add('animate'); // تشغيل الأنيميشن
 }
+
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -581,6 +571,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
