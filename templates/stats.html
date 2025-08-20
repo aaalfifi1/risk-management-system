@@ -4,63 +4,46 @@
 
 {% block styles %}
 <style>
-    /* --- [النسخة النهائية المبنية على الصورة] --- */
+    /* --- [CSS جديد] تنسيقات تأثير التلاشي المتقاطع --- */
 
-    /* 1. تنسيق الغلاف الرئيسي للشريط */
-    .kpi-ticker-wrap {
-        background-color: transparent; /* بدون خلفية منفصلة */
+    /* 1. الحاوية الرئيسية للمؤشرات */
+    .kpi-fade-container {
+        background-color: transparent;
         width: 100%;
-        overflow: hidden;
-        padding: 0.5rem 0; /* مساحة داخلية بسيطة */
-        margin-bottom: 1.5rem; /* مسافة بينه وبين البطاقات */
-        visibility: hidden; /* إخفاء الشريط حتى تجهز البيانات */
-    }
-
-    /* 2. تنسيق المحتوى المتحرك */
-    .kpi-ticker-wrap .ticker-content {
+        min-height: 2.5rem; /* ارتفاع بسيط لضمان عدم الانهيار وهي فارغة */
+        margin-bottom: 1.5rem;
         display: flex;
-        white-space: nowrap;
-        width: fit-content;
+        justify-content: center; /* توسيط المؤشر أفقياً */
+        align-items: center; /* توسيط المؤشر عمودياً */
+        text-align: center;
+        position: relative; /* مهم لجعل العناصر المطلقة تتمركز بشكل صحيح */
+        visibility: hidden; /* إخفاؤها حتى تكون جاهزة */
     }
 
-    /* 3. تطبيق الأنيميشن */
-    .kpi-ticker-wrap .ticker-content.animate {
-        animation: ticker-animation 40s linear infinite;
-    }
-
-    /* 4. تنسيق كل عنصر في الشريط */
+    /* 2. العنصر الواحد (المؤشر) */
     .kpi-item {
         display: inline-flex;
         align-items: baseline;
-        margin: 0 15px;
-        font-size: 1rem;
+        font-size: 1.1rem; /* حجم خط أكبر قليلاً ليكون أوضح */
+        opacity: 0; /* يبدأ شفافاً بشكل افتراضي */
+        position: absolute; /* لجعل العناصر فوق بعضها البعض */
+        transition: opacity 0.8s ease-in-out; /* حركة التلاشي */
     }
 
+    /* 3. كلاس 'active' هو الذي يجعل المؤشر ظاهراً */
+    .kpi-item.active {
+        opacity: 1; /* جعله مرئياً بالكامل */
+    }
+
+    /* 4. تنسيق العنوان والبيانات */
     .kpi-label {
-        color: #ffc107; /* اللون الأصفر */
+        color: #ffc107;
         font-weight: bold;
         margin-left: 8px;
     }
 
     .kpi-value {
-        color: #ffffff; /* اللون الأبيض */
-    }
-
-    .kpi-separator {
-        color: rgba(255, 255, 255, 0.4);
-        font-size: 1rem;
-        margin: 0 20px;
-        align-self: center;
-    }
-
-    /* 5. تعريف الحركة الصحيح للتكرار السلس */
-    @keyframes ticker-animation {
-        0% {
-            transform: translateX(0);
-        }
-        100% {
-            transform: translateX(-50%);
-        }
+        color: #ffffff;
     }
 
     /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
@@ -105,11 +88,9 @@
     </div>
 
     <div id="dashboard-to-print">
-        <!-- [تعديل] هيكل الشريط المبسط بناءً على الصورة -->
-        <div class="kpi-ticker-wrap" id="kpi-ticker-container">
-            <div class="ticker-content" id="kpi-ticker-content">
-                <!-- البيانات تملأ هنا بواسطة JavaScript -->
-            </div>
+        <!-- [هيكل جديد] حاوية تأثير التلاشي المتقاطع -->
+        <div class="kpi-fade-container" id="kpi-container">
+            <!-- المؤشرات ستظهر هنا واحداً تلو الآخر -->
         </div>
 
         <!-- الصف الأول: البطاقات الخمس -->
@@ -192,6 +173,7 @@
             const exportButton = document.getElementById('export-pdf');
             const tvModeButton = document.getElementById('tv-mode');
             let tvModeInterval = null;
+            let kpiInterval = null; // متغير لحفظ المؤقت الخاص بالمؤشرات
 
             let categoryChartInstance, levelChartInstance, matrixChartInstance, statusPieChartInstance, timelinessChartInstance;
             const categoryCtx = document.getElementById('categoryChart').getContext('2d');
@@ -250,53 +232,49 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [النسخة النهائية والمصححة] دالة الشريط المتحرك ---
-          // --- [النسخة النهائية والمضبوطة] دالة الشريط المتحرك الذكية ---
-    function renderKpiTicker(kpiData) {
-    const tickerContainer = document.getElementById('kpi-ticker-container');
-    const tickerContent = document.getElementById('kpi-ticker-content');
+            // --- [JavaScript جديد] دالة تأثير التلاشي المتقاطع ---
+            function renderKpiTicker(kpiData) {
+                const container = document.getElementById('kpi-container');
 
-    // التحقق من وجود العناصر والبيانات
-    if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
-        if(tickerContainer) tickerContainer.style.display = 'none';
-        return;
-    }
+                if (!container || !kpiData || kpiData.length === 0) {
+                    if(container) container.style.display = 'none';
+                    return;
+                }
 
-    // 1. بناء المحتوى الأساسي مرة واحدة
-    let singlePassHtml = '';
-    kpiData.forEach((kpi, index) => {
-        singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-        if (index < kpiData.length - 1) {
-            singlePassHtml += `<span class="kpi-separator">◆</span>`;
-        }
-    });
+                // إيقاف المؤقت القديم إذا كان موجوداً لمنع التكرار المتعدد
+                if (kpiInterval) {
+                    clearInterval(kpiInterval);
+                }
 
-    // 2. وضع المحتوى في الشريط وإلغاء أي حركة سابقة للقياس
-    tickerContent.innerHTML = singlePassHtml;
-    tickerContent.classList.remove('animate');
+                container.innerHTML = '';
+                kpiData.forEach(kpi => {
+                    const item = document.createElement('div');
+                    item.className = 'kpi-item';
+                    item.innerHTML = `<span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span>`;
+                    container.appendChild(item);
+                });
 
-    // 3. القياس والمقارنة
-    const containerWidth = tickerContainer.offsetWidth;
-    const contentWidth = tickerContent.offsetWidth;
+                const items = container.querySelectorAll('.kpi-item');
+                if (items.length === 0) return;
 
-    // 4. اتخاذ القرار الذكي
-    if (contentWidth > containerWidth) {
-        // المحتوى أطول من الحاوية، لذا نحتاج للحركة
-        // مضاعفة المحتوى لضمان التكرار السلس
-        const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
-        tickerContent.innerHTML = finalHtml;
-        
-        // خدعة لإعادة تشغيل الأنيميشن بشكل صحيح
-        void tickerContent.offsetWidth; 
-        
-        // إضافة كلاس 'animate' لتفعيل الحركة
-        tickerContent.classList.add('animate');
-    }
-    // إذا كان المحتوى أقصر، سيبقى ثابتاً بدون حركة (لا نفعل شيئاً)
+                let currentIndex = 0;
 
-    // 5. إظهار الشريط بعد أن يصبح كل شيء جاهزاً
-    tickerContainer.style.visibility = 'visible';
-}
+                function cycleItems() {
+                    const currentActive = container.querySelector('.kpi-item.active');
+                    if (currentActive) {
+                        currentActive.classList.remove('active');
+                    }
+
+                    items[currentIndex].classList.add('active');
+                    currentIndex = (currentIndex + 1) % items.length;
+                }
+
+                cycleItems();
+                container.style.visibility = 'visible';
+
+                // بدء مؤقت جديد
+                kpiInterval = setInterval(cycleItems, 5000);
+            }
 
 
             function renderWatchlist(topRisks) {
@@ -570,10 +548,7 @@
                 renderWatchlist(stats.top_risks);
             }
 
-            // استدعاء الدالة الرئيسية لجلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
 {% endblock %}
-
-
