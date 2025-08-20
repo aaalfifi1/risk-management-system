@@ -5,58 +5,32 @@
 {% block styles %}
     <style>
         /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-        .kpi-ticker-wrap {
+      .kpi-ticker-wrap {
     background-color: #1a2a45;
     width: 100%;
-    overflow: hidden; /* هذا هو الحل الأساسي */
+    overflow: hidden;
     height: 2.5rem;
     padding: 0;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     margin-bottom: 1.5rem;
-    position: relative; /* إضافة مهمة */
 }
+
 .kpi-ticker-wrap .ticker-content {
     display: flex;
     height: 100%;
     white-space: nowrap;
-    position: absolute; /* إضافة مهمة */
-    top: 0;
-    left: 0;
+    width: fit-content;
+}
 
-        }
-        .kpi-ticker-wrap .ticker-content {
-            display: inline-block;
-            height: 2.5rem;
-            line-height: 2.5rem;
-            white-space: nowrap;
-            box-sizing: content-box;
-        }
-        .kpi-ticker-wrap .ticker-content.animate {
-            /* الحركة الآن تعتمد على متغيرات نحددها من جافاسكريبت */
-            animation: ticker-animation var(--animation-duration, 60s) infinite linear;
-        }
-        .kpi-ticker-wrap .ticker-content:hover {
-            animation-play-state: paused;
-        }
-        .kpi-ticker-wrap .kpi-item {
-            display: inline-block;
-            padding: 0 2rem;
-            font-size: 0.95rem;
-        }
-        .kpi-ticker-wrap .kpi-item .kpi-label {
-            color: var(--accent-yellow);
-            font-weight: bold;
-            margin-left: 8px;
-        }
-        .kpi-ticker-wrap .kpi-item .kpi-value {
-            color: var(--light-text);
-        }
-        /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
-  @keyframes ticker-animation {
-    from { transform: translateX(0); }
-    to { transform: translateX(var(--ticker-scroll-width)); }
+.kpi-ticker-wrap .ticker-content.animate {
+    animation: ticker-animation 30s linear infinite;
+}
+
+@keyframes ticker-animation {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
 }
 
 
@@ -248,7 +222,7 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-    function renderKpiTicker(kpiData) {
+   function renderKpiTicker(kpiData) {
     const tickerContainer = document.getElementById('kpi-ticker-container');
     const tickerContent = document.getElementById('kpi-ticker-content');
 
@@ -270,22 +244,10 @@
         return;
     }
 
-    // الحل الجذري: نضع المحتوى 3 مرات
-    tickerContent.innerHTML = itemsHtml + itemsHtml + itemsHtml;
+    tickerContent.innerHTML = itemsHtml;
     tickerContainer.style.display = 'block';
-    
-    // نحسب العرض الكلي
-    const totalWidth = tickerContent.scrollWidth;
-    const singleWidth = totalWidth / 3;
-    
-    // نضبط المتغيرات
-    tickerContent.style.setProperty('--ticker-scroll-width', `-${singleWidth}px`);
-    tickerContent.style.setProperty('--animation-duration', `${singleWidth / 50}s`);
-    
-    // نبدأ الحركة
     tickerContent.classList.add('animate');
 }
-
 
 
             function renderWatchlist(topRisks) {
@@ -563,6 +525,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
