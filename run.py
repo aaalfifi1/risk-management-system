@@ -615,6 +615,7 @@ def get_stats_api():
                 for category, risks_in_cat in categories_data.items():
                     avg_score = sum(r.probability * r.impact for r in risks_in_cat) / len(risks_in_cat)
                     very_high_count = sum(1 for r in risks_in_cat if r.risk_level == 'مرتفع جدا / كارثي')
+                    # --- السطر الذي قبل التعديل ---
                     total_high_count = len(risks_in_cat)
                     category_scores.append({
                         'name': category,
@@ -623,18 +624,39 @@ def get_stats_api():
                         'total_high_count': total_high_count
                     })
 
+# ▼▼▼ هذا هو السطر الوحيد الذي سيتم استبداله ▼▼▼
                 sorted_categories = sorted(category_scores, key=lambda x: (x['avg_score'], x['very_high_count'], x['total_high_count']), reverse=True)
-                
-                if sorted_categories:
-                    top_score_tuple = (sorted_categories[0]['avg_score'], sorted_categories[0]['very_high_count'], sorted_categories[0]['total_high_count'])
-                    winners = [cat['name'] for cat in sorted_categories if (cat['avg_score'], cat['very_high_count'], cat['total_high_count']) == top_score_tuple]
+# ▲▲▲ نهاية السطر الذي سيتم استبداله ▲▲▲
+               # ▼▼▼ قم بلصق هذا الكود الجديد بالكامل هنا ▼▼▼
+
+                # [المنطق المصحح] ترتيب الفئات: عدد "مرتفع جدا" أولاً، ثم متوسط الدرجة، ثم إجمالي العدد
+                if category_scores:
+                    sorted_categories = sorted(
+                        category_scores, 
+                        key=lambda x: (x['very_high_count'], x['avg_score'], x['total_high_count']), 
+                        reverse=True
+                    )
                     
+                    # تحديد الفائزين بناءً على الترتيب الجديد
+                    top_score_tuple = (
+                        sorted_categories[0]['very_high_count'], 
+                        sorted_categories[0]['avg_score'], 
+                        sorted_categories[0]['total_high_count']
+                    )
+                    winners = [
+                        cat['name'] for cat in sorted_categories 
+                        if (cat['very_high_count'], cat['avg_score'], cat['total_high_count']) == top_score_tuple
+                    ]
+                    
+                    # تطبيق منطق العرض النهائي
                     if len(winners) == 1:
                         most_dangerous_category = winners[0]
                     elif len(winners) == 2:
                         most_dangerous_category = f"{winners[0]}, {winners[1]}"
                     else:
                         most_dangerous_category = f"{len(winners)} فئات"
+
+# ▲▲▲ انتهى الكود الجديد ▲▲▲
 
             # 7. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
 # ▲▲▲ نهاية الكود الجديد ▲
