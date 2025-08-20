@@ -6,59 +6,71 @@
     <style>
         /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
    /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
+/* --- [النسخة النهائية والمضبوطة] تنسيقات شريط مؤشرات الأداء --- */
 .kpi-ticker-wrap {
     background-color: #1a2a45;
     width: 100%;
     overflow: hidden;
-    height: auto; /* نجعل الارتفاع تلقائياً ليتناسب مع المحتوى */
-    min-height: 2.5rem; /* نحافظ على الحد الأدنى للارتفاع */
-    padding: 0.5rem 0; /* نضيف مساحة داخلية علوية وسفلية */
+    height: auto;
+    min-height: 2.5rem;
+    padding: 0.5rem 0;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     margin-bottom: 1.5rem;
-    display: flex; /* نستخدم flexbox لمحاذاة المحتوى عمودياً */
-    align-items: center; /* توسيط المحتوى عمودياً */
+    display: flex;
+    align-items: center;
 }
 
 .kpi-ticker-wrap .ticker-content {
     display: flex;
-    height: 100%;
     white-space: nowrap;
-    width: fit-content;
-    align-items: center; /* للتأكيد على المحاذاة العمودية للعناصر */
+    will-change: transform; /* تحسين أداء الأنيميشن */
 }
 
 .kpi-ticker-wrap .ticker-content.animate {
-    animation: ticker-animation 40s linear infinite; /* يمكن تعديل مدة الحركة حسب الحاجة */
+    animation: ticker-animation 40s linear infinite;
 }
 
-/* --- [إضافة جديدة] تنسيق كل عنصر في الشريط --- */
+/* تنسيق العنصر الواحد في الشريط */
 .kpi-item {
-    display: inline-flex; /* نجعل العناصر مرنة */
-    align-items: baseline; /* محاذاة خط الأساس للنصوص */
-    margin: 0 25px; /* نضيف هامش أفقي كبير للفصل بين العناصر */
-    font-size: 1rem; /* حجم خط موحد */
+    display: inline-flex;
+    align-items: baseline;
+    margin: 0 15px;
+    font-size: 1rem;
 }
 
-/* --- [إضافة جديدة] تنسيق العنوان (Label) --- */
+/* تنسيق العنوان (أصفر عريض) */
 .kpi-label {
-    color: #ffc107; /* اللون الأصفر */
-    font-weight: bold; /* خط عريض */
-    margin-right: 10px; /* مسافة بين العنوان والبيانات */
+    color: #ffc107;
+    font-weight: bold;
+    margin-left: 8px; /* مسافة بين العنوان والبيانات */
 }
 
-/* --- [إضافة جديدة] تنسيق البيانات (Value) --- */
+/* تنسيق البيانات (أبيض) */
 .kpi-value {
-    color: #ffffff; /* اللون الأبيض */
-    font-weight: normal; /* خط عادي */
+    color: #ffffff;
+    font-weight: normal;
 }
 
+/* فاصل أنيق بين العناصر */
+.kpi-separator {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 1rem;
+    margin: 0 20px;
+    align-self: center;
+}
 
 @keyframes ticker-animation {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        /* سيتم تحريكه بنسبة 50% لأننا سنضاعف المحتوى */
+        transform: translateX(-50%);
+    }
 }
+
 
 
 
@@ -250,33 +262,49 @@
             }
 
             // --- [الكود الجديد والمحصن لدالة الشريط] ---
-   function renderKpiTicker(kpiData) {
+    function renderKpiTicker(kpiData) {
     const tickerContainer = document.getElementById('kpi-ticker-container');
     const tickerContent = document.getElementById('kpi-ticker-content');
 
-    if (!tickerContainer || !tickerContent) return;
-    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
+    // التأكد من وجود العناصر والبيانات
+    if (!tickerContainer || !tickerContent || !kpiData || kpiData.length === 0) {
         tickerContainer.style.display = 'none';
         return;
     }
 
-    let itemsHtml = '';
-    kpiData.forEach(kpi => {
-        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+    // 1. بناء المحتوى الأساسي (Single Pass)
+    let singlePassHtml = '';
+    kpiData.forEach((kpi, index) => {
+        // بناء العنصر بالتنسيق المطلوب (العنوان: البيانات)
+        singlePassHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+        // إضافة فاصل بين العناصر، وليس بعد العنصر الأخير
+        if (index < kpiData.length - 1) {
+            singlePassHtml += `<span class="kpi-separator">◆</span>`;
         }
     });
 
-    if (itemsHtml === '') {
-        tickerContainer.style.display = 'none';
-        return;
+    // وضع المحتوى في الشريط لقياس عرضه
+    tickerContent.innerHTML = singlePassHtml;
+    tickerContainer.style.display = 'flex';
+    tickerContent.classList.remove('animate'); // إيقاف الأنيميشن مؤقتاً
+
+    // 2. القياس والمقارنة
+    const containerWidth = tickerContainer.offsetWidth;
+    const contentWidth = tickerContent.offsetWidth;
+
+    // 3. اتخاذ القرار
+    if (contentWidth > containerWidth) {
+        // المحتوى أطول من الحاوية، لذا نحتاج للحركة
+        // مضاعفة المحتوى مع فاصل إضافي لضمان التكرار السلس
+        const finalHtml = singlePassHtml + `<span class="kpi-separator">◆</span>` + singlePassHtml;
+        tickerContent.innerHTML = finalHtml;
+        
+        // إعادة تشغيل الأنيميشن
+        void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
+        tickerContent.classList.add('animate');
     }
-
-    tickerContent.innerHTML = itemsHtml;
-    tickerContainer.style.display = 'block';
-    tickerContent.classList.add('animate');
+    // إذا كان المحتوى أقصر، لا نفعل شيئاً (سيبقى ثابتاً بدون حركة)
 }
-
 
             function renderWatchlist(topRisks) {
                 const watchlistBody = document.getElementById('watchlist-body');
@@ -553,6 +581,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
