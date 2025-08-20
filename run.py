@@ -571,25 +571,60 @@ def get_stats_api():
             # 3. حساب الفئة الأكثر خطورة
             high_risk_levels = ['مرتفع', 'مرتفع جدا / كارثي']
             high_risks = [r for r in all_risks_for_kpi if r.risk_level in high_risk_levels]
+         # --- السطر الذي قبل التعديل ---
             high_risk_category_counts = Counter(r.category for r in high_risks if r.category)
 
-            # 4. [إضافة] حساب الالتزام الزمني من القائمة الكاملة للمخاطر
-            kpi_overdue_risks_count = 0
-            kpi_on_time_risks_count = 0
-            today_for_kpi = datetime.utcnow().date()
-            # يجب أن يتم الحساب فقط على المخاطر النشطة
-            active_risks_for_kpi = [r for r in all_risks_for_kpi if r.status != 'مغلق']
-            for risk in active_risks_for_kpi:
-                if risk.target_completion_date and risk.target_completion_date.date() < today_for_kpi:
-                    kpi_overdue_risks_count += 1
-                else:
-                    kpi_on_time_risks_count += 1
-
-            # 5. استخلاص القيم
+# ▼▼▼ قم بلصق هذا الكود الجديد بالكامل هنا ▼▼▼
+            # 4. استخلاص القيم للمؤشرات البسيطة
             most_common_effectiveness = effectiveness_counts.most_common(1)[0][0] if effectiveness_counts else "لا يوجد"
             most_common_status = status_counts_kpi.most_common(1)[0][0] if status_counts_kpi else "لا يوجد"
             most_common_owner = owner_counts.most_common(1)[0][0] if owner_counts else "لا يوجد"
-            most_dangerous_category = high_risk_category_counts.most_common(1)[0][0] if high_risk_category_counts else "لا يوجد"
+
+            # 5. [إضافة] حساب أعداد المخاطر حسب المستوى المجمع
+            high_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'])
+            medium_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level == 'متوسط')
+            low_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['منخفض', 'منخفض جدا'])
+
+            # 6. تحديد الفئة الأكثر خطورة بذكاء (المنطق من المرة السابقة)
+            most_dangerous_category = "لا يوجد"
+            if high_risks:
+                categories_data = {}
+                for r in high_risks:
+                    if r.category not in categories_data:
+                        categories_data[r.category] = []
+                    categories_data[r.category].append(r)
+
+                category_scores = []
+                for category, risks_in_cat in categories_data.items():
+                    avg_score = sum(r.probability * r.impact for r in risks_in_cat) / len(risks_in_cat)
+                    very_high_count = sum(1 for r in risks_in_cat if r.risk_level == 'مرتفع جدا / كارثي')
+                    total_high_count = len(risks_in_cat)
+                    category_scores.append({
+                        'name': category,
+                        'avg_score': avg_score,
+                        'very_high_count': very_high_count,
+                        'total_high_count': total_high_count
+                    })
+
+                sorted_categories = sorted(category_scores, key=lambda x: (x['avg_score'], x['very_high_count'], x['total_high_count']), reverse=True)
+                
+                if sorted_categories:
+                    top_score_tuple = (sorted_categories[0]['avg_score'], sorted_categories[0]['very_high_count'], sorted_categories[0]['total_high_count'])
+                    winners = [cat['name'] for cat in sorted_categories if (cat['avg_score'], cat['very_high_count'], cat['total_high_count']) == top_score_tuple]
+                    
+                    if len(winners) == 1:
+                        most_dangerous_category = winners[0]
+                    elif len(winners) == 2:
+                        most_dangerous_category = f"{winners[0]}, {winners[1]}"
+                    else:
+                        most_dangerous_category = f"{len(winners)} فئات"
+
+            # 7. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
+# ▲▲▲ نهاية الكود الجديد ▲▲▲
+
+# --- السطر الذي بعد التعديل ---
+            kpi_data.extend([
+
 
             # 6. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
@@ -600,7 +635,9 @@ def get_stats_api():
                 {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status},
                 {'label': 'المالك الأكثر تكليفاً:', 'value': most_common_owner},
                 {'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category},
-                # [إضافة] إضافة المؤشرين الجديدين للقائمة
+                {'label': 'المخاطر المرتفعة:', 'value': str(high_level_count)},
+                {'label': 'المخاطر المتوسطة:', 'value': str(medium_level_count)},
+                {'label': 'المخاطر المنخفضة:', 'value': str(low_level_count)},
                 {'label': 'مخاطر ملتزمة زمنياً:', 'value': str(kpi_on_time_risks_count)},
                 {'label': 'مخاطر متأخرة زمنياً:', 'value': str(kpi_overdue_risks_count)}
             ])
@@ -857,5 +894,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
