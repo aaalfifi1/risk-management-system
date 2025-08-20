@@ -4,73 +4,65 @@
 
 {% block styles %}
     <style>
-        /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-   /* --- [تعديل جذري] تنسيقات شريط مؤشرات الأداء --- */
-/* --- [تعديل نهائي ومضمون] تنسيقات شريط مؤشرات الأداء --- */
-.kpi-ticker-wrap {
-    background-color: #1a2a45;
-    width: 100%;
-    overflow: hidden;
-    height: auto;
-    min-height: 2.5rem;
-    padding: 0.5rem 0;
-    border-radius: 10px;
-    border: 1px solid var(--border-color);
-    box-sizing: border-box;
-    margin-bottom: 1.5rem;
-    display: flex;
-    align-items: center;
-}
+        /* --- [النسخة النهائية] تنسيقات شريط مؤشرات الأداء مع التكرار السلس --- */
+        .kpi-ticker-wrap {
+            background-color: #1a2a45;
+            width: 100%;
+            overflow: hidden;
+            height: auto;
+            min-height: 2.5rem;
+            padding: 0.5rem 0;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-sizing: border-box;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
 
-.kpi-ticker-wrap .ticker-content {
-    /* نجعل المحتوى يتحرك باستخدام الأنيميشن */
-    display: inline-block; /* مهم جداً لعمل الأنيميشن بشكل صحيح */
-    white-space: nowrap;
-    padding-left: 100%; /* يبدأ من خارج الشاشة على اليمين */
-    animation: ticker-animation 30s linear infinite; /* المدة يمكن تعديلها */
-}
+        .kpi-ticker-wrap .ticker-content {
+            display: flex;
+            white-space: nowrap;
+            width: fit-content;
+            align-items: center;
+        }
 
-/* --- تنسيق العناصر داخل الشريط --- */
-.kpi-item {
-    display: inline-flex;
-    align-items: baseline;
-    margin: 0 25px;
-    font-size: 1rem;
-}
+        .kpi-ticker-wrap .ticker-content.animate {
+            /* مدة الحركة يمكن تعديلها حسب كمية البيانات */
+            animation: ticker-animation 45s linear infinite;
+        }
 
-.kpi-label {
-    color: #ffc107;
-    font-weight: bold;
-    margin-right: 10px;
-}
+        .kpi-item {
+            display: inline-flex;
+            align-items: baseline;
+            margin: 0 20px; /* هامش أفقي للفصل بين العناصر */
+            font-size: 1rem;
+        }
 
-.kpi-value {
-    color: #ffffff;
-    font-weight: normal;
-}
+        /* تنسيق العنوان (أصفر عريض) */
+        .kpi-label {
+            color: #ffc107; /* اللون الأصفر */
+            font-weight: bold; /* خط عريض */
+            margin-left: 8px; /* مسافة بين العنوان والبيانات (تم عكسها لتناسب العربية) */
+        }
 
-/* --- [تعديل رئيسي] تعريف الحركة الجديد --- */
-@keyframes ticker-animation {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        /* نحرك العنصر بمقدار عرضه بالكامل إلى اليسار */
-        transform: translateX(-100%);
-    }
-}
+        /* تنسيق البيانات (أبيض) */
+        .kpi-value {
+            color: #ffffff; /* اللون الأبيض */
+            font-weight: normal;
+        }
+        
+        /* فاصل أنيق بين العناصر */
+        .kpi-separator {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8rem;
+            align-self: center;
+        }
 
-
-/* [إضافة جديدة] تنسيق الفاصل بين العناصر */
-.kpi-separator {
-    color: rgba(255, 255, 255, 0.4);
-    margin: 0 25px;
-    font-size: 0.8rem;
-    align-self: center;
-}
-
-
-
+        @keyframes ticker-animation {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); } /* حركة بنصف العرض لأن المحتوى مكرر */
+        }
 
         /* --- تنسيقات لوحة التحكم الأساسية (بدون تغيير) --- */
         .stat-card:hover { transform: translateY(-5px); }
@@ -189,7 +181,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function ( ) {
+        document.addEventListener('DOMContentLoaded', function (  ) {
             const { jsPDF } = window.jspdf;
 
             Chart.register(ChartDataLabels);
@@ -259,36 +251,52 @@
                 } catch (error) { console.error('Error fetching stats:', error); }
             }
 
-            // --- [الكود الجديد والمحصن لدالة الشريط] ---
-  function renderKpiTicker(kpiData) {
-    const tickerContainer = document.getElementById('kpi-ticker-container');
-    const tickerContent = document.getElementById('kpi-ticker-content');
+            // --- [النسخة النهائية] دالة الشريط المتحرك مع التعديلات المطلوبة ---
+            function renderKpiTicker(kpiData) {
+                const tickerContainer = document.getElementById('kpi-ticker-container');
+                const tickerContent = document.getElementById('kpi-ticker-content');
 
-    if (!tickerContainer || !tickerContent) return;
-    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
-        tickerContainer.style.display = 'none';
-        return;
-    }
+                if (!tickerContainer || !tickerContent) return;
+                
+                // --- [التعديل المطلوب] إضافة الحقول الجديدة وتغيير المسميات ---
+                const kpiItems = [
+                    { label: "المخاطر الثانوية", value: kpiData.secondary_risks_count },
+                    { label: "المخاطر المتبقية", value: kpiData.residual_risks_count },
+                    { label: "أكثر الفئات مخاطر", value: kpiData.top_category || "لا يوجد" },
+                    { label: "فعالية الإجراءات الأكثر تكراراً", value: kpiData.top_control_effectiveness || "لا يوجد" },
+                    { label: "أكثر الحالات تكراراً", value: kpiData.top_status || "لا يوجد" }
+                ];
 
-    let itemsHtml = '';
-    kpiData.forEach(kpi => {
-        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
-            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
-        }
-    });
+                if (kpiItems.length === 0) {
+                    tickerContainer.style.display = 'none';
+                    return;
+                }
 
-    if (itemsHtml === '') {
-        tickerContainer.style.display = 'none';
-        return;
-    }
+                let itemsHtml = '';
+                kpiItems.forEach(kpi => {
+                    if (kpi && kpi.label && kpi.value !== undefined) {
+                        // بناء العنصر مع فاصل بصري
+                        itemsHtml += `<div class="kpi-item"><span class="kpi-value">${kpi.value}</span><span class="kpi-label">${kpi.label}</span></div> <span class="kpi-separator">◆</span> `;
+                    }
+                });
 
-    // لا حاجة لمضاعفة المحتوى الآن، CSS سيتولى الأمر
-    tickerContent.innerHTML = itemsHtml;
-    tickerContainer.style.display = 'flex';
+                if (itemsHtml === '') {
+                    tickerContainer.style.display = 'none';
+                    return;
+                }
 
-    // لا نحتاج لإعادة تعيين الأنيميشن هنا
-    tickerContent.classList.add('animate');
-}
+                // إزالة الفاصل الأخير ومضاعفة المحتوى لضمان التكرار السلس
+                itemsHtml = itemsHtml.slice(0, -38); // إزالة آخر فاصل والعنصر المحيط به
+                itemsHtml += itemsHtml;
+
+                tickerContent.innerHTML = itemsHtml;
+                tickerContainer.style.display = 'flex';
+
+                // إعادة تعيين الأنيميشن لضمان تطبيقه بعد تحديث المحتوى
+                tickerContent.classList.remove('animate');
+                void tickerContent.offsetWidth; // خدعة لإعادة تشغيل الأنيميشن
+                tickerContent.classList.add('animate');
+            }
 
 
             function renderWatchlist(topRisks) {
@@ -552,8 +560,12 @@
                 document.getElementById('active-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.active_risks}</h2><small class="percentage-text">(${stats.active_risks_percentage.toFixed(1)}%)</small>`;
                 document.getElementById('closed-risks-container').innerHTML = `<h2 class="fw-bold text-white mb-0">${stats.closed_risks}</h2><small class="percentage-text">(${stats.closed_risks_percentage.toFixed(1)}%)</small>`;
                 
+                // استدعاء دالة الشريط المتحرك مع تمرير البيانات الخاصة به
+                // ملاحظة: تأكد من أن `stats.kpi_ticker_data` يحتوي على البيانات المطلوبة
+                // مثل: secondary_risks_count, residual_risks_count, top_category, إلخ.
                 renderKpiTicker(stats.kpi_ticker_data);
 
+                // استدعاء دوال رسم المخططات والبيانات الأخرى
                 renderMatrixChart(stats.matrix_data);
                 renderStackedBarChart(stats.by_category_stacked);
                 renderSplitDoughnutChart(stats.by_level_nested);
@@ -562,15 +574,9 @@
                 renderWatchlist(stats.top_risks);
             }
 
+            // بدء جلب البيانات عند تحميل الصفحة
             fetchStats();
         });
     </script>
 {% endblock %}
-
-
-
-
-
-
-
 
