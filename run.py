@@ -552,12 +552,13 @@ def get_stats_api():
             base_query_for_kpi = base_query_for_kpi.filter_by(user_id=current_user.id)
         
         all_risks_for_kpi = base_query_for_kpi.all()
+# ▼▼▼ قم بنسخ هذا الجزء بالكامل واستبدل به الجزء المقابل في الكود لديك ▼▼▼
 
         kpi_data = []
         if all_risks_for_kpi:
             # --- [بداية التعديل النهائي] ---
 
-            # 1. حساب المؤشرات القديمة (التي اختفت بالخطأ)
+            # 1. حساب المؤشرات القديمة
             linked_risks_count = sum(1 for r in all_risks_for_kpi if r.linked_risk_id)
             secondary_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر ثانوي)'))
             residual_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر متبقٍ)'))
@@ -567,18 +568,30 @@ def get_stats_api():
             status_counts_kpi = Counter(r.status for r in all_risks_for_kpi if r.status)
             owner_counts = Counter(r.owner for r in all_risks_for_kpi if r.owner)
 
-            # 3. [تعديل] حساب الفئة الأكثر خطورة بناءً على المخاطر المرتفعة فقط
+            # 3. حساب الفئة الأكثر خطورة
             high_risk_levels = ['مرتفع', 'مرتفع جدا / كارثي']
             high_risks = [r for r in all_risks_for_kpi if r.risk_level in high_risk_levels]
             high_risk_category_counts = Counter(r.category for r in high_risks if r.category)
 
-            # 4. استخلاص القيم
+            # 4. [إضافة] حساب الالتزام الزمني من القائمة الكاملة للمخاطر
+            kpi_overdue_risks_count = 0
+            kpi_on_time_risks_count = 0
+            today_for_kpi = datetime.utcnow().date()
+            # يجب أن يتم الحساب فقط على المخاطر النشطة
+            active_risks_for_kpi = [r for r in all_risks_for_kpi if r.status != 'مغلق']
+            for risk in active_risks_for_kpi:
+                if risk.target_completion_date and risk.target_completion_date.date() < today_for_kpi:
+                    kpi_overdue_risks_count += 1
+                else:
+                    kpi_on_time_risks_count += 1
+
+            # 5. استخلاص القيم
             most_common_effectiveness = effectiveness_counts.most_common(1)[0][0] if effectiveness_counts else "لا يوجد"
             most_common_status = status_counts_kpi.most_common(1)[0][0] if status_counts_kpi else "لا يوجد"
             most_common_owner = owner_counts.most_common(1)[0][0] if owner_counts else "لا يوجد"
             most_dangerous_category = high_risk_category_counts.most_common(1)[0][0] if high_risk_category_counts else "لا يوجد"
 
-            # 5. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
+            # 6. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
                 {'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)},
                 {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
@@ -586,9 +599,15 @@ def get_stats_api():
                 {'label': 'فعالية الإجراءات الأكثر تكراراً:', 'value': most_common_effectiveness},
                 {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status},
                 {'label': 'المالك الأكثر تكليفاً:', 'value': most_common_owner},
-                {'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category}
+                {'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category},
+                # [إضافة] إضافة المؤشرين الجديدين للقائمة
+                {'label': 'مخاطر ملتزمة زمنياً:', 'value': str(kpi_on_time_risks_count)},
+                {'label': 'مخاطر متأخرة زمنياً:', 'value': str(kpi_overdue_risks_count)}
             ])
             # --- [نهاية التعديل النهائي] ---
+
+        # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
+        # ... (بقية الكود يبقى كما هو) ...
 
         # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
         query_for_charts = Risk.query.filter_by(is_deleted=False)
@@ -838,4 +857,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
