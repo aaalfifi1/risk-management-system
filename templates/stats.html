@@ -13,48 +13,51 @@
 /* --- [CSS نهائي] لعرض كل المؤشرات في سطر واحد --- */
 
 /* 1. الحاوية الرئيسية للمؤشرات */
-.kpi-blinking-container {
-    background-color: transparent;
-    width: 100%;
-    min-height: 2.5rem;
-    margin-bottom: 1.5rem;
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-around; 
-    align-items: center;
-    /* [التعديل] إجبار العناصر على البقاء في سطر واحد */
-    flex-wrap: nowrap; 
-    /* [إضافة] التعامل مع المحتوى الزائد عن حجم الشاشة (للأمان) */
-    overflow-x: auto; 
-    /* إخفاء شريط التمرير الذي قد يظهر بسبب overflow-x */
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
-    visibility: hidden;
-}
-/* إخفاء شريط التمرير لمتصفحات Webkit (Chrome, Safari) */
-.kpi-blinking-container::-webkit-scrollbar {
-    display: none;
-}
+ .kpi-blinking-container {
+            background-color: transparent;
+            width: 100%;
+            min-height: 2.5rem;
+            margin-bottom: 1.5rem;
+            margin-top: 1rem;
+            padding: 0 1rem; /* إضافة مساحة داخلية على الأطراف */
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between; /* توزيع المسافة بالتساوي بين العناصر */
+            align-items: center;
+            flex-wrap: nowrap; /* إجبار العناصر على البقاء في سطر واحد */
+            overflow-x: auto; /* إضافة شريط تمرير أفقي عند الضرورة القصوى (شاشات صغيرة جداً) */
+            -ms-overflow-style: none;  /* إخفاء شريط التمرير لـ IE و Edge */
+            scrollbar-width: none;  /* إخفاء شريط التمرير لـ Firefox */
+            visibility: hidden; /* إخفاء الحاوية مبدئياً */
+        }
+        /* إخفاء شريط التمرير لمتصفحات Webkit (Chrome, Safari) */
+        .kpi-blinking-container::-webkit-scrollbar {
+            display: none;
+        }
 
+        /* 2. العنصر الواحد (المؤشر) */
+        .kpi-item {
+            display: inline-flex;
+            align-items: baseline;
+            /* [التعديل] تصغير حجم الخط ليتسع الجميع */
+            font-size: 0.95rem; 
+            margin: 5px 10px; 
+            white-space: nowrap; /* منع النص من النزول لسطر جديد داخل المؤشر نفسه */
+            flex-shrink: 0; /* منع العناصر من الانكماش */
+        }
 
-/* 2. العنصر الواحد (المؤشر) */
-.kpi-item {
-    display: inline-flex;
-    align-items: baseline;
-    /* [التعديل] تصغير حجم الخط قليلاً */
-    font-size: 1rem; 
-    /* [التعديل] تقليل الهامش الأفقي قليلاً */
-    margin: 5px 10px; 
-    /* [إضافة] منع النص من النزول لسطر جديد داخل المؤشر نفسه */
-    white-space: nowrap; 
-}
+        /* 3. تنسيق العنوان (Label) */
+        .kpi-label {
+            color: #ffc107; /* اللون الأصفر */
+            font-weight: bold; /* خط عريض */
+            margin-left: 8px; /* مسافة بين العنوان والبيانات (استخدام margin-left بسبب dir=rtl) */
+        }
 
-
-    /* 3. كلاس 'blinking' هو الذي يفعل الوميض */
-    .kpi-item.blinking {
-        animation: blink-animation 2s ease-in-out infinite; /* مدة الوميض ثانيتان */
-    }
-
+        /* 4. تنسيق البيانات (Value) */
+        .kpi-value {
+            color: #ffffff; /* اللون الأبيض */
+            font-weight: normal; /* خط عادي */
+        }
     /* 4. تعريف حركة الوميض */
     @keyframes blink-animation {
         0%, 100% { opacity: 1; }
@@ -556,5 +559,6 @@
         });
     </script>
 {% endblock %}
+
 
 
