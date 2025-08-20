@@ -573,6 +573,9 @@ def get_stats_api():
 
             # بناء قائمة المؤشرات النهائية
             kpi_data.extend([
+                {'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)},
+                {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
+                {'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)},
                 {'label': 'فعالية الإجراءات الأكثر تكراراً:', 'value': most_common_effectiveness},
                 {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status},
                 # [إضافة] إضافة المؤشرين الجديدين للقائمة
@@ -829,3 +832,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
