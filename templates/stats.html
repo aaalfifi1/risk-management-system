@@ -58,11 +58,15 @@
             color: #ffffff; /* اللون الأبيض */
             font-weight: normal; /* خط عادي */
         }
-    /* 4. تعريف حركة الوميض */
-    @keyframes blink-animation {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
-    }
+   /* --- [إضافة] إعادة تعريف حركة الوميض الجماعي --- */
+@keyframes collective-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.blinking {
+    animation: collective-blink 1.5s ease-in-out;
+}
 
     /* 5. تنسيق العنوان والبيانات */
     .kpi-label {
@@ -261,27 +265,41 @@
             }
 
             // --- [JavaScript معدل] دالة الوميض الجماعي ---
-            function renderKpiTicker(kpiData) {
-                const container = document.getElementById('kpi-container');
+            // --- [تعديل نهائي] دالة العرض مع إعادة الوميض الجماعي ---
+    function renderKpiTicker(kpiData) {
+    const kpiContainer = document.getElementById('kpi-container');
+    if (!kpiContainer) return;
 
-                if (!container || !kpiData || kpiData.length === 0) {
-                    if(container) container.style.display = 'none';
-                    return;
-                }
+    kpiContainer.innerHTML = '';
 
-                // بناء كل المؤشرات في صف واحد
-                container.innerHTML = '';
-                kpiData.forEach(kpi => {
-                    const item = document.createElement('div');
-                    // [تطبيق 2] إضافة كلاس الوميض مباشرة لكل العناصر
-                    item.className = 'kpi-item blinking';
-                    item.innerHTML = `<span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span>`;
-                    container.appendChild(item);
-                });
+    if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
+        kpiContainer.style.visibility = 'hidden';
+        return;
+    }
 
-                // إظهار الحاوية بعد أن تصبح جاهزة
-                container.style.visibility = 'visible';
-            }
+    let itemsHtml = '';
+    kpiData.forEach(kpi => {
+        if (kpi && typeof kpi === 'object' && kpi.label && kpi.value !== undefined) {
+            itemsHtml += `<div class="kpi-item"><span class="kpi-label">${kpi.label}</span><span class="kpi-value">${kpi.value}</span></div>`;
+        }
+    });
+
+    if (itemsHtml === '') {
+        kpiContainer.style.visibility = 'hidden';
+        return;
+    }
+
+    kpiContainer.innerHTML = itemsHtml;
+    
+    // [الحل] إظهار الحاوية وتطبيق الوميض الجماعي
+    kpiContainer.style.visibility = 'visible';
+    kpiContainer.classList.add('blinking');
+
+    // [الحل] إزالة كلاس الوميض بعد انتهاء الحركة للسماح بإعادة تشغيله عند التحديث التالي
+    setTimeout(() => {
+        kpiContainer.classList.remove('blinking');
+    }, 1500); // يجب أن تكون المدة مطابقة لمدة الحركة في CSS (1.5s = 1500ms)
+}
 
 
             function renderWatchlist(topRisks) {
@@ -559,6 +577,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
