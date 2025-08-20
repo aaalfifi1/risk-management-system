@@ -539,7 +539,7 @@ def delete_attachment(risk_id):
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
-    return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
+        return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
     return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
 
 @app.route('/api/stats', methods=['GET'])
@@ -555,31 +555,40 @@ def get_stats_api():
 
         kpi_data = []
         if all_risks_for_kpi:
-            # --- [بداية التعديل] ---
-            # حساب المؤشرات القديمة
+            # --- [بداية التعديل النهائي] ---
+
+            # 1. حساب المؤشرات القديمة (التي اختفت بالخطأ)
+            linked_risks_count = sum(1 for r in all_risks_for_kpi if r.linked_risk_id)
+            secondary_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر ثانوي)'))
+            residual_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر متبقٍ)'))
+
+            # 2. حساب المؤشرات الأخرى
             effectiveness_counts = Counter(r.action_effectiveness for r in all_risks_for_kpi if r.action_effectiveness)
             status_counts_kpi = Counter(r.status for r in all_risks_for_kpi if r.status)
-            
-            # [إضافة] حساب المؤشرات الجديدة
             owner_counts = Counter(r.owner for r in all_risks_for_kpi if r.owner)
-            category_counts = Counter(r.category for r in all_risks_for_kpi if r.category)
 
-            # استخلاص القيم الأكثر شيوعاً
+            # 3. [تعديل] حساب الفئة الأكثر خطورة بناءً على المخاطر المرتفعة فقط
+            high_risk_levels = ['مرتفع', 'مرتفع جدا / كارثي']
+            high_risks = [r for r in all_risks_for_kpi if r.risk_level in high_risk_levels]
+            high_risk_category_counts = Counter(r.category for r in high_risks if r.category)
+
+            # 4. استخلاص القيم
             most_common_effectiveness = effectiveness_counts.most_common(1)[0][0] if effectiveness_counts else "لا يوجد"
             most_common_status = status_counts_kpi.most_common(1)[0][0] if status_counts_kpi else "لا يوجد"
-            # [إضافة] استخلاص قيم المؤشرات الجديدة
             most_common_owner = owner_counts.most_common(1)[0][0] if owner_counts else "لا يوجد"
-            most_common_category = category_counts.most_common(1)[0][0] if category_counts else "لا يوجد"
+            most_dangerous_category = high_risk_category_counts.most_common(1)[0][0] if high_risk_category_counts else "لا يوجد"
 
-            # بناء قائمة المؤشرات النهائية
+            # 5. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
+                {'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)},
+                {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
+                {'label': 'المخاطر المتبقية:', 'value': str(residual_risks_count)},
                 {'label': 'فعالية الإجراءات الأكثر تكراراً:', 'value': most_common_effectiveness},
                 {'label': 'أكثر الحالات تكراراً:', 'value': most_common_status},
-                # [إضافة] إضافة المؤشرين الجديدين للقائمة
                 {'label': 'المالك الأكثر تكليفاً:', 'value': most_common_owner},
-                {'label': 'الفئة الأكثر خطورة:', 'value': most_common_category}
+                {'label': 'الفئة الأكثر خطورة:', 'value': most_dangerous_category}
             ])
-            # --- [نهاية التعديل] ---
+            # --- [نهاية التعديل النهائي] ---
 
         # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
         query_for_charts = Risk.query.filter_by(is_deleted=False)
@@ -829,3 +838,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
