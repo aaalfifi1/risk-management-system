@@ -44,13 +44,9 @@
             color: var(--light-text);
         }
         /* [تعديل] الأنيميشن الآن يستخدم متغير CSS للعرض الدقيق */
-    @keyframes ticker-animation {
-    from {
-        transform: translateX(0);
-    }
-    to {
-        transform: translateX(-100%);
-    }
+  @keyframes ticker-animation {
+    from { transform: translateX(0); }
+    to { transform: translateX(var(--ticker-scroll-width)); }
 }
 
 
@@ -264,30 +260,22 @@
         return;
     }
 
-    // إزالة الحركة أولاً
-    tickerContent.classList.remove('animate');
-    
-    // وضع المحتوى مرة واحدة لقياس العرض
-    tickerContent.innerHTML = itemsHtml;
+    // الحل الجذري: نضع المحتوى 3 مرات
+    tickerContent.innerHTML = itemsHtml + itemsHtml + itemsHtml;
     tickerContainer.style.display = 'block';
     
-    // قياس عرض المحتوى الأصلي
-    const singleContentWidth = tickerContent.scrollWidth;
-    const containerWidth = tickerContainer.offsetWidth;
+    // نحسب العرض الكلي
+    const totalWidth = tickerContent.scrollWidth;
+    const singleWidth = totalWidth / 3;
     
-    // تكرار المحتوى بناءً على العرض المطلوب
-    const repeatCount = Math.ceil(containerWidth / singleContentWidth) + 2;
-    tickerContent.innerHTML = itemsHtml.repeat(repeatCount);
+    // نضبط المتغيرات
+    tickerContent.style.setProperty('--ticker-scroll-width', `-${singleWidth}px`);
+    tickerContent.style.setProperty('--animation-duration', `${singleWidth / 50}s`);
     
-    // حساب المدة بناءً على العرض الفعلي
-    const animationDuration = singleContentWidth / 50; // سرعة 50 بكسل في الثانية
-    tickerContent.style.setProperty('--animation-duration', `${animationDuration}s`);
-    
-    // تطبيق الحركة
-    requestAnimationFrame(() => {
-        tickerContent.classList.add('animate');
-    });
+    // نبدأ الحركة
+    tickerContent.classList.add('animate');
 }
+
 
 
             function renderWatchlist(topRisks) {
@@ -565,5 +553,6 @@
         });
     </script>
 {% endblock %}
+
 
 
