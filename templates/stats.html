@@ -40,7 +40,7 @@
             display: inline-flex;
             align-items: baseline;
             /* [التعديل] تصغير حجم الخط ليتسع الجميع */
-            font-size: 0.95rem; 
+           font-size: 0.85rem; 
             margin: 5px 10px; 
             white-space: nowrap; /* منع النص من النزول لسطر جديد داخل المؤشر نفسه */
             flex-shrink: 0; /* منع العناصر من الانكماش */
@@ -266,6 +266,7 @@
 
             // --- [JavaScript معدل] دالة الوميض الجماعي ---
             // --- [تعديل نهائي] دالة العرض مع إعادة الوميض الجماعي ---
+  // --- [تعديل نهائي] لجعل الوميض مستمراً ---
     function renderKpiTicker(kpiData) {
     const kpiContainer = document.getElementById('kpi-container');
     if (!kpiContainer) return;
@@ -274,6 +275,8 @@
 
     if (!kpiData || !Array.isArray(kpiData) || kpiData.length === 0) {
         kpiContainer.style.visibility = 'hidden';
+        // [تصحيح] إزالة كلاس الوميض إذا كانت البيانات فارغة
+        kpiContainer.classList.remove('blinking');
         return;
     }
 
@@ -286,19 +289,16 @@
 
     if (itemsHtml === '') {
         kpiContainer.style.visibility = 'hidden';
+        kpiContainer.classList.remove('blinking');
         return;
     }
 
     kpiContainer.innerHTML = itemsHtml;
     
-    // [الحل] إظهار الحاوية وتطبيق الوميض الجماعي
+    // إظهار الحاوية وتطبيق الوميض الجماعي
     kpiContainer.style.visibility = 'visible';
+    // [تصحيح] إضافة الكلاس فقط، دون إزالته لاحقاً
     kpiContainer.classList.add('blinking');
-
-    // [الحل] إزالة كلاس الوميض بعد انتهاء الحركة للسماح بإعادة تشغيله عند التحديث التالي
-    setTimeout(() => {
-        kpiContainer.classList.remove('blinking');
-    }, 1500); // يجب أن تكون المدة مطابقة لمدة الحركة في CSS (1.5s = 1500ms)
 }
 
 
@@ -577,6 +577,7 @@
         });
     </script>
 {% endblock %}
+
 
 
 
