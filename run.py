@@ -621,10 +621,7 @@ def get_stats_api():
                         most_dangerous_category = f"{len(winners)} فئات"
 
             # 7. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
-# ▲▲▲ نهاية الكود الجديد ▲▲▲
-
-# --- السطر الذي بعد التعديل ---
-            kpi_data.extend([
+# ▲▲▲ نهاية الكود الجديد ▲
 
             # 6. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
@@ -894,6 +891,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
