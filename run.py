@@ -51,6 +51,8 @@ class User(UserMixin, db.Model):
 class Risk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     risk_code = db.Column(db.String(20), unique=True, nullable=True)
+    # --- [تعديل] إضافة حقل مصدر الخطر ---
+    source = db.Column(db.String(20), nullable=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
     risk_type = db.Column(db.String(20), default='تهديد', nullable=False)
@@ -265,6 +267,8 @@ def add_risk():
                 title=data['title'], 
                 description=data.get('description'), 
                 risk_type=data.get('risk_type', 'تهديد'),
+                # --- [تعديل] إضافة حقل مصدر الخطر ---
+                source=data.get('source'),
                 category=data['category'], 
                 probability=prob, 
                 impact=imp, 
@@ -348,6 +352,8 @@ def update_risk(risk_id):
         risk.title = data.get('title', risk.title)
         risk.description = data.get('description', risk.description)
         risk.risk_type = data.get('risk_type', risk.risk_type)
+        # --- [تعديل] إضافة حقل مصدر الخطر ---
+        risk.source = data.get('source', risk.source)
         risk.category = data.get('category', risk.category)
         risk.probability = prob
         risk.impact = imp
@@ -466,6 +472,8 @@ def get_risks():
             'title': r.title, 
             'description': r.description, 
             'risk_type': r.risk_type,
+            # --- [تعديل] إضافة حقل مصدر الخطر ---
+            'source': r.source,
             'category': r.category, 
             'probability': r.probability, 
             'impact': r.impact, 
@@ -531,10 +539,11 @@ def permanent_delete_risk(risk_id):
 @login_required
 def delete_attachment(risk_id):
     risk = Risk.query.get_or_404(risk_id)
-    if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
+    if current_user.username != 'admin' and risk.user_id != current_user.id: return jsonify({'success': False, 'message': 'غير مصرح لك'}),403
     if risk.attachment_filename:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename)
-        if os.path.exists(file_path): os.remove(file_path)
+        if os.path.exists(file_path):
+            os.remove(file_path)
         risk.attachment_filename = None
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"حذف مرفق من الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
@@ -552,12 +561,9 @@ def get_stats_api():
             base_query_for_kpi = base_query_for_kpi.filter_by(user_id=current_user.id)
         
         all_risks_for_kpi = base_query_for_kpi.all()
-# ▼▼▼ قم بنسخ هذا الجزء بالكامل واستبدل به الجزء المقابل في الكود لديك ▼▼▼
 
         kpi_data = []
         if all_risks_for_kpi:
-            # --- [بداية التعديل النهائي] ---
-
             # 1. حساب المؤشرات القديمة
             linked_risks_count = sum(1 for r in all_risks_for_kpi if r.linked_risk_id)
             secondary_risks_count = sum(1 for r in all_risks_for_kpi if r.title and r.title.startswith('(خطر ثانوي)'))
@@ -571,38 +577,29 @@ def get_stats_api():
             # 3. حساب الفئة الأكثر خطورة
             high_risk_levels = ['مرتفع', 'مرتفع جدا / كارثي']
             high_risks = [r for r in all_risks_for_kpi if r.risk_level in high_risk_levels]
-         # --- السطر الذي قبل التعديل ---
-           # --- السطر الذي قبل التعديل ---
-            high_risk_category_counts = Counter(r.category for r in high_risks if r.category)
-
-# ▼▼▼ قم بلصق هذا الكود الجديد بالكامل هنا ▼▼▼
+            
             # 4. استخلاص القيم للمؤشرات البسيطة
             most_common_effectiveness = effectiveness_counts.most_common(1)[0][0] if effectiveness_counts else "لا يوجد"
             most_common_status = status_counts_kpi.most_common(1)[0][0] if status_counts_kpi else "لا يوجد"
             most_common_owner = owner_counts.most_common(1)[0][0] if owner_counts else "لا يوجد"
 
-            # 5. [إضافة] حساب أعداد المخاطر حسب المستوى المجمع
+            # 5. حساب أعداد المخاطر حسب المستوى المجمع
             high_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['مرتفع', 'مرتفع جدا / كارثي'])
             medium_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level == 'متوسط')
             low_level_count = sum(1 for r in all_risks_for_kpi if r.risk_level in ['منخفض', 'منخفض جدا'])
-# ▼▼▼ قم بلصق هذا الكود المفقود هنا ▼▼▼
 
-            # 5. [تصحيح] حساب الالتزام الزمني من القائمة الكاملة للمخاطر (الجزء المنسي)
+            # 6. حساب الالتزام الزمني من القائمة الكاملة للمخاطر
             kpi_overdue_risks_count = 0
             kpi_on_time_risks_count = 0
             today_for_kpi = datetime.utcnow().date()
-            # يجب أن يتم الحساب فقط على المخاطر النشطة
             active_risks_for_kpi = [r for r in all_risks_for_kpi if r.status != 'مغلق']
             for risk in active_risks_for_kpi:
                 if risk.target_completion_date and risk.target_completion_date.date() < today_for_kpi:
                     kpi_overdue_risks_count += 1
                 else:
-                    # أي خطر نشط ليس متأخراً يعتبر ملتزماً (سواء كان له تاريخ أم لا)
                     kpi_on_time_risks_count += 1
             
-# ▲▲▲ انتهى الكود المفقود ▲▲▲
-
-            # 6. تحديد الفئة الأكثر خطورة بذكاء (المنطق من المرة السابقة)
+            # 7. تحديد الفئة الأكثر خطورة بذكاء
             most_dangerous_category = "لا يوجد"
             if high_risks:
                 categories_data = {}
@@ -615,7 +612,6 @@ def get_stats_api():
                 for category, risks_in_cat in categories_data.items():
                     avg_score = sum(r.probability * r.impact for r in risks_in_cat) / len(risks_in_cat)
                     very_high_count = sum(1 for r in risks_in_cat if r.risk_level == 'مرتفع جدا / كارثي')
-                    # --- السطر الذي قبل التعديل ---
                     total_high_count = len(risks_in_cat)
                     category_scores.append({
                         'name': category,
@@ -624,12 +620,6 @@ def get_stats_api():
                         'total_high_count': total_high_count
                     })
 
-# ▼▼▼ هذا هو السطر الوحيد الذي سيتم استبداله ▼▼▼
-                sorted_categories = sorted(category_scores, key=lambda x: (x['avg_score'], x['very_high_count'], x['total_high_count']), reverse=True)
-# ▲▲▲ نهاية السطر الذي سيتم استبداله ▲▲▲
-               # ▼▼▼ قم بلصق هذا الكود الجديد بالكامل هنا ▼▼▼
-
-                # [المنطق المصحح] ترتيب الفئات: عدد "مرتفع جدا" أولاً، ثم متوسط الدرجة، ثم إجمالي العدد
                 if category_scores:
                     sorted_categories = sorted(
                         category_scores, 
@@ -637,7 +627,6 @@ def get_stats_api():
                         reverse=True
                     )
                     
-                    # تحديد الفائزين بناءً على الترتيب الجديد
                     top_score_tuple = (
                         sorted_categories[0]['very_high_count'], 
                         sorted_categories[0]['avg_score'], 
@@ -648,7 +637,6 @@ def get_stats_api():
                         if (cat['very_high_count'], cat['avg_score'], cat['total_high_count']) == top_score_tuple
                     ]
                     
-                    # تطبيق منطق العرض النهائي
                     if len(winners) == 1:
                         most_dangerous_category = winners[0]
                     elif len(winners) == 2:
@@ -656,12 +644,7 @@ def get_stats_api():
                     else:
                         most_dangerous_category = f"{len(winners)} فئات"
 
-# ▲▲▲ انتهى الكود الجديد ▲▲▲
-
-            # 7. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
-# ▲▲▲ نهاية الكود الجديد ▲
-
-            # 6. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
+            # 8. بناء قائمة المؤشرات النهائية بالترتيب المطلوب
             kpi_data.extend([
                 {'label': 'المخاطر المترابطة:', 'value': str(linked_risks_count)},
                 {'label': 'المخاطر الثانوية:', 'value': str(secondary_risks_count)},
@@ -676,10 +659,6 @@ def get_stats_api():
                 {'label': 'مخاطر ملتزمة زمنياً:', 'value': str(kpi_on_time_risks_count)},
                 {'label': 'مخاطر متأخرة زمنياً:', 'value': str(kpi_overdue_risks_count)}
             ])
-            # --- [نهاية التعديل النهائي] ---
-
-        # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
-        # ... (بقية الكود يبقى كما هو) ...
 
         # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
         query_for_charts = Risk.query.filter_by(is_deleted=False)
@@ -703,7 +682,6 @@ def get_stats_api():
         
         risks_for_charts = query_for_charts.all()
 
-        # الآن، كل الحسابات التالية تعتمد على `risks_for_charts`
         total = len(risks_for_charts)
         active_risks_list = [r for r in risks_for_charts if r.status != 'مغلق']
         active = len(active_risks_list)
@@ -929,10 +907,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
-
-
-
-
 
