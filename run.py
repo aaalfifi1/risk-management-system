@@ -469,7 +469,7 @@ def add_risk():
 def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
-       if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
+        if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
         
         data = request.form
@@ -1135,6 +1135,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
