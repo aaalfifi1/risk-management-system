@@ -1030,6 +1030,78 @@ def get_unread_reports_status():
         return jsonify({'has_unread': False})
     unread_count = Report.query.filter_by(is_read=False, is_archived=False).count()
     return jsonify({'has_unread': unread_count > 0})
+# =======================================================================
+# == ▼▼▼ [إضافة] دوال API لإدارة المستخدمين (للمدير فقط) ▼▼▼
+# =======================================================================
+
+@app.route('/api/users', methods=['POST'])
+@login_required
+@role_required('Admin')
+def add_user():
+    data = request.form
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+    role_id = data.get('role_id')
+
+    if not all([username, email, password, role_id]):
+        return jsonify({'success': False, 'message': 'جميع الحقول مطلوبة.'}), 400
+    if User.query.filter_by(username=username).first():
+        return jsonify({'success': False, 'message': 'اسم المستخدم هذا موجود بالفعل.'}), 400
+    if User.query.filter_by(email=email).first():
+        return jsonify({'success': False, 'message': 'هذا البريد الإلكتروني مسجل بالفعل.'}), 400
+
+    new_user = User(username=username, email=email, role_id=role_id)
+    new_user.set_password(password)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تمت إضافة المستخدم بنجاح.'}), 201
+
+@app.route('/api/users/<int:user_id>', methods=['PUT'])
+@login_required
+@role_required('Admin')
+def update_user(user_id):
+    user = User.query.get_or_404(user_id)
+    data = request.form
+    
+    new_email = data.get('email')
+    new_role_id = data.get('role_id')
+    new_password = data.get('password')
+
+    if not all([new_email, new_role_id]):
+        return jsonify({'success': False, 'message': 'البريد الإلكتروني والدور حقول مطلوبة.'}), 400
+
+    # التحقق من أن البريد الإلكتروني الجديد لا يستخدمه شخص آخر
+    if new_email != user.email and User.query.filter_by(email=new_email).first():
+        return jsonify({'success': False, 'message': 'هذا البريد الإلكتروني مسجل بالفعل لمستخدم آخر.'}), 400
+
+    user.email = new_email
+    user.role_id = new_role_id
+    
+    # تحديث كلمة المرور فقط إذا تم إدخال واحدة جديدة
+    if new_password:
+        user.set_password(new_password)
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم تحديث بيانات المستخدم بنجاح.'})
+
+@app.route('/api/users/<int:user_id>', methods=['DELETE'])
+@login_required
+@role_required('Admin')
+def delete_user(user_id):
+    if user_id == current_user.id:
+        return jsonify({'success': False, 'message': 'لا يمكنك حذف حسابك الخاص.'}), 403
+    
+    user = User.query.get_or_404(user_id)
+    # يمكنك إضافة منطق هنا لحذف أو إعادة تعيين المخاطر المرتبطة بالمستخدم إذا أردت
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم حذف المستخدم بنجاح.'})
+
+# =======================================================================
+# == ▲▲▲ نهاية إضافة دوال API لإدارة المستخدمين ▲▲▲
+# =======================================================================
+
 
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
@@ -1063,6 +1135,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
