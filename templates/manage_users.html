@@ -2,6 +2,24 @@
 
 {% block title %}إدارة المستخدمين - نظام إدارة المخاطر{% endblock %}
 
+{% block styles %}
+<style>
+    /* لجعل النوافذ المنبثقة تظهر بشكل صحيح مع المظهر الداكن */
+    .modal-header, .modal-body, .modal-footer {
+        color: var(--light-text);
+        background-color: var(--medium-blue);
+    }
+    .modal-header { border-bottom-color: var(--border-color); }
+    .modal-footer { border-top-color: var(--border-color); }
+    .form-control, .form-select {
+        background-color: var(--dark-blue) !important;
+        color: var(--light-text) !important;
+        border-color: var(--border-color) !important;
+    }
+</style>
+{% endblock %}
+
+
 {% block content %}
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -28,13 +46,13 @@
                     <td>{{ user.id }}</td>
                     <td>{{ user.username }}</td>
                     <td>{{ user.email }}</td>
-                    <td><span class="badge bg-info">{{ user.role.name }}</span></td>
+                    <td><span class="badge bg-info fs-6">{{ user.role.name }}</span></td>
                     <td>
                         <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editUserModal-{{ user.id }}">
                             <i class="bi bi-pencil-square"></i> تعديل
                         </button>
-                        {% if user.id != current_user.id %} {# لا تسمح للمدير بحذف نفسه #}
-                        <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal-{{ user.id }}">
+                        {% if user.id != current_user.id %}
+                        <button class="btn btn-sm btn-danger" onclick="confirmDelete({{ user.id }}, '{{ user.username }}')">
                             <i class="bi bi-trash3-fill"></i> حذف
                         </button>
                         {% endif %}
@@ -46,7 +64,182 @@
     </div>
 </div>
 
-<!-- قوالب النوافذ المنبثقة (Modals) ستضاف لاحقًا عند برمجة الإضافة والتعديل والحذف -->
-<!-- هذا الهيكل الأساسي للعرض فقط -->
+<!-- ================================================== -->
+<!-- == نافذة منبثقة (Modal) لإضافة مستخدم جديد == -->
+<!-- ================================================== -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">إضافة مستخدم جديد</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addUserForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="add-username" class="form-label">اسم المستخدم</label>
+                        <input type="text" class="form-control" id="add-username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add-email" class="form-label">البريد الإلكتروني</label>
+                        <input type="email" class="form-control" id="add-email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add-password" class="form-label">كلمة المرور</label>
+                        <input type="password" class="form-control" id="add-password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add-role" class="form-label">الدور (الصلاحية)</label>
+                        <select class="form-select" id="add-role" name="role_id" required>
+                            {% for role in roles %}
+                            <option value="{{ role.id }}">{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-success">حفظ المستخدم</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
+
+<!-- ================================================== -->
+<!-- == نوافذ منبثقة (Modals) لتعديل المستخدمين == -->
+<!-- ================================================== -->
+{% for user in users %}
+<div class="modal fade" id="editUserModal-{{ user.id }}" tabindex="-1" aria-labelledby="editUserModalLabel-{{ user.id }}" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel-{{ user.id }}">تعديل المستخدم: {{ user.username }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form class="editUserForm" data-user-id="{{ user.id }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">اسم المستخدم (غير قابل للتعديل)</label>
+                        <input type="text" class="form-control" value="{{ user.username }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-email-{{ user.id }}" class="form-label">البريد الإلكتروني</label>
+                        <input type="email" class="form-control" id="edit-email-{{ user.id }}" name="email" value="{{ user.email }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-password-{{ user.id }}" class="form-label">كلمة مرور جديدة (اتركه فارغاً لعدم التغيير)</label>
+                        <input type="password" class="form-control" id="edit-password-{{ user.id }}" name="password">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-role-{{ user.id }}" class="form-label">الدور (الصلاحية)</label>
+                        <select class="form-select" id="edit-role-{{ user.id }}" name="role_id" required>
+                            {% for role in roles %}
+                            <option value="{{ role.id }}" {% if user.role_id == role.id %}selected{% endif %}>{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button>
+                    <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // معالج نموذج إضافة مستخدم
+    const addUserForm = document.getElementById('addUserForm');
+    addUserForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(addUserForm);
+        
+        fetch('/api/users', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast(data.message, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast(data.message, 'error');
+            }
+        })
+        .catch(error => showToast('حدث خطأ في الشبكة.', 'error'));
+    });
+
+    // معالج نماذج تعديل المستخدمين
+    const editUserForms = document.querySelectorAll('.editUserForm');
+    editUserForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const userId = form.dataset.userId;
+            const formData = new FormData(form);
+
+            fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message, 'success');
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            })
+            .catch(error => showToast('حدث خطأ في الشبكة.', 'error'));
+        });
+    });
+});
+
+// دالة تأكيد الحذف
+function confirmDelete(userId, username) {
+    iziToast.question({
+        timeout: 20000,
+        close: false,
+        overlay: true,
+        displayMode: 'once',
+        id: 'question',
+        zindex: 999,
+        title: 'تأكيد الحذف',
+        message: `هل أنت متأكد من أنك تريد حذف المستخدم '${username}'؟ هذا الإجراء لا يمكن التراجع عنه.`,
+        position: 'center',
+        class: 'custom-toast-question',
+        buttons: [
+            ['<button><b>نعم، قم بالحذف</b></button>', function (instance, toast) {
+                instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+                fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message, 'success');
+                        setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                        showToast(data.message, 'error');
+                    }
+                })
+                .catch(error => showToast('حدث خطأ في الشبكة.', 'error'));
+            }, true],
+            ['<button>إلغاء</button>', function (instance, toast) {
+                instance.hide({ transitionOut: 'fadeOut' }, toast, 'button');
+            }],
+        ]
+    });
+}
+</script>
 {% endblock %}
