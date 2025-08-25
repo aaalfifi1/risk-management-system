@@ -20,8 +20,6 @@ import secrets # لإنشاء رموز آمنة
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
 
-# ... (بقية الكود)
-
 # --- إعدادات التطبيق ومتغيرات البيئة ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-default-fallback-secret-key-for-local-dev')
 DATABASE_URL = os.environ.get('DATABASE_URL')
@@ -45,22 +43,23 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
-      # حقول استعادة كلمة المرور
-    reset_token = db.Column(db.String(100), nullable=True, unique=True)
-    reset_token_expiration = db.Column(db.DateTime, nullable=True)
-      # حقول قفل الحساب
-    failed_login_attempts = db.Column(db.Integer, default=0)
-    account_locked_until = db.Column(db.DateTime, nullable=True)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
     reports = db.relationship('Report', backref='uploaded_by', lazy=True)
+    
+    # ▼▼▼ [التعديل الوحيد هنا] إضافة حقول جديدة ▼▼▼
+    reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    reset_token_expiration = db.Column(db.DateTime, nullable=True)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    account_locked_until = db.Column(db.DateTime, nullable=True)
+    # ▲▲▲ نهاية التعديل ▲▲▲
+
     def set_password(self, password): self.password_hash = generate_password_hash(password)
     def check_password(self, password): return check_password_hash(self.password_hash, password)
 
 class Risk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     risk_code = db.Column(db.String(20), unique=True, nullable=True)
-    # --- [تعديل] إضافة حقل مصدر الخطر ---
     source = db.Column(db.String(20), nullable=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
@@ -188,13 +187,54 @@ def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
 
-# هذا هو الكود القديم الذي يجب حذفه بالكامل
+# ▼▼▼ [تعديل] استبدال دالة login القديمة بالكامل ▼▼▼
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # ... كل محتوى دالة login القديمة ...
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
 
-# ... قد تكون هناك دوال أخرى خاطئة هنا ...
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
 
+        # 1. التحقق إذا كان الحساب مقفلاً
+        if user and user.account_locked_until and user.account_locked_until > datetime.utcnow():
+            remaining_time = user.account_locked_until - datetime.utcnow()
+            minutes_left = (remaining_time.seconds // 60) + 1
+            flash(f'تم قفل الحساب مؤقتاً بسبب كثرة المحاولات الفاشلة. يرجى المحاولة مرة أخرى بعد {minutes_left} دقيقة.', 'danger')
+            return render_template('login.html')
+
+        # 2. التحقق من صحة كلمة المرور
+        if user and user.check_password(password):
+            # تسجيل دخول ناجح: إعادة تعيين عداد الفشل وتسجيل الدخول
+            user.failed_login_attempts = 0
+            user.account_locked_until = None
+            db.session.commit()
+            
+            login_user(user)
+            session['is_admin'] = (user.username == 'admin')
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('home'))
+        else:
+            # تسجيل دخول فاشل
+            if user:
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= 5:
+                    user.account_locked_until = datetime.utcnow() + timedelta(minutes=15)
+                    user.failed_login_attempts = 0
+                    flash('لقد تجاوزت عدد المحاولات المسموح بها. تم قفل الحساب لمدة 15 دقيقة.', 'danger')
+                else:
+                    remaining_attempts = 5 - user.failed_login_attempts
+                    flash(f'فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور. (متبقي {remaining_attempts} محاولات)', 'warning')
+                db.session.commit()
+            else:
+                flash('فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور.', 'danger')
+            
+            return render_template('login.html')
+
+    return render_template('login.html')
+# ▲▲▲ نهاية التعديل ▲▲▲
 
 @app.route('/logout')
 @login_required
@@ -202,6 +242,62 @@ def logout():
     session.pop('is_admin', None)
     logout_user()
     return redirect(url_for('login'))
+
+# ▼▼▼ [إضافة] مسارات استعادة كلمة المرور الجديدة ▼▼▼
+@app.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = secrets.token_urlsafe(32)
+            user.reset_token = token
+            user.reset_token_expiration = datetime.utcnow() + timedelta(hours=1)
+            db.session.commit()
+            reset_url = url_for('reset_with_token', token=token, _external=True)
+            subject = "طلب إعادة تعيين كلمة المرور - نظام إدارة المخاطر"
+            html_content = f"""
+            <div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'>
+                <h2>طلب إعادة تعيين كلمة المرور</h2>
+                <p>مرحباً {user.username},</p>
+                <p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك في نظام إدارة المخاطر.</p>
+                <p>اضغط على الرابط التالي لتعيين كلمة مرور جديدة. هذا الرابط صالح لمدة ساعة واحدة فقط:</p>
+                <p style='text-align: center;'><a href='{reset_url}' style='background-color: #ffc107; color: #000; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;'>إعادة تعيين كلمة المرور</a></p>
+                <p>إذا لم تطلب أنت هذا الإجراء، يرجى تجاهل هذه الرسالة.</p>
+            </div>
+            """
+            send_email(to_email=user.email, subject=subject, html_content=html_content)
+            flash('تم إرسال تعليمات إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('البريد الإلكتروني غير مسجل في النظام.', 'danger')
+    return render_template('reset_password_request.html')
+
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_with_token(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    user = User.query.filter_by(reset_token=token).first()
+    if not user or user.reset_token_expiration < datetime.utcnow():
+        flash('رابط إعادة تعيين كلمة المرور غير صالح أو انتهت صلاحيته.', 'danger')
+        return redirect(url_for('reset_password_request'))
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        if password != confirm_password:
+            flash('كلمتا المرور غير متطابقتين.', 'danger')
+            return render_template('reset_password.html', token=token)
+        user.set_password(password)
+        user.reset_token = None
+        user.reset_token_expiration = None
+        db.session.commit()
+        flash('تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.', 'success')
+        return redirect(url_for('login'))
+    return render_template('reset_password.html', token=token)
+# ▲▲▲ نهاية الإضافة ▲▲▲
 
 # --- دالة تصدير CSV ---
 @app.route('/download-risk-log')
@@ -271,7 +367,6 @@ def add_risk():
                 title=data['title'], 
                 description=data.get('description'), 
                 risk_type=data.get('risk_type', 'تهديد'),
-                # --- [تعديل] إضافة حقل مصدر الخطر ---
                 source=data.get('source'),
                 category=data['category'], 
                 probability=prob, 
@@ -356,7 +451,6 @@ def update_risk(risk_id):
         risk.title = data.get('title', risk.title)
         risk.description = data.get('description', risk.description)
         risk.risk_type = data.get('risk_type', risk.risk_type)
-        # --- [تعديل] إضافة حقل مصدر الخطر ---
         risk.source = data.get('source', risk.source)
         risk.category = data.get('category', risk.category)
         risk.probability = prob
@@ -476,7 +570,6 @@ def get_risks():
             'title': r.title, 
             'description': r.description, 
             'risk_type': r.risk_type,
-            # --- [تعديل] إضافة حقل مصدر الخطر ---
             'source': r.source,
             'category': r.category, 
             'probability': r.probability, 
@@ -911,10 +1004,3 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
-
-
-
-
-
-
