@@ -220,6 +220,18 @@ def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDE
 def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
+  # ▼▼▼ [إضافة] مسار صفحة إدارة المستخدمين ▼▼▼
+@app.route('/manage_users')
+@login_required
+@role_required('Admin')
+def manage_users():
+    # جلب جميع المستخدمين مع أدوارهم لتجنب استعلامات إضافية في القالب
+    users = User.query.options(joinedload(User.role)).order_by(User.id).all()
+    # جلب جميع الأدوار المتاحة لملء القوائم المنسدلة
+    roles = Role.query.all()
+    return render_template('manage_users.html', users=users, roles=roles)
+# ▲▲▲ نهاية الإضافة ▲▲▲
+
 
 # ▼▼▼ [تعديل] استبدال دالة login القديمة بالكامل ▼▼▼
 @app.route('/login', methods=['GET', 'POST'])
@@ -1051,6 +1063,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
