@@ -22,81 +22,84 @@
         .archived-section { background-color: rgba(255, 193, 7, 0.1); border: 1px solid var(--accent-yellow); border-radius: 15px; padding: 1.5rem; }
     </style>
 {% endblock %}
-
 {% block content %}
+<div class="container mt-4">
     <h2 class="mb-4">مركز التقارير</h2>
-    {% if current_user.username == 'admin' %}
-     <div class="row">
-    <!-- إظهار التقارير الدورية للمدير فقط -->
+
+    <div class="row">
+        <!-- [إصلاح] إظهار التقارير الدورية للمدير فقط -->
+        {% if current_user.role.name == 'Admin' %}
+            <div class="col-md-3 mb-4">
+                <div class="card report-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar-quarter fs-1 text-primary mb-3"></i>
+                        <h5 class="card-title">تقارير ربع سنوية</h5>
+                        <p class="card-text small">تقارير الإدارة الرسمية</p>
+                        <button class="btn btn-warning w-100" onclick="uploadFile('quarterly')"><i class="bi bi-upload"></i> رفع</button>
+                        <hr>
+                        <div id="quarterly-files" class="files-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card report-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar2-half fs-1 text-info mb-3"></i>
+                        <h5 class="card-title">تقارير نصف سنوية</h5>
+                        <p class="card-text small">تقارير الإدارة الرسمية</p>
+                        <button class="btn btn-warning w-100" onclick="uploadFile('semi_annual')"><i class="bi bi-upload"></i> رفع</button>
+                        <hr>
+                        <div id="semi_annual-files" class="files-list"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card report-card h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-calendar-event fs-1 text-success mb-3"></i>
+                        <h5 class="card-title">تقارير سنوية</h5>
+                        <p class="card-text small">تقارير الإدارة الرسمية</p>
+                        <button class="btn btn-warning w-100" onclick="uploadFile('annual')"><i class="bi bi-upload"></i> رفع</button>
+                        <hr>
+                        <div id="annual-files" class="files-list"></div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- [إصلاح] إظهار بطاقة الرفع لرائد المخاطر والمدير -->
+        {% if current_user.role.name in ['Admin', 'Pioneer'] %}
+        <div class="col-md-3 mb-4">
+            <div class="card report-card h-100">
+                <div class="card-body text-center">
+                    <i class="bi bi-person-workspace fs-1 text-warning mb-3"></i>
+                    <h5 class="card-title">
+                        {% if current_user.role.name == 'Admin' %}
+                            تقارير رواد المخاطر
+                        {% else %}
+                            تقاريري المرفوعة
+                        {% endif %}
+                    </h5>
+                    <p class="card-text small">الملفات المرفوعة من الفريق</p>
+                    <button class="btn btn-warning w-100" onclick="uploadFile('risk_champion')"><i class="bi bi-upload"></i> رفع</button>
+                    <hr>
+                    <div id="risk_champion-files" class="files-list"></div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- [إصلاح] إظهار سلة المحذوفات للمدير فقط -->
     {% if current_user.role.name == 'Admin' %}
-        <div class="col-md-3 mb-4">
-            <div class="card report-card h-100">
-                <div class="card-body text-center">
-                    <i class="bi bi-calendar-quarter fs-1 text-primary mb-3"></i>
-                    <h5 class="card-title">تقارير ربع سنوية</h5>
-                    <p class="card-text small">تقارير الإدارة الرسمية</p>
-                    <button class="btn btn-warning w-100" onclick="uploadFile('quarterly')"><i class="bi bi-upload"></i> رفع</button>
-                    <hr>
-                    <div id="quarterly-files" class="files-list"></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-4">
-            <div class="card report-card h-100">
-                <div class="card-body text-center">
-                    <i class="bi bi-calendar2-half fs-1 text-info mb-3"></i>
-                    <h5 class="card-title">تقارير نصف سنوية</h5>
-                    <p class="card-text small">تقارير الإدارة الرسمية</p>
-                    <button class="btn btn-warning w-100" onclick="uploadFile('semi_annual')"><i class="bi bi-upload"></i> رفع</button>
-                    <hr>
-                    <div id="semi_annual-files" class="files-list"></div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 mb-4">
-            <div class="card report-card h-100">
-                <div class="card-body text-center">
-                    <i class="bi bi-calendar-event fs-1 text-success mb-3"></i>
-                    <h5 class="card-title">تقارير سنوية</h5>
-                    <p class="card-text small">تقارير الإدارة الرسمية</p>
-                    <button class="btn btn-warning w-100" onclick="uploadFile('annual')"><i class="bi bi-upload"></i> رفع</button>
-                    <hr>
-                    <div id="annual-files" class="files-list"></div>
-                </div>
-            </div>
+        <div id="archived-section" class="mt-5" style="display: none;">
+            <h3 class="mb-3"><i class="bi bi-archive-fill"></i> سلة المحذوفات (التقارير المؤرشفة)</h3>
+            <ul id="archived-files-list" class="list-group"></ul>
         </div>
     {% endif %}
-
-    <!-- إظهار تقارير رواد المخاطر للجميع (المدير ورائد المخاطر) -->
-    <div class="col-md-3 mb-4">
-        <div class="card report-card h-100">
-            <div class="card-body text-center">
-                <i class="bi bi-person-workspace fs-1 text-warning mb-3"></i>
-                <h5 class="card-title">
-                    {% if current_user.role.name == 'Admin' %}
-                        تقارير رواد المخاطر
-                    {% else %}
-                        تقاريري المرفوعة
-                    {% endif %}
-                </h5>
-                <p class="card-text small">الملفات المرفوعة من الفريق</p>
-                <button class="btn btn-warning w-100" onclick="uploadFile('risk_champion')"><i class="bi bi-upload"></i> رفع</button>
-                <hr>
-                <div id="risk_champion-files" class="files-list"></div>
-            </div>
-        </div>
-    </div>
 </div>
-
-<!-- إظهار سلة المحذوفات للمدير فقط -->
-{% if current_user.role.name == 'Admin' %}
-    <div id="archived-section" class="mt-5" style="display: none;">
-        <h3 class="mb-3"><i class="bi bi-archive-fill"></i> سلة المحذوفات (التقارير المؤرشفة)</h3>
-        <ul id="archived-files-list" class="list-group"></ul>
-    </div>
-{% endif %}
-
 {% endblock %}
+
 
 {% block scripts %}
 <script>
@@ -190,4 +193,5 @@
     });
 </script>
 {% endblock %}
+
 
