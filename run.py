@@ -188,56 +188,12 @@ def uploaded_report_file(report_type, filename):
     report_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
     return send_from_directory(report_path, filename)
 
+# هذا هو الكود القديم الذي يجب حذفه بالكامل
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('home'))
+    # ... كل محتوى دالة login القديمة ...
 
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        user = User.query.filter_by(username=username).first()
-
-        # 1. التحقق إذا كان الحساب مقفلاً
-        if user and user.account_locked_until and user.account_locked_until > datetime.utcnow():
-            remaining_time = user.account_locked_until - datetime.utcnow()
-            minutes_left = (remaining_time.seconds // 60) + 1
-            flash(f'تم قفل الحساب مؤقتاً بسبب كثرة المحاولات الفاشلة. يرجى المحاولة مرة أخرى بعد {minutes_left} دقيقة.', 'danger')
-            return render_template('login.html')
-
-        # 2. التحقق من صحة كلمة المرور
-        if user and user.check_password(password):
-            # تسجيل دخول ناجح: إعادة تعيين عداد الفشل وتسجيل الدخول
-            user.failed_login_attempts = 0
-            user.account_locked_until = None
-            db.session.commit()
-            
-            login_user(user)
-            session['is_admin'] = (user.username == 'admin')
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('home'))
-        else:
-            # تسجيل دخول فاشل
-            if user:
-                user.failed_login_attempts += 1
-                if user.failed_login_attempts >= 5:
-                    # قفل الحساب لمدة 15 دقيقة
-                    user.account_locked_until = datetime.utcnow() + timedelta(minutes=15)
-                    user.failed_login_attempts = 0 # إعادة تعيين العداد بعد القفل
-                    flash('لقد تجاوزت عدد المحاولات المسموح بها. تم قفل الحساب لمدة 15 دقيقة.', 'danger')
-                else:
-                    remaining_attempts = 5 - user.failed_login_attempts
-                    flash(f'فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور. (متبقي {remaining_attempts} محاولات)', 'warning')
-                db.session.commit()
-            else:
-                # إذا كان اسم المستخدم غير موجود أصلاً
-                flash('فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور.', 'danger')
-            
-            # هذا السطر يعالج حالة الفشل في POST
-            return render_template('login.html')
-
-    # ▼▼▼ هذا هو السطر الحاسم الذي يعالج طلب GET ▼▼▼
-    return render_template('login.html')
+# ... قد تكون هناك دوال أخرى خاطئة هنا ...
 
 
 @app.route('/logout')
@@ -955,6 +911,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
