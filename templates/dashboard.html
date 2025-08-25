@@ -67,14 +67,15 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">
-            {% if current_user.username == 'reporter' %}
+            {% if current_user.role.name == 'Reporter' %} <!-- [تعديل 1] -->
                 الإبلاغ عن خطر جديد
             {% else %}
                 سجل المخاطر
             {% endif %}
         </h2>
         <div>
-            {% if current_user.username in ['admin', 'testuser'] %}
+            <!-- [تعديل 2] التحقق من الدور بدلاً من اسم المستخدم -->
+            {% if current_user.role.name in ['Admin', 'Pioneer'] %}
                 <button id="download-csv-btn" class="btn btn-success"><i class="bi bi-download"></i> تحميل سجل المخاطر</button>
             {% endif %}
             <button id="add-risk-btn" class="btn btn-add-risk" disabled>
@@ -84,7 +85,7 @@
         </div>
     </div>
 
-    {% if current_user.username != 'reporter' %}
+    {% if current_user.role.name != 'Reporter' %} <!-- [تعديل 3] -->
         <div class="card filter-card p-3 mb-4">
             <div class="row g-3 align-items-end">
                 <div class="col-md-6"><label class="form-label">بحث شامل</label><div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input type="text" id="search-all" class="form-control" placeholder="ابحث في الكود، العنوان، الوصف..."></div></div>
@@ -98,7 +99,6 @@
                     <tr>
                         <th>كود الخطر</th>
                         <th class="col-creation-date">تاريخ الإنشاء</th>
-                        <!-- --- [تعديل] إضافة عمود مصدر الخطر --- -->
                         <th>مصدر الخطر</th>
                         <th class="col-title">عنوان الخطر</th>
                         <th class="col-description">وصف الخطر</th>
@@ -127,11 +127,24 @@
 
     <div class="modal fade" id="riskModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><form id="riskForm" enctype="multipart/form-data"><div class="modal-header"><h5 class="modal-title" id="riskModalLabel">إضافة خطر جديد</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="riskId" name="id"><div class="row g-3" id="risk-form-fields"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>
     
-    {% if current_user.username != 'reporter' %}<div id="contextMenu" class="context-menu"><div class="context-menu-item" id="edit-option"><i class="bi bi-pencil-square"></i> تعديل</div><div class="context-menu-item" id="delete-option"><i class="bi bi-trash-fill"></i> حذف (أرشفة)</div></div>{% endif %}
+    <!-- [تعديل 4] التحقق من الدور لإظهار قائمة السياق -->
+    {% if current_user.role.name in ['Admin', 'Pioneer'] %}
+        <div id="contextMenu" class="context-menu">
+            <div class="context-menu-item" id="edit-option"><i class="bi bi-pencil-square"></i> تعديل</div>
+            <div class="context-menu-item" id="delete-option"><i class="bi bi-trash-fill"></i> حذف (أرشفة)</div>
+        </div>
+    {% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // [تعديل 5] تمرير اسم الدور بدلاً من اسم المستخدم
+    const userRole = "{{ current_user.role.name }}";
+    const currentUserId = {{ current_user.id }};
+    // [تعديل 6] متغير جديد لتحديد صلاحيات التعديل
+    const canEditOrDelete = ["Admin", "Pioneer"].includes(userRole);
+    const isAdmin = userRole === "Admin";
+
     const AppState = {
         allRisks: [],
         filteredRisks: [],
@@ -148,7 +161,7 @@
             AppState.riskModalInstance = new bootstrap.Modal(riskModalElement);
         }
         initializeStaticEventListeners();
-        if (userRole !== "reporter") {
+        if (userRole !== "Reporter") {
             loadInitialDataAndSetupUI();
         } else {
             const addRiskBtn = document.getElementById('add-risk-btn');
@@ -187,7 +200,7 @@
         const downloadBtn = document.getElementById('download-csv-btn');
         if (addRiskButton) {
             addRiskButton.addEventListener('click', () => {
-                if (AppState.isDataLoaded || userRole === 'reporter') {
+                if (AppState.isDataLoaded || userRole === 'Reporter') {
                     if (AppState.riskModalInstance) {
                         prepareAddModal(AppState.riskModalInstance);
                     }
@@ -230,7 +243,8 @@
                 if (!row) return;
                 const risk = AppState.allRisks.find(r => r.id == row.dataset.riskId);
                 if (!risk) return;
-                if (isAdmin || (userRole === "testuser" && risk.user_id === currentUserId)) {
+                // [تعديل 7] استخدام المتغير الجديد للتحقق من صلاحية قائمة السياق
+                if (canEditOrDelete) {
                     AppState.currentRiskIdForContext = row.dataset.riskId;
                     contextMenu.style.top = `${event.pageY}px`;
                     contextMenu.style.left = `${event.pageX}px`;
@@ -238,22 +252,24 @@
                 }
             });
         }
-        document.addEventListener('click', () => { if (contextMenu) contextMenu.style.display = 'none'; });
-        const editOption = document.getElementById('edit-option');
-        if (editOption) {
-            editOption.addEventListener('click', () => {
-                if (AppState.currentRiskIdForContext && AppState.riskModalInstance) {
-                    prepareEditModal(AppState.currentRiskIdForContext, AppState.riskModalInstance);
-                }
-            });
-        }
-        const deleteOption = document.getElementById('delete-option');
-        if (deleteOption) {
-            deleteOption.addEventListener('click', () => {
-                if (AppState.currentRiskIdForContext) {
-                    confirmArchive(AppState.currentRiskIdForContext);
-                }
-            });
+        if (contextMenu) {
+            document.addEventListener('click', () => { if (contextMenu) contextMenu.style.display = 'none'; });
+            const editOption = document.getElementById('edit-option');
+            if (editOption) {
+                editOption.addEventListener('click', () => {
+                    if (AppState.currentRiskIdForContext && AppState.riskModalInstance) {
+                        prepareEditModal(AppState.currentRiskIdForContext, AppState.riskModalInstance);
+                    }
+                });
+            }
+            const deleteOption = document.getElementById('delete-option');
+            if (deleteOption) {
+                deleteOption.addEventListener('click', () => {
+                    if (AppState.currentRiskIdForContext) {
+                        confirmArchive(AppState.currentRiskIdForContext);
+                    }
+                });
+            }
         }
     }
 
@@ -287,8 +303,9 @@
             const riskLevelColor = riskLevelColors[risk.risk_level] || '#6c757d';
             let attachmentHtml = 'لا يوجد';
             if (risk.attachment_filename) {
-                const canDelete = isAdmin || (userRole === "testuser" && risk.user_id === currentUserId);
-                const deleteIcon = canDelete ? `<i class="bi bi-trash3-fill delete-attachment-icon" onclick="confirmDeleteAttachment(event, ${risk.id})"></i>` : '';
+                // [تعديل 8] استخدام المتغير الجديد للتحقق من صلاحية حذف المرفق
+                const canDeleteAttachment = canEditOrDelete;
+                const deleteIcon = canDeleteAttachment ? `<i class="bi bi-trash3-fill delete-attachment-icon" onclick="confirmDeleteAttachment(event, ${risk.id})"></i>` : '';
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
             }
             const gregorianDate = toKsaTime(risk.created_at);
@@ -313,7 +330,6 @@
             const proactiveHtml = `<div class="editable-field" data-field="proactive_actions" data-risk-id="${risk.id}"><div class="text-display"><span>${proactive.original}</span>${proactive.improvement ? `<span class="improvement-text">${proactive.improvement}</span>` : ''}</div><div class="inline-edit-area"><textarea class="form-control"></textarea><div class="mt-1 d-flex gap-2"><button class="btn btn-primary btn-sm btn-save">حفظ</button><button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button></div></div><button class="btn btn-sm edit-action-btn"><i class="bi bi-pencil-fill"></i></button></div>`;
             const immediateHtml = `<div class="editable-field" data-field="immediate_actions" data-risk-id="${risk.id}"><div class="text-display"><span>${immediate.original}</span>${immediate.improvement ? `<span class="improvement-text">${immediate.improvement}</span>` : ''}</div><div class="inline-edit-area"><textarea class="form-control"></textarea><div class="mt-1 d-flex gap-2"><button class="btn btn-primary btn-sm btn-save">حفظ</button><button class="btn btn-secondary btn-sm btn-cancel">إلغاء</button></div></div><button class="btn btn-sm edit-action-btn"><i class="bi bi-pencil-fill"></i></button></div>`;
 
-            // --- [تعديل] إضافة حقل مصدر الخطر ---
             row.innerHTML = `
                 <td class="${codeCellClass}">${risk.risk_code || risk.id}</td>
                 <td class="col-creation-date">${gregorianDate}</td>
@@ -355,9 +371,10 @@
             const cancelButton = editArea.querySelector('.btn-cancel');
 
             const lowEffectivenessValues = ['متوسط', 'ضعيف', 'غير مرضي'];
-            const canEdit = lowEffectivenessValues.includes(risk.action_effectiveness);
+            // [تعديل 9] استخدام المتغير الجديد للتحقق من صلاحية التعديل المباشر
+            const canPerformInlineEdit = canEditOrDelete && lowEffectivenessValues.includes(risk.action_effectiveness);
 
-            if (!canEdit) {
+            if (!canPerformInlineEdit) {
                 editButton.style.display = 'none';
                 return;
             }
@@ -447,7 +464,7 @@
             if (response.ok) {
                 modalInstance.hide();
                 showToast(result.message || 'تم الحفظ بنجاح');
-                if (userRole !== "reporter") { await loadInitialDataAndSetupUI(); }
+                if (userRole !== "Reporter") { await loadInitialDataAndSetupUI(); }
             } else { showToast(result.message || 'حدث خطأ', 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); } finally {
             submitButton.disabled = false;
@@ -458,7 +475,7 @@
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
         let fieldsHtml = '';
-        if (role === 'reporter') {
+        if (role === 'Reporter') {
             fieldsHtml = `<div class="col-12"><label class="form-label">وصف الخطر</label><textarea class="form-control" name="description" rows="3" required>${risk.description || ''}</textarea></div><div class="col-md-6"><label class="form-label">موقع الخطر</label><input type="text" class="form-control" name="risk_location" value="${risk.risk_location || ''}" required></div><div class="col-md-6"><label class="form-label">رقم التواصل (اختياري)</label><input type="text" class="form-control" name="owner" value="${risk.owner || ''}"></div><div class="col-12"><label class="form-label">إرفاق ملف (اختياري)</label><input class="form-control" type="file" name="attachment"></div>`;
         } else {
             const allCategories = ["المخاطر الصحية", "مخاطر المعامل العلمية والهندسية", "مخاطر الوثائق", "مخاطر الموارد البشرية", "مخاطر الإعلام والصورة الذهنية", "المخاطر المالية", "المخاطر القانونية", "المخاطر الطبيعية والمنشآت والخدمات العامة والحرائق", "مخاطر جيوسياسية", "مخاطر تقنية المعلومات والامن السيبراني"];
@@ -477,7 +494,6 @@
             const riskTypeChecked = (risk.risk_type === 'فرصة') ? 'checked' : '';
             const threatTypeChecked = (risk.risk_type !== 'فرصة') ? 'checked' : '';
 
-            // --- [تعديل] إضافة حقل مصدر الخطر ---
             const sourceOptions = ['داخلي', 'خارجي'].map(s => `<option value="${s}" ${risk.source === s ? 'selected' : ''}>${s}</option>`).join('');
 
             const cleanTextForTextarea = (text) => {
@@ -564,12 +580,10 @@
         showToast('لا توجد بيانات لتحميلها.', 'info');
         return;
         }
-        // --- [تعديل] إضافة حقل مصدر الخطر إلى الترويسة ---
         const headers = ['كود الخطر', 'تاريخ الإنشاء', 'مصدر الخطر', 'عنوان الخطر', 'وصف الخطر', 'نوع الخطر', 'موقع الخطر', 'الفئة', 'مستوى الخطورة', 'مالك الخطر', 'الإجراءات الإستباقية', 'الإجراءات الفورية', 'تاريخ إكمال الإجراءات', 'فعالية الإجراءات', 'ارتباط الخطر', 'الحالة', 'المرفق', 'خطة استعادة العمل', 'الدروس المستفادة'];
         let csvContent = headers.join(';') + '\n';
         AppState.filteredRisks.forEach(risk => {
             const cleanText = (text) => `"${(text || '').replace(/\|\|IMPROVEMENT\|\|/g, ' (تحسين): ').replace(/"/g, '""')}"`;
-            // --- [تعديل] إضافة حقل مصدر الخطر إلى بيانات الصف ---
             const row = [
                 risk.risk_code || risk.id, 
                 toKsaTime(risk.created_at), 
@@ -638,4 +652,3 @@
     }
 </script>
 {% endblock %}
-
