@@ -4,6 +4,7 @@
 
 {% block styles %}
     <style>
+        /* --- لا يوجد تغييرات في هذا القسم --- */
         .table-wrapper { background-color: var(--light-text); border-radius: 15px; padding: 1.5rem; border: 1px solid var(--border-color); }
         .table { color: var(--light-text); background-color: var(--light-text); }
         .table th, .table td { border-color: #dee2e6; vertical-align: middle; }
@@ -40,22 +41,8 @@
         .table .col-title { min-width: 220px; }
         .table .col-creation-date, .table .col-completion-date, .table .col-linked-risk { min-width: 150px; }
         .editable-field { position: relative; padding-top: 5px; }
-        .edit-action-btn {
-            display: none;
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            cursor: pointer;
-            font-size: 0.75rem;
-            padding: 1px 4px;
-            border-radius: 3px;
-            color: var(--dark-blue);
-            background-color: var(--accent-yellow);
-            z-index: 2;
-        }
-        .editable-field:hover .edit-action-btn {
-            display: inline-block;
-        }
+        .edit-action-btn { display: none; position: absolute; top: 2px; left: 2px; cursor: pointer; font-size: 0.75rem; padding: 1px 4px; border-radius: 3px; color: var(--dark-blue); background-color: var(--accent-yellow); z-index: 2; }
+        .editable-field:hover .edit-action-btn { display: inline-block; }
         .improvement-text { color: #dc3545; font-weight: bold; display: block; margin-top: 5px; padding-top: 5px; border-top: 1px dashed #ff00004a; }
         .inline-edit-area { display: none; width: 100%; }
         .inline-edit-area textarea { min-height: 80px; margin-bottom: 5px; }
@@ -65,7 +52,7 @@
 {% block content %}
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="mb-0">
-            <!-- [تعديل 1] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
+            <!-- [تعديل] استخدام نظام الأدوار بدلاً من اسم المستخدم -->
             {% if current_user.role.name == 'Reporter' %}
                 الإبلاغ عن خطر جديد
             {% else %}
@@ -73,18 +60,25 @@
             {% endif %}
         </h2>
         <div>
-            <!-- [تعديل 2] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
+            <!-- [تعديل] إظهار زر التحميل للمدير ورائد المخاطر -->
             {% if current_user.role.name in ['Admin', 'Pioneer'] %}
                 <button id="download-csv-btn" class="btn btn-success"><i class="bi bi-download"></i> تحميل سجل المخاطر</button>
             {% endif %}
-            <button id="add-risk-btn" class="btn btn-add-risk" disabled>
-                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-                جاري تحميل البيانات...
-            </button>
+            <!-- [تعديل] إظهار زر الإضافة للمدير ورائد المخاطر، وزر الإبلاغ للمُبلّغ -->
+            {% if current_user.role.name != 'Reporter' %}
+                <button id="add-risk-btn" class="btn btn-add-risk" disabled>
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    جاري تحميل البيانات...
+                </button>
+            {% else %}
+                <button id="add-risk-btn" class="btn btn-add-risk">
+                    <i class="bi bi-plus-circle-fill"></i> الإبلاغ عن خطر
+                </button>
+            {% endif %}
         </div>
     </div>
 
-    <!-- [تعديل 3] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
+    <!-- [تعديل] استخدام نظام الأدوار لعرض المحتوى المناسب -->
     {% if current_user.role.name != 'Reporter' %}
         <div class="card filter-card p-3 mb-4">
             <div class="row g-3 align-items-end">
@@ -112,17 +106,12 @@
 
     <div class="modal fade" id="riskModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><form id="riskForm" enctype="multipart/form-data"><div class="modal-header"><h5 class="modal-title" id="riskModalLabel">إضافة خطر جديد</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="riskId" name="id"><div class="row g-3" id="risk-form-fields"></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button><button type="submit" class="btn btn-primary">حفظ</button></div></form></div></div></div>
     
-    <!-- [تعديل 4] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
-    {% if current_user.role.name in ['Admin', 'Pioneer'] %}<div id="contextMenu" class="context-menu"><div class="context-menu-item" id="edit-option"><i class="bi bi-pencil-square"></i> تعديل</div><div class="context-menu-item" id="delete-option"><i class="bi bi-trash-fill"></i> حذف (أرشفة)</div></div>{% endif %}
+    <!-- [تعديل] إظهار قائمة السياق للمدير ورائد المخاطر -->
+    {% if current_user.role.name != 'Reporter' %}<div id="contextMenu" class="context-menu"><div class="context-menu-item" id="edit-option"><i class="bi bi-pencil-square"></i> تعديل</div><div class="context-menu-item" id="delete-option"><i class="bi bi-trash-fill"></i> حذف (أرشفة)</div></div>{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // [تعديل 5] تحديث المتغيرات الأساسية للاعتماد على الأدوار بدلاً من أسماء المستخدمين
-    const userRole = "{{ current_user.role.name }}";
-    const currentUserId = {{ current_user.id }};
-    const isAdmin = userRole === "Admin";
-
     const AppState = {
         allRisks: [],
         filteredRisks: [],
@@ -139,7 +128,7 @@
             AppState.riskModalInstance = new bootstrap.Modal(riskModalElement);
         }
         initializeStaticEventListeners();
-        // [تعديل 6] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+        // [تعديل] استخدام الدور الصحيح
         if (userRole !== "Reporter") {
             loadInitialDataAndSetupUI();
         } else {
@@ -159,7 +148,10 @@
                 if (data.status_options) { AppState.statusOptions = data.status_options; }
                 AppState.isDataLoaded = true;
                 const addRiskBtn = document.getElementById('add-risk-btn');
-                addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> إضافة خطر جديد`;
+                // [تعديل] إظهار الزر الصحيح للمدير ورائد المخاطر
+                if (userRole === "Admin" || userRole === "Pioneer") {
+                    addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> إضافة خطر جديد`;
+                }
                 addRiskBtn.disabled = false;
                 initializeDynamicEventListeners();
                 applyFiltersAndRender();
@@ -179,7 +171,7 @@
         const downloadBtn = document.getElementById('download-csv-btn');
         if (addRiskButton) {
             addRiskButton.addEventListener('click', () => {
-                // [تعديل 7] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                // [تعديل] استخدام الدور الصحيح
                 if (AppState.isDataLoaded || userRole === 'Reporter') {
                     if (AppState.riskModalInstance) {
                         prepareAddModal(AppState.riskModalInstance);
@@ -223,7 +215,7 @@
                 if (!row) return;
                 const risk = AppState.allRisks.find(r => r.id == row.dataset.riskId);
                 if (!risk) return;
-                // [تعديل 8] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                // [تعديل] استخدام الدور الصحيح لصلاحية قائمة السياق
                 if (isAdmin || (userRole === "Pioneer" && risk.user_id === currentUserId)) {
                     AppState.currentRiskIdForContext = row.dataset.riskId;
                     contextMenu.style.top = `${event.pageY}px`;
@@ -281,7 +273,7 @@
             const riskLevelColor = riskLevelColors[risk.risk_level] || '#6c757d';
             let attachmentHtml = 'لا يوجد';
             if (risk.attachment_filename) {
-                // [تعديل 9] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                // [تعديل] استخدام الدور الصحيح لصلاحية حذف المرفق
                 const canDelete = isAdmin || (userRole === "Pioneer" && risk.user_id === currentUserId);
                 const deleteIcon = canDelete ? `<i class="bi bi-trash3-fill delete-attachment-icon" onclick="confirmDeleteAttachment(event, ${risk.id})"></i>` : '';
                 attachmentHtml = `${deleteIcon} <a href="/uploads/${risk.attachment_filename}" target="_blank" class="attachment-link">${risk.attachment_filename}</a>`;
@@ -421,7 +413,7 @@
             if (response.ok) {
                 modalInstance.hide();
                 showToast(result.message || 'تم الحفظ بنجاح');
-                // [تعديل 10] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                // [تعديل] استخدام الدور الصحيح
                 if (userRole !== "Reporter") { await loadInitialDataAndSetupUI(); }
             } else { showToast(result.message || 'حدث خطأ', 'error'); }
         } catch (error) { showToast('فشل الاتصال بالخادم', 'error'); } finally {
@@ -433,18 +425,18 @@
     function generateFormFields(role, risk = {}) {
         const formFieldsContainer = document.getElementById('risk-form-fields');
         let fieldsHtml = '';
-        // [تعديل 11] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+        // [تعديل] استخدام الدور الصحيح
         if (role === 'Reporter') {
             fieldsHtml = `<div class="col-12"><label class="form-label">وصف الخطر</label><textarea class="form-control" name="description" rows="3" required>${risk.description || ''}</textarea></div><div class="col-md-6"><label class="form-label">موقع الخطر</label><input type="text" class="form-control" name="risk_location" value="${risk.risk_location || ''}" required></div><div class="col-md-6"><label class="form-label">رقم التواصل (اختياري)</label><input type="text" class="form-control" name="owner" value="${risk.owner || ''}"></div><div class="col-12"><label class="form-label">إرفاق ملف (اختياري)</label><input class="form-control" type="file" name="attachment"></div>`;
         } else {
             const allCategories = ["المخاطر الصحية", "مخاطر المعامل العلمية والهندسية", "مخاطر الوثائق", "مخاطر الموارد البشرية", "مخاطر الإعلام والصورة الذهنية", "المخاطر المالية", "المخاطر القانونية", "المخاطر الطبيعية والمنشآت والخدمات العامة والحرائق", "مخاطر جيوسياسية", "مخاطر تقنية المعلومات والامن السيبراني"];
             const categoryOptions = allCategories.map(cat => `<option value="${cat}" ${risk.category === cat ? 'selected' : ''}>${cat}</option>`).join('');
+            // [تصحيح] السطر الكامل والصحيح هنا
             const probabilityOptions = [{v:1, t:'نادر'}, {v:2, t:'متوقع'}, {v:3, t:'محتمل'}, {v:4, t:'وارد'}, {v:5, t:'مؤكد'}].map(p => `<option value="${p.v}" ${risk.probability == p.v ? 'selected' : ''}>${p.t}</option>`).join('');
             const impactOptions = [{v:1, t:'ضئيل'}, {v:2, t:'محدود'}, {v:3, t:'مؤثر'}, {v:4, t:' مرتفع/حرج'}, {v:5, t:' عالي جدا/كارثي'}].map(i => `<option value="${i.v}" ${risk.impact == i.v ? 'selected' : ''}>${i.t}</option>`).join('');
-            const effectivenessOptions = ['ممتاز', 'جيد', 'متوسط', 'ضعيف', 'غير مرضي'].map(e => `<option value="${e}" ${risk.action_effectiveness === e ? 'selected' : ''}>${e}</option>`).join('');
+                        const effectivenessOptions = ['ممتاز', 'جيد', 'متوسط', 'ضعيف', 'غير مرضي'].map(e => `<option value="${e}" ${risk.action_effectiveness === e ? 'selected' : ''}>${e}</option>`).join('');
             const statusOptionsHtml = AppState.statusOptions.map(s => `<option value="${s}" ${risk.status === s ? 'selected' : ''}>${s}</option>`).join('');
             
-            // ... بداية دالة generateFormFields
             const linkedRiskOptions = AppState.allRiskCodes
                 .filter(code => !risk.risk_code || code !== risk.risk_code)
                 .map(code => `<option value="${code}" ${risk.linked_risk_id === code ? 'selected' : ''}>${code}</option>`).join('');
@@ -588,3 +580,4 @@
     }
 </script>
 {% endblock %}
+
