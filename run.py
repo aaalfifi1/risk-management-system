@@ -44,6 +44,13 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
+      # ▼▼▼ [إضافة] حقول ربط الدور وإدارة الحساب ▼▼▼
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    account_locked_until = db.Column(db.DateTime, nullable=True)
+    reset_token = db.Column(db.String(100), nullable=True)
+    reset_token_expiration = db.Column(db.DateTime, nullable=True)
+    # ▲▲▲ نهاية الإضافة ▲▲▲
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
     reports = db.relationship('Report', backref='uploaded_by', lazy=True)
@@ -104,6 +111,15 @@ class Report(db.Model):
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
+# ▼▼▼ [إضافة] نموذج الأدوار (Roles) ▼▼▼
+class Role(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    users = db.relationship('User', backref='role', lazy=True)
+
+    def __repr__(self):
+        return f'<Role {self.name}>'
+# ▲▲▲ نهاية الإضافة ▲▲▲
 
 # --- دوال مساعدة ---
 def send_email(to_email, subject, html_content):
@@ -988,22 +1004,36 @@ def get_unread_reports_status():
     return jsonify({'has_unread': unread_count > 0})
 
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
+# --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
-        db.create_all() 
-        
+        db.create_all()
+
+        # ▼▼▼ [تعديل] إنشاء الأدوار أولاً ▼▼▼
+        roles = ['Admin', 'Risk Champion', 'Reporter']
+        for r_name in roles:
+            if not Role.query.filter_by(name=r_name).first():
+                db.session.add(Role(name=r_name))
+        db.session.commit()
+
+        # ▼▼▼ [تعديل] إنشاء المستخدمين وربطهم بالأدوار ▼▼▼
+        admin_role = Role.query.filter_by(name='Admin').first()
+        champion_role = Role.query.filter_by(name='Risk Champion').first()
+        reporter_role = Role.query.filter_by(name='Reporter').first()
+
         users_to_create = {
-            'admin': ('Admin@2025', 'twag1212@gmail.com'),
-            'testuser': ('Test@1234', 'testuser@example.com'),
-            'reporter': ('Reporter@123', 'reporter@example.com')
+            'admin': ('Admin@2025', 'twag1212@gmail.com', admin_role),
+            'champion': ('Champion@1234', 'champion@example.com', champion_role),
+            'reporter': ('Reporter@123', 'reporter@example.com', reporter_role)
         }
-        for username, (password, email) in users_to_create.items():
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                new_user = User(username=username, email=email)
+
+        for username, (password, email, role) in users_to_create.items():
+            if not User.query.filter_by(username=username).first():
+                new_user = User(username=username, email=email, role_id=role.id)
                 new_user.set_password(password)
                 db.session.add(new_user)
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
