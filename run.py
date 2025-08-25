@@ -194,9 +194,13 @@ def audit_log():
 @login_required
 @roles_required(['Admin'])
 def manage_users():
-    # في المستقبل، يمكننا جلب المستخدمين من قاعدة البيانات وعرضهم هنا
-    # users = User.query.all()
-    return render_template('manage_users.html') #, users=users)
+    # --- [بداية الإضافة] ---
+    # 1. جلب جميع الأدوار من قاعدة البيانات
+    roles = Role.query.all()
+    # 2. تمرير قائمة الأدوار إلى القالب
+    return render_template('manage_users.html', roles=roles)
+    # --- [نهاية الإضافة] ---
+
 # --- نهاية الإضافة ---
 
 @app.route('/uploads/<filename>')
@@ -812,6 +816,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
