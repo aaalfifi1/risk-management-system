@@ -382,7 +382,7 @@ def download_risk_log():
 def add_risk():
     try:
         data = request.form
-        user_role = current_user.username
+        user_role = current_user.role.name
         is_read_status = (user_role == 'admin')
         target_date = None
         if data.get('target_completion_date'):
@@ -391,7 +391,7 @@ def add_risk():
             except ValueError:
                 pass
 
-        if user_role == 'reporter':
+       if user_role == 'Reporter':
             if not data.get('description') or not data.get('risk_location'): return jsonify({'success': False, 'message': 'وصف الخطر وموقعه حقول مطلوبة.'}), 400
             new_risk = Risk(title="", description=data['description'], category="", probability=1, impact=1, risk_level="", owner=data.get('owner', 'لم يتم توفيره'), risk_location=data['risk_location'], user_id=current_user.id, status='جديد', is_read=is_read_status)
         else:
@@ -432,7 +432,7 @@ def add_risk():
         
         db.session.add(new_risk)
         db.session.flush()
-        source_code = {'admin': 'ADM', 'testuser': 'RPN'}.get(user_role, 'REP')
+        source_code = {'Admin': 'ADM', 'Pioneer': 'PNR'}.get(user_role, 'REP')
         new_risk.risk_code = f"{source_code}_{new_risk.created_at.year}_{new_risk.id:04d}"
         log_entry = AuditLog(user_id=current_user.id, action='إضافة', details=f"إضافة خطر جديد بكود: '{new_risk.risk_code}'", risk_id=new_risk.id)
         db.session.add(log_entry)
@@ -457,7 +457,7 @@ def add_risk():
 def update_risk(risk_id):
     try:
         risk = Risk.query.get_or_404(risk_id)
-        if current_user.username != 'admin' and risk.user_id != current_user.id: 
+       if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
         
         data = request.form
@@ -515,7 +515,7 @@ def update_risk(risk_id):
         linked_risk_value = data.get('linked_risk_id')
         risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
 
-        if current_user.username != 'admin':
+      if current_user.role.name != 'Admin':
             risk.is_read = False
             risk.was_modified = True
         else:
@@ -593,7 +593,7 @@ def update_risk_action(risk_id):
 def get_risks():
     all_risk_codes = [r.risk_code for r in Risk.query.filter(Risk.risk_code.isnot(None), Risk.is_deleted==False).all()]
     query = Risk.query.filter_by(is_deleted=False)
-    if current_user.username != 'admin': 
+   if current_user.role.name != 'Admin':
         query = query.filter_by(user_id=current_user.id)
     risks = query.order_by(Risk.created_at.desc()).all()
     risk_list = []
@@ -914,7 +914,7 @@ def mark_as_read():
 @login_required
 def get_report_files():
     query = Report.query
-    if current_user.username == 'testuser':
+    if current_user.role.name == 'Pioneer':
         query = query.filter_by(uploaded_by_id=current_user.id)
     all_reports = query.order_by(Report.uploaded_at.desc()).all()
     files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
@@ -1051,6 +1051,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
