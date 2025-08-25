@@ -15,7 +15,7 @@ from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import traceback
-
+import secrets
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
 
@@ -42,6 +42,9 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
+      # حقول استعادة كلمة المرور
+    reset_token = db.Column(db.String(100), nullable=True, unique=True)
+    reset_token_expiration = db.Column(db.DateTime, nullable=True)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
     reports = db.relationship('Report', backref='uploaded_by', lazy=True)
@@ -191,6 +194,75 @@ def login():
             return redirect(next_page or url_for('home'))
         flash('فشل تسجيل الدخول. يرجى التحقق من اسم المستخدم وكلمة المرور.', 'danger')
     return render_template('login.html')
+# --- مسارات استعادة كلمة المرور ---
+@app.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            # إنشاء رمز آمن وتاريخ انتهاء صلاحيته
+            token = secrets.token_urlsafe(32)
+            user.reset_token = token
+            user.reset_token_expiration = datetime.utcnow() + timedelta(hours=1) # صالح لمدة ساعة واحدة
+            db.session.commit()
+            
+            # إرسال البريد الإلكتروني
+            reset_url = url_for('reset_with_token', token=token, _external=True)
+            subject = "طلب إعادة تعيين كلمة المرور - نظام إدارة المخاطر"
+            html_content = f"""
+            <div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'>
+                <h2>طلب إعادة تعيين كلمة المرور</h2>
+                <p>مرحباً {user.username},</p>
+                <p>لقد طلبت إعادة تعيين كلمة المرور الخاصة بك في نظام إدارة المخاطر.</p>
+                <p>اضغط على الرابط التالي لتعيين كلمة مرور جديدة. هذا الرابط صالح لمدة ساعة واحدة فقط:</p>
+                <p style='text-align: center;'><a href='{reset_url}' style='background-color: #ffc107; color: #000; padding: 10px 20px; text-decoration: none; border-radius: 5px; font-weight: bold;'>إعادة تعيين كلمة المرور</a></p>
+                <p>إذا لم تطلب أنت هذا الإجراء، يرجى تجاهل هذه الرسالة.</p>
+                <hr>
+                <p>شكراً لك،  
+فريق نظام إدارة المخاطر</p>
+            </div>
+            """
+            send_email(to_email=user.email, subject=subject, html_content=html_content)
+            flash('تم إرسال تعليمات إعادة تعيين كلمة المرور إلى بريدك الإلكتروني.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('البريد الإلكتروني غير مسجل في النظام.', 'danger')
+            
+    return render_template('reset_password_request.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_with_token(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    
+    user = User.query.filter_by(reset_token=token).first()
+    
+    # التحقق من صلاحية الرمز
+    if not user or user.reset_token_expiration < datetime.utcnow():
+        flash('رابط إعادة تعيين كلمة المرور غير صالح أو انتهت صلاحيته.', 'danger')
+        return redirect(url_for('reset_password_request'))
+        
+    if request.method == 'POST':
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if password != confirm_password:
+            flash('كلمتا المرور غير متطابقتين.', 'danger')
+            return render_template('reset_password.html', token=token)
+            
+        # تحديث كلمة المرور وإلغاء الرمز
+        user.set_password(password)
+        user.reset_token = None
+        user.reset_token_expiration = None
+        db.session.commit()
+        
+        flash('تم تغيير كلمة المرور بنجاح. يمكنك الآن تسجيل الدخول.', 'success')
+        return redirect(url_for('login'))
+        
+    return render_template('reset_password.html', token=token)
 
 @app.route('/logout')
 @login_required
@@ -907,4 +979,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
