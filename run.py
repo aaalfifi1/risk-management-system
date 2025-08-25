@@ -1,4 +1,4 @@
-@app.route('/reset_password_request', methods=['GET', 'POST'])# --- المكتبات الأساسية ---
+# --- المكتبات الأساسية ---
 from flask import (Flask, render_template, request, jsonify, redirect, url_for, 
                    send_from_directory, abort, Response, session, flash)
 from flask_sqlalchemy import SQLAlchemy
@@ -15,9 +15,12 @@ from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import traceback
-import secrets
+import secrets # لإنشاء رموز آمنة
+
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
+
+# ... (بقية الكود)
 
 # --- إعدادات التطبيق ومتغيرات البيئة ---
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-default-fallback-secret-key-for-local-dev')
@@ -1017,6 +1020,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
