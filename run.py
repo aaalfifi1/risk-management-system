@@ -497,24 +497,49 @@ def update_risk_action(risk_id):
 @login_required
 def get_risks():
     all_risk_codes = [r.risk_code for r in Risk.query.filter(Risk.risk_code.isnot(None), Risk.is_deleted==False).all()]
+    
     query = Risk.query.filter_by(is_deleted=False)
-    if current_user.role.name != 'Admin': # [تعديل]
+    
+    # --- [هذا هو المنطق الجديد والصحيح] ---
+    # إذا لم يكن المستخدم مديراً، قم بفلترة المخاطر لتعرض فقط تلك التي أضافها هو
+    if current_user.role.name != 'Admin':
         query = query.filter_by(user_id=current_user.id)
+    # المدير سيرى كل المخاطر لأننا لا نطبق أي فلترة إضافية عليه
+    
     risks = query.order_by(Risk.created_at.desc()).all()
+    
     risk_list = []
     for r in risks:
         risk_data = {
-            'id': r.id, 'risk_code': r.risk_code, 'title': r.title, 'description': r.description, 
-            'risk_type': r.risk_type, 'source': r.source, 'category': r.category, 'probability': r.probability, 
-            'impact': r.impact, 'risk_level': r.risk_level, 'owner': r.owner, 'risk_location': r.risk_location, 
-            'proactive_actions': r.proactive_actions, 'immediate_actions': r.immediate_actions, 
-            'action_effectiveness': r.action_effectiveness, 'status': r.status, 'created_at': r.created_at.isoformat(),
-            'residual_risk': r.residual_risk, 'attachment_filename': r.attachment_filename, 'user_id': r.user_id, 
-            'lessons_learned': r.lessons_learned, 'is_read': r.is_read, 'was_modified': r.was_modified,
+            'id': r.id, 
+            'risk_code': r.risk_code, 
+            'title': r.title, 
+            'description': r.description, 
+            'risk_type': r.risk_type,
+            'source': r.source,
+            'category': r.category, 
+            'probability': r.probability, 
+            'impact': r.impact, 
+            'risk_level': r.risk_level, 
+            'owner': r.owner, 
+            'risk_location': r.risk_location, 
+            'proactive_actions': r.proactive_actions, 
+            'immediate_actions': r.immediate_actions, 
+            'action_effectiveness': r.action_effectiveness, 
+            'status': r.status, 
+            'created_at': r.created_at.isoformat(),
+            'residual_risk': r.residual_risk, 
+            'attachment_filename': r.attachment_filename, 
+            'user_id': r.user_id, 
+            'lessons_learned': r.lessons_learned, 
+            'is_read': r.is_read, 
+            'was_modified': r.was_modified,
             'target_completion_date': r.target_completion_date.strftime('%Y-%m-%d') if r.target_completion_date else None,
-            'business_continuity_plan': r.business_continuity_plan, 'linked_risk_id': r.linked_risk_id
+            'business_continuity_plan': r.business_continuity_plan,
+            'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
+        
     return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
 
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
@@ -913,6 +938,7 @@ if __name__ == '__main__':
         db.session.commit()
 
     app.run(debug=True, port=5001)
+
 
 
 
