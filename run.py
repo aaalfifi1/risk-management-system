@@ -21,6 +21,7 @@ import secrets # لإنشاء رموز آمنة
 app = Flask(__name__)
 
 # --- إعدادات التطبيق ومتغيرات البيئة ---
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-default-fallback-secret-key-for-local-dev')
 DATABASE_URL = os.environ.get('DATABASE_URL')
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
@@ -213,6 +214,7 @@ def login():
             db.session.commit()
             
             login_user(user)
+            session.permanent = True 
             session['is_admin'] = (user.username == 'admin')
             next_page = request.args.get('next')
             return redirect(next_page or url_for('home'))
@@ -1004,3 +1006,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
