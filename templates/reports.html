@@ -1,6 +1,3 @@
-<!-- ======================================================================= -->
-<!-- == reports.html - الكود الكامل والنهائي مع تعديل التوقيت == -->
-<!-- ======================================================================= -->
 {% extends "base.html" %}
 
 {% block title %}التقارير - نظام إدارة المخاطر{% endblock %}
@@ -25,7 +22,8 @@
 
 {% block content %}
     <h2 class="mb-4">مركز التقارير</h2>
-    {% if current_user.username == 'admin' %}
+    <!-- [تعديل 1] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
+    {% if current_user.role.name == 'Admin' %}
         <div class="row g-4">
             <div class="col-lg-3 col-md-6"><div class="card text-center p-3 h-100"><div class="card-body d-flex flex-column"><h5 class="card-title"><i class="bi bi-calendar-range-fill d-block mb-3"></i>تقارير ربع سنوية</h5><p class="card-text">تقارير الإدارة الرسمية.</p><button class="btn btn-upload mt-auto" data-bs-toggle="modal" data-bs-target="#uploadModal" data-report-type="quarterly"><i class="bi bi-cloud-arrow-up-fill"></i> رفع</button><hr class="my-4"><h6>الملفات:</h6><ul class="list-group mt-3" id="quarterly-files-list"></ul></div></div></div>
             <div class="col-lg-3 col-md-6"><div class="card text-center p-3 h-100"><div class="card-body d-flex flex-column"><h5 class="card-title"><i class="bi bi-calendar2-event-fill d-block mb-3"></i>تقارير نصف سنوية</h5><p class="card-text">تقارير الإدارة الرسمية.</p><button class="btn btn-upload mt-auto" data-bs-toggle="modal" data-bs-target="#uploadModal" data-report-type="semi_annual"><i class="bi bi-cloud-arrow-up-fill"></i> رفع</button><hr class="my-4"><h6>الملفات:</h6><ul class="list-group mt-3" id="semi_annual-files-list"></ul></div></div></div>
@@ -33,14 +31,19 @@
             <div class="col-lg-3 col-md-6"><div class="card text-center p-3 h-100"><div class="card-body d-flex flex-column"><h5 class="card-title"><i class="bi bi-person-workspace d-block mb-3"></i>تقارير رواد المخاطر</h5><p class="card-text">الملفات المرفوعة من الفريق.</p><button class="btn btn-upload mt-auto disabled" disabled><i class="bi bi-cloud-arrow-up-fill"></i> رفع</button><hr class="my-4"><h6>الملفات:</h6><ul class="list-group mt-3" id="risk_champion-files-list"></ul></div></div></div>
         </div>
         <div id="archived-section-container" class="mt-5" style="display: none;"><div class="archived-section"><h4 class="mb-3"><i class="bi bi-archive-fill"></i> سلة المحذوفات (التقارير المؤرشفة)</h4><ul class="list-group" id="archived-files-list"></ul></div></div>
-    {% elif current_user.username == 'testuser' %}
-        <div class="row justify-content-center g-4"><div class="col-lg-4 col-md-6"><div class="card text-center p-3 h-100"><div class="card-body d-flex flex-column"><h5 class="card-title"><i class="bi bi-file-earmark-arrow-up-fill d-block mb-3"></i>تقارير رائد المخاطر</h5><p class="card-text">هنا يمكنك رفع تقاريرك الخاصة المتعلقة بالمخاطر التي تتابعها.</p><button class="btn btn-upload mt-auto" data-bs-toggle="modal" data-bs-target="#uploadModal" data-report-type="risk_champion"><i class="bi bi-cloud-arrow-up-fill"></i> رفع تقرير جديد</button><hr class="my-4"><h6>الملفات المرفوعة:</h6><ul class="list-group mt-3" id="risk_champion-files-list"></ul></div></div></div></div>
+    <!-- [تعديل 2] الاعتماد على اسم الدور بدلاً من اسم المستخدم -->
+    {% elif current_user.role.name == 'Pioneer' %}
+        <div class="row justify-content-center g-4"><div class="col-lg-4 col-md-6"><div class="card text-center p-3 h-100"><div class="card-body d-flex flex-column"><h5 class="card-title"><i class="bi bi-file-earmark-arrow-up-fill d-block mb-3"></i>تقاريري المرفوعة</h5><p class="card-text">هنا يمكنك رفع تقاريرك الخاصة المتعلقة بالمخاطر التي تتابعها.</p><button class="btn btn-upload mt-auto" data-bs-toggle="modal" data-bs-target="#uploadModal" data-report-type="risk_champion"><i class="bi bi-cloud-arrow-up-fill"></i> رفع تقرير جديد</button><hr class="my-4"><h6>الملفات المرفوعة:</h6><ul class="list-group mt-3" id="risk_champion-files-list"></ul></div></div></div></div>
     {% endif %}
     <div class="modal fade" id="uploadModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><form id="uploadForm"><div class="modal-header"><h5 class="modal-title" id="uploadModalLabel">رفع تقرير جديد</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="reportType" name="report_type"><div class="mb-3"><label for="reportFile" class="form-label">اختر الملف</label><input class="form-control" type="file" id="reportFile" name="report_file" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إغلاق</button><button type="submit" class="btn btn-primary">رفع</button></div></form></div></div></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+    // [تعديل 3] تعريف المتغيرات الجديدة في بداية السكربت
+    const userRole = "{{ current_user.role.name }}";
+    const isAdmin = userRole === "Admin";
+
     document.addEventListener('DOMContentLoaded', function () {
         const uploadModal = new bootstrap.Modal(document.getElementById('uploadModal'));
         const uploadForm = document.getElementById('uploadForm');
@@ -56,7 +59,8 @@
                         updateFileList('annual', data.files.annual);
                         updateFileList('risk_champion', data.files.risk_champion);
                         updateFileList('archived', data.archived_files, true);
-                    } else if (userRole === "testuser") {
+                    // [تعديل 4] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                    } else if (userRole === "Pioneer") {
                         updateFileList('risk_champion', data.files.risk_champion);
                     }
                 }
@@ -77,9 +81,9 @@
                     li.className = 'list-group-item';
                     let iconsHtml = '';
                     if (isArchivedList) { iconsHtml = `<i class="bi bi-arrow-counterclockwise action-icon restore" title="استعادة الملف" onclick="confirmAction('restore', ${file.id})"></i><i class="bi bi-trash3-fill action-icon delete" title="حذف نهائي" onclick="confirmAction('delete', ${file.id})"></i>`; }
-                    else { if (isAdmin || userRole === "testuser") { iconsHtml = `<i class="bi bi-archive-fill action-icon archive" title="أرشفة الملف" onclick="confirmAction('archive', ${file.id})"></i>`; } }
+                    // [تعديل 5] الاعتماد على اسم الدور بدلاً من اسم المستخدم
+                    else { if (isAdmin || userRole === "Pioneer") { iconsHtml = `<i class="bi bi-archive-fill action-icon archive" title="أرشفة الملف" onclick="confirmAction('archive', ${file.id})"></i>`; } }
                     
-                    // --- [التعديل الوحيد هنا] ---
                     li.innerHTML = `<div class="file-info"><a href="/reports_uploads/${file.type}/${file.name}" target="_blank"><i class="bi bi-file-earmark-text"></i> ${file.name}</a><span class="file-date">تاريخ الرفع: ${toKsaTime(file.modified_date)}</span></div><div>${iconsHtml}</div>`;
                     
                     listElement.appendChild(li);
