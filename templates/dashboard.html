@@ -174,29 +174,58 @@
 });
 
 
-    async function loadInitialDataAndSetupUI() {
-        try {
-            const response = await fetch('/api/risks');
-            const data = await response.json();
-            if (data.success) {
-                AppState.allRisks = data.risks;
-                AppState.allRiskCodes = data.all_risk_codes || [];
-                if (data.status_options) { AppState.statusOptions = data.status_options; }
-                AppState.isDataLoaded = true;
-                const addRiskBtn = document.getElementById('add-risk-btn');
-                addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> إضافة خطر جديد`;
-                addRiskBtn.disabled = false;
-                initializeDynamicEventListeners();
-                applyFiltersAndRender();
-            } else {
-                showToast('فشل تحميل البيانات.', 'error');
-                document.getElementById('add-risk-btn').innerHTML = `فشل التحميل`;
-            }
-        } catch (error) {
-            console.error("Fetch error:", error);
-            showToast('خطأ في الاتصال بالخادم.', 'error');
-        }
+  async function loadInitialDataAndSetupUI() {
+    // [الحل] الخطوة 1: التحقق من أن المستخدم لا يزال مسجلاً دخوله
+    // إذا تم تسجيل الخروج بسبب انتهاء المهلة، فإن userRole سيكون 'Guest'
+    if (userRole === 'Guest') {
+        showToast('انتهت صلاحية الجلسة. الرجاء تسجيل الدخول مرة أخرى.', 'info');
+        // انتظر قليلاً ثم أعد تحميل الصفحة ليتم توجيهك إلى صفحة تسجيل الدخول
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+        return; // توقف عن تنفيذ بقية الكود
     }
+
+    const addRiskBtn = document.getElementById('add-risk-btn');
+    try {
+        const response = await fetch('/api/risks');
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Server Error Response:", errorText);
+            showToast(`خطأ من الخادم: ${response.status}`, 'error');
+            addRiskBtn.innerHTML = `خطأ في الخادم`;
+            return;
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+            AppState.allRisks = data.risks;
+            AppState.allRiskCodes = data.all_risk_codes || [];
+            if (data.status_options) { 
+                AppState.statusOptions = data.status_options; 
+            }
+            AppState.isDataLoaded = true;
+            
+            if (userRole === "Admin" || userRole === "Pioneer") {
+                addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> إضافة خطر جديد`;
+            }
+            addRiskBtn.disabled = false;
+            
+            initializeDynamicEventListeners();
+            applyFiltersAndRender();
+        } else {
+            showToast(data.message || 'فشل تحميل البيانات من الـ API.', 'error');
+            addRiskBtn.innerHTML = `فشل التحميل (API)`;
+        }
+    } catch (error) {
+        console.error("JavaScript Fetch/Parse Error:", error);
+        showToast('خطأ في الشبكة أو في تحليل البيانات.', 'error');
+        addRiskBtn.innerHTML = `خطأ في الشبكة`;
+    }
+}
+
 
     function initializeStaticEventListeners() {
         const riskForm = document.getElementById('riskForm');
@@ -656,4 +685,5 @@
     }
 </script>
 {% endblock %}
+
 
