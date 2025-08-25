@@ -460,7 +460,9 @@ def get_risks():
 def delete_risk(risk_id):
     risk = Risk.query.get_or_404(risk_id)
     if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
-    return jsonify({'success': False, 'message': 'غير مصرح لك بحذف هذا الخطر'}), 403
+        # ▼▼▼ هذا هو السطر الذي تم تصحيحه بإضافة مسافة بادئة ▼▼▼
+        return jsonify({'success': False, 'message': 'غير مصرح لك بحذف هذا الخطر'}), 403
+    
     risk.is_deleted = True
     log_entry = AuditLog(user_id=current_user.id, action='حذف', details=f"حذف الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
     db.session.add(log_entry)
@@ -828,3 +830,4 @@ if __name__ == '__main__':
                 db.session.add(new_user)
         db.session.commit()
     app.run(debug=True, port=5001)
+
