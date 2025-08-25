@@ -720,21 +720,25 @@ def mark_as_read():
 
 @app.route('/api/reports/files', methods=['GET'])
 @login_required
-@role_required('Admin', 'Pioneer')
 def get_report_files():
     query = Report.query
-    if current_user.role.name == 'Pioneer':
+    # [تعديل مهم] التحقق من الدور بدلاً من اسم المستخدم
+    if current_user.role.name == 'Pioneer': 
         query = query.filter_by(uploaded_by_id=current_user.id)
+    
     all_reports = query.order_by(Report.uploaded_at.desc()).all()
     files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
     archived_files = []
     for report in all_reports:
         file_data = {'id': report.id, 'name': report.filename, 'type': report.report_type, 'modified_date': report.uploaded_at.strftime('%Y-%m-%d %H:%M')}
         if report.is_archived:
-            if current_user.role.name == 'Admin': archived_files.append(file_data)
+            if current_user.role.name == 'Admin': # تعديل إضافي هنا للاتساق
+                archived_files.append(file_data)
         else:
-            if report.report_type in files_by_type: files_by_type[report.report_type].append(file_data)
+            if report.report_type in files_by_type:
+                files_by_type[report.report_type].append(file_data)
     return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
+
 
 @app.route('/api/reports/upload', methods=['POST'])
 @login_required
@@ -909,6 +913,7 @@ if __name__ == '__main__':
         db.session.commit()
 
     app.run(debug=True, port=5001)
+
 
 
 
