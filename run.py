@@ -475,8 +475,7 @@ def get_risks():
             'business_continuity_plan': r.business_continuity_plan, 'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
-    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes: all_risk_codes})
-
+      return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
 def delete_risk(risk_id):
@@ -813,4 +812,5 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
