@@ -189,6 +189,16 @@ def audit_log():
         processed_logs.append(log)
     return render_template('audit_log.html', logs=processed_logs)
 
+# --- [الإضافة الجديدة هنا] دالة إدارة المستخدمين ---
+@app.route('/manage_users')
+@login_required
+@roles_required(['Admin'])
+def manage_users():
+    # في المستقبل، يمكننا جلب المستخدمين من قاعدة البيانات وعرضهم هنا
+    # users = User.query.all()
+    return render_template('manage_users.html') #, users=users)
+# --- نهاية الإضافة ---
+
 @app.route('/uploads/<filename>')
 @login_required
 def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -217,13 +227,11 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- [الإضافة الجديدة هنا] دوال إعادة تعيين كلمة المرور ---
 @app.route('/reset_password_request', methods=['GET', 'POST'])
 def reset_password_request():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
     if request.method == 'POST':
-        # هنا سيتم إضافة منطق إرسال الإيميل لاحقًا
         flash('إذا كان هذا البريد الإلكتروني مسجلاً، فسيتم إرسال تعليمات إعادة التعيين إليه.', 'info')
         return redirect(url_for('login'))
     return render_template('reset_password_request.html')
@@ -232,18 +240,14 @@ def reset_password_request():
 def reset_password(token):
     if current_user.is_authenticated:
         return redirect(url_for('home'))
-    # هنا سيتم إضافة منطق التحقق من التوكن وتغيير كلمة المرور
-    # حاليًا، سنفترض أن التوكن غير صالح كمثال
-    user = None # User.verify_reset_token(token)
+    user = None
     if not user:
         flash('الرابط الذي استخدمته غير صالح أو انتهت صلاحيته.', 'warning')
         return redirect(url_for('reset_password_request'))
     if request.method == 'POST':
-        # منطق تحديث كلمة المرور
         flash('تم تحديث كلمة المرور بنجاح!', 'success')
         return redirect(url_for('login'))
     return render_template('reset_password.html')
-# --- نهاية الإضافة ---
 
 @app.route('/download-risk-log')
 @login_required
@@ -471,7 +475,7 @@ def get_risks():
             'business_continuity_plan': r.business_continuity_plan, 'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
-    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
+    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes: all_risk_codes})
 
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
@@ -809,5 +813,4 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
-
 
