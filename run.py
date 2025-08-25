@@ -15,7 +15,7 @@ from collections import Counter
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import traceback
-from functools import wraps # <-- [إضافة] لاستخدام مزخرفات الصلاحيات
+from functools import wraps
 
 # --- تهيئة التطبيق ---
 app = Flask(__name__)
@@ -37,7 +37,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'الرجاء تسجيل الدخول للوصول إلى هذه الصفحة.'
 login_manager.login_message_category = 'info'
 
-# --- [تعديل 1] نماذج قاعدة البيانات مع الأدوار ---
+# --- نماذج قاعدة البيانات ---
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
@@ -48,14 +48,13 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     email = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.String(150), nullable=False)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False) # <-- [إضافة] عمود لربط المستخدم بالدور
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
     risks = db.relationship('Risk', backref='user', lazy=True)
     logs = db.relationship('AuditLog', backref='user', lazy=True)
     reports = db.relationship('Report', backref='uploaded_by', lazy=True)
     def set_password(self, password): self.password_hash = generate_password_hash(password)
     def check_password(self, password): return check_password_hash(self.password_hash, password)
 
-# (بقية النماذج تبقى كما هي)
 class Risk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     risk_code = db.Column(db.String(20), unique=True, nullable=True)
@@ -102,13 +101,13 @@ class Report(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     is_archived = db.Column(db.Boolean, default=False, nullable=False)
 
-# --- [إضافة 2] دوال مساعدة ومزخرفات الصلاحيات ---
+# --- دوال مساعدة ومزخرفات الصلاحيات ---
 def roles_required(roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             if not current_user.is_authenticated or current_user.role.name not in roles:
-                abort(403) # غير مصرح له
+                abort(403)
             return f(*args, **kwargs)
         return decorated_function
     return decorator
@@ -116,13 +115,9 @@ def roles_required(roles):
 @app.context_processor
 def inject_user_info():
     if current_user.is_authenticated:
-        return dict(
-            userRole=current_user.role.name,
-            isAdmin=current_user.role.name == 'Admin'
-        )
+        return dict(userRole=current_user.role.name, isAdmin=current_user.role.name == 'Admin')
     return dict(userRole='Guest', isAdmin=False)
 
-# (دوال المساعدة الأخرى تبقى كما هي)
 def send_email(to_email, subject, html_content):
     api_key = os.environ.get('SENDGRID_API_KEY')
     sender_email = os.environ.get('SENDER_EMAIL')
@@ -153,7 +148,7 @@ def calculate_residual_risk(effectiveness):
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
 
-# --- [تعديل 3] مسارات الصفحات مع صلاحيات الأدوار ---
+# --- مسارات الصفحات ---
 @app.route('/')
 @login_required
 def home():
@@ -162,7 +157,7 @@ def home():
 
 @app.route('/stats')
 @login_required
-@roles_required(['Admin', 'Pioneer']) # <-- استخدام الصلاحيات الجديدة
+@roles_required(['Admin', 'Pioneer'])
 def stats():
     return render_template('stats.html')
 
@@ -172,7 +167,7 @@ def risk_register(): return render_template('dashboard.html')
 
 @app.route('/reports')
 @login_required
-@roles_required(['Admin', 'Pioneer']) # <-- استخدام الصلاحيات الجديدة
+@roles_required(['Admin', 'Pioneer'])
 def reports():
     if current_user.role.name == 'Admin':
         try:
@@ -185,7 +180,7 @@ def reports():
 
 @app.route('/audit_log')
 @login_required
-@roles_required(['Admin']) # <-- استخدام الصلاحيات الجديدة
+@roles_required(['Admin'])
 def audit_log():
     logs_from_db = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     processed_logs = []
@@ -194,7 +189,6 @@ def audit_log():
         processed_logs.append(log)
     return render_template('audit_log.html', logs=processed_logs)
 
-# (بقية مسارات الصفحات تبقى كما هي)
 @app.route('/uploads/<filename>')
 @login_required
 def uploaded_file(filename): return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
@@ -223,18 +217,42 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-# --- [تعديل 4] دوال الـ API مع صلاحيات الأدوار ---
-# (تم تعديل كل الدوال التي تتطلب صلاحيات)
+# --- [الإضافة الجديدة هنا] دوال إعادة تعيين كلمة المرور ---
+@app.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        # هنا سيتم إضافة منطق إرسال الإيميل لاحقًا
+        flash('إذا كان هذا البريد الإلكتروني مسجلاً، فسيتم إرسال تعليمات إعادة التعيين إليه.', 'info')
+        return redirect(url_for('login'))
+    return render_template('reset_password_request.html')
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    # هنا سيتم إضافة منطق التحقق من التوكن وتغيير كلمة المرور
+    # حاليًا، سنفترض أن التوكن غير صالح كمثال
+    user = None # User.verify_reset_token(token)
+    if not user:
+        flash('الرابط الذي استخدمته غير صالح أو انتهت صلاحيته.', 'warning')
+        return redirect(url_for('reset_password_request'))
+    if request.method == 'POST':
+        # منطق تحديث كلمة المرور
+        flash('تم تحديث كلمة المرور بنجاح!', 'success')
+        return redirect(url_for('login'))
+    return render_template('reset_password.html')
+# --- نهاية الإضافة ---
 
 @app.route('/download-risk-log')
 @login_required
-@roles_required(['Admin', 'Pioneer']) # <-- استخدام الصلاحيات الجديدة
+@roles_required(['Admin', 'Pioneer'])
 def download_risk_log():
     query = Risk.query.filter_by(is_deleted=False)
     if current_user.role.name != 'Admin':
         query = query.filter_by(user_id=current_user.id)
     risks = query.order_by(Risk.created_at.asc()).all()
-    # ... (بقية الكود كما هو)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     headers = [
@@ -248,10 +266,8 @@ def download_risk_log():
         reporter_username = risk.user.username if risk.user else 'N/A'
         completion_date = risk.target_completion_date.strftime('%Y-%m-%d') if risk.target_completion_date else ''
         created_at_ksa = risk.created_at + timedelta(hours=3)
-        
         proactive_cleaned = (risk.proactive_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
         immediate_cleaned = (risk.immediate_actions or '').replace('||IMPROVEMENT||', ' (إجراء تحسيني): ')
-
         writer.writerow([
             risk.risk_code or risk.id, risk.title, risk.description, risk.category, risk.probability, 
             risk.impact, risk.risk_level, risk.status, risk.owner, risk.risk_location, 
@@ -264,12 +280,14 @@ def download_risk_log():
     output.close()
     return Response(final_output, mimetype="text/csv", headers={"Content-Disposition": "attachment;filename=risk_log.csv"})
 
+# --- دوال الـ API ---
+# (كل دوال الـ API تبقى كما هي بدون تغيير)
 @app.route('/api/risks', methods=['POST'])
 @login_required
 def add_risk():
     try:
         data = request.form
-        user_role = current_user.role.name # <-- استخدام الدور بدلاً من اسم المستخدم
+        user_role = current_user.role.name
         is_read_status = (user_role == 'Admin')
         target_date = None
         if data.get('target_completion_date'):
@@ -277,36 +295,22 @@ def add_risk():
                 target_date = datetime.strptime(data.get('target_completion_date'), '%Y-%m-%d')
             except ValueError:
                 pass
-
         if user_role == 'Reporter':
             if not data.get('description') or not data.get('risk_location'): return jsonify({'success': False, 'message': 'وصف الخطر وموقعه حقول مطلوبة.'}), 400
             new_risk = Risk(title="", description=data['description'], category="", probability=1, impact=1, risk_level="", owner=data.get('owner', 'لم يتم توفيره'), risk_location=data['risk_location'], user_id=current_user.id, status='جديد', is_read=is_read_status)
-        else: # Admin or Pioneer
+        else:
             prob = int(data.get('probability', 1)); imp = int(data.get('impact', 1))
             effectiveness = data.get('action_effectiveness'); residual = calculate_residual_risk(effectiveness)
             new_risk = Risk(
-                title=data['title'], 
-                description=data.get('description'), 
-                risk_type=data.get('risk_type', 'تهديد'),
-                category=data['category'], 
-                probability=prob, 
-                impact=imp, 
-                risk_level=calculate_risk_level(prob, imp), 
-                owner=data.get('owner'), 
-                risk_location=data.get('risk_location'), 
-                proactive_actions=data.get('proactive_actions'), 
-                immediate_actions=data.get('immediate_actions'), 
-                action_effectiveness=effectiveness, 
-                user_id=current_user.id, 
-                status=data.get('status', 'نشط'), 
-                residual_risk=residual, 
-                is_read=is_read_status, 
-                lessons_learned=data.get('lessons_learned'),
-                target_completion_date=target_date,
+                title=data['title'], description=data.get('description'), risk_type=data.get('risk_type', 'تهديد'),
+                category=data['category'], probability=prob, impact=imp, risk_level=calculate_risk_level(prob, imp), 
+                owner=data.get('owner'), risk_location=data.get('risk_location'), proactive_actions=data.get('proactive_actions'), 
+                immediate_actions=data.get('immediate_actions'), action_effectiveness=effectiveness, user_id=current_user.id, 
+                status=data.get('status', 'نشط'), residual_risk=residual, is_read=is_read_status, 
+                lessons_learned=data.get('lessons_learned'), target_completion_date=target_date,
                 business_continuity_plan=data.get('business_continuity_plan'),
                 linked_risk_id=data.get('linked_risk_id') if data.get('linked_risk_id') != 'لا يوجد' else None
             )
-        
         upload_folder = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
@@ -315,22 +319,19 @@ def add_risk():
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(upload_folder, filename))
                 new_risk.attachment_filename = filename
-        
         db.session.add(new_risk)
         db.session.flush()
-        source_code = {'Admin': 'ADM', 'Pioneer': 'RPN'}.get(user_role, 'REP') # <-- استخدام الأدوار
+        source_code = {'Admin': 'ADM', 'Pioneer': 'RPN'}.get(user_role, 'REP')
         new_risk.risk_code = f"{source_code}_{new_risk.created_at.year}_{new_risk.id:04d}"
         log_entry = AuditLog(user_id=current_user.id, action='إضافة', details=f"إضافة خطر جديد بكود: '{new_risk.risk_code}'", risk_id=new_risk.id)
         db.session.add(log_entry)
         db.session.commit()
-
         if user_role != 'Admin':
-            admin_user = User.query.join(Role).filter(Role.name == 'Admin').first() # <-- البحث عن المدير بالدور
+            admin_user = User.query.join(Role).filter(Role.name == 'Admin').first()
             if admin_user and admin_user.email:
                 subject = f"بلاغ خطر جديد: {new_risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بنشاط جديد في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>تم تسجيل نشاط جديد من قبل المستخدم: <strong>{current_user.username}</strong></p><hr><h3>تفاصيل الخطر:</h3><ul><li><strong>كود الخطر:</strong> {new_risk.risk_code}</li><li><strong>الوصف:</strong> {new_risk.description}</li><li><strong>الموقع:</strong> {new_risk.risk_location}</li></ul><hr><p>الرجاء الدخول إلى النظام لمراجعة التفاصيل واتخاذ الإجراء اللازم.</p><p>شكراً لك.</p></div>"
                 send_email(to_email=admin_user.email, subject=subject,html_content=html_content)
-        
         message = 'تم إرسال بلاغك بنجاح. شكراً لك!' if user_role == 'Reporter' else 'تمت إضافة الخطر بنجاح'
         return jsonify({'success': True, 'message': message}), 201
     except Exception as e:
@@ -346,26 +347,22 @@ def update_risk(risk_id):
         risk = Risk.query.get_or_404(risk_id)
         if current_user.role.name != 'Admin' and risk.user_id != current_user.id: 
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
-        
         data = request.form
         was_modified_before = risk.was_modified
         old_status = risk.status
         new_status = data.get('status', risk.status)
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
-        
         def preserve_improvements(old_value, new_value_from_form):
             if old_value and IMPROVEMENT_SEPARATOR in old_value:
                 parts = old_value.split(IMPROVEMENT_SEPARATOR)
                 return f"{new_value_from_form}{IMPROVEMENT_SEPARATOR}{parts[1]}"
             return new_value_from_form
-
         risk.proactive_actions = preserve_improvements(risk.proactive_actions, data.get('proactive_actions', ''))
         risk.immediate_actions = preserve_improvements(risk.immediate_actions, data.get('immediate_actions', ''))
         prob = int(data.get('probability', risk.probability))
         imp = int(data.get('impact', risk.impact))
         effectiveness = data.get('action_effectiveness', risk.action_effectiveness)
         residual = calculate_residual_risk(effectiveness)
-        
         risk.title = data.get('title', risk.title)
         risk.description = data.get('description', risk.description)
         risk.risk_type = data.get('risk_type', risk.risk_type)
@@ -379,7 +376,6 @@ def update_risk(risk_id):
         risk.status = new_status
         risk.residual_risk = residual
         risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
-        
         target_date = None
         if data.get('target_completion_date'):
             try:
@@ -387,22 +383,18 @@ def update_risk(risk_id):
             except (ValueError, TypeError):
                 target_date = None
         risk.target_completion_date = target_date
-        
         if new_status == 'مغلق' and old_status != 'مغلق':
             risk.closed_at = datetime.utcnow()
         elif new_status != 'مغلق':
             risk.closed_at = None
-        
         risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
         linked_risk_value = data.get('linked_risk_id')
         risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
-
         if current_user.role.name != 'Admin':
             risk.is_read = False
             risk.was_modified = True
         else:
             risk.is_read = True
-            
         upload_folder = app.config['UPLOAD_FOLDER']
         if not os.path.exists(upload_folder): os.makedirs(upload_folder)
         if 'attachment' in request.files:
@@ -411,18 +403,15 @@ def update_risk(risk_id):
                 filename = secure_filename(file.filename)
                 file.save(os.path.join(upload_folder, filename))
                 risk.attachment_filename = filename
-                
         log_entry = AuditLog(user_id=current_user.id, action='تعديل', details=f"تعديل الخطر بكود: '{risk.risk_code}'", risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
-        
         if current_user.role.name != 'Admin' and not was_modified_before:
             admin_user = User.query.join(Role).filter(Role.name == 'Admin').first()
             if admin_user and admin_user.email:
                 subject = f"تحديث على الخطر: {risk.risk_code}"
                 html_content = f"<div dir='rtl' style='font-family: Arial, sans-serif; text-align: right;'><h2>تنبيه بتحديث في نظام إدارة المخاطر</h2><p>مرحباً يا مدير النظام،</p><p>قام المستخدم <strong>{current_user.username}</strong> بتحديث الخطر ذو الكود: <strong>{risk.risk_code}</strong>.</p><hr><p>الرجاء الدخول إلى النظام لمراجعة التحديثات.</p><p>شكراً لك.</p></div>"
                 send_email(to_email=admin_user.email, subject=subject, html_content=html_content)
-                
         return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
     except Exception as e:
         db.session.rollback()
@@ -437,30 +426,24 @@ def update_risk_action(risk_id):
         risk = Risk.query.get_or_404(risk_id)
         if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
             return jsonify({'success': False, 'message': 'غير مصرح لك بتعديل هذا الخطر'}), 403
-
         data = request.get_json()
         field_to_update = data.get('field')
         new_value = data.get('value')
-
         if field_to_update not in ['proactive_actions', 'immediate_actions']:
             return jsonify({'success': False, 'message': 'حقل غير صالح للتحديث'}), 400
-
         IMPROVEMENT_SEPARATOR = "||IMPROVEMENT||"
         current_db_value = getattr(risk, field_to_update) or ""
         original_text = current_db_value.split(IMPROVEMENT_SEPARATOR)[0]
         final_value = f"{original_text}{IMPROVEMENT_SEPARATOR}{new_value}"
         setattr(risk, field_to_update, final_value)
-        
         if current_user.role.name != 'Admin':
             risk.is_read = False
             risk.was_modified = True
-
         log_details = f"إضافة/تعديل إجراء تحسيني في حقل '{field_to_update}' للخطر بكود: '{risk.risk_code}'"
         log_entry = AuditLog(user_id=current_user.id, action='إجراء تحسيني', details=log_details, risk_id=risk.id)
         db.session.add(log_entry)
         db.session.commit()
         return jsonify({'success': True, 'message': 'تم تحديث الإجراء بنجاح', 'newValue': final_value})
-
     except Exception as e:
         db.session.rollback()
         print(f"An error occurred in update_risk_action: {e}")
@@ -488,7 +471,7 @@ def get_risks():
             'business_continuity_plan': r.business_continuity_plan, 'linked_risk_id': r.linked_risk_id
         }
         risk_list.append(risk_data)
-    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
+    return jsonify({'success': True, 'risks: risk_list, 'all_risk_codes': all_risk_codes})
 
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
@@ -547,13 +530,11 @@ def delete_attachment(risk_id):
 @roles_required(['Admin', 'Pioneer'])
 def get_stats_api():
     try:
-        # الاستعلام الأول: شامل وغير مفلتر (لحساب مؤشرات الشريط)
         base_query_for_kpi = Risk.query.filter_by(is_deleted=False)
         if current_user.role.name != 'Admin':
             base_query_for_kpi = base_query_for_kpi.filter_by(user_id=current_user.id)
         
         all_risks_for_kpi = base_query_for_kpi.all()
-
         kpi_data = []
         if all_risks_for_kpi:
             linked_risks_count = sum(1 for r in all_risks_for_kpi if r.linked_risk_id)
@@ -590,7 +571,6 @@ def get_stats_api():
                 {'label': 'مخاطر متأخرة زمنياً:', 'value': str(kpi_overdue_risks_count)}
             ])
 
-        # الاستعلام الثاني: تفاعلي ومفلتر (لحساب الرسوم البيانية)
         query_for_charts = Risk.query.filter_by(is_deleted=False)
         if current_user.role.name != 'Admin':
             query_for_charts = query_for_charts.filter_by(user_id=current_user.id)
@@ -798,7 +778,7 @@ def get_unread_reports_status():
     unread_count = Report.query.filter_by(is_read=False, is_archived=False).count()
     return jsonify({'has_unread': unread_count > 0})
 
-# --- [تعديل 5] قسم التشغيل مع إنشاء الأدوار والمستخدمين الجدد ---
+# --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
         db.create_all() 
@@ -817,12 +797,12 @@ if __name__ == '__main__':
 
         users_to_create = {
             'admin': ('Admin@2025', 'twag1212@gmail.com', admin_role),
-            'pioneer': ('Pioneer@1234', 'pioneer@example.com', pioneer_role), # استبدال testuser
+            'pioneer': ('Pioneer@1234', 'pioneer@example.com', pioneer_role),
             'reporter': ('Reporter@123', 'reporter@example.com', reporter_role)
         }
         for username, (password, email, role) in users_to_create.items():
             if not User.query.filter_by(username=username).first():
-                if role: # التأكد من أن الدور موجود
+                if role:
                     new_user = User(username=username, email=email, role_id=role.id)
                     new_user.set_password(password)
                     db.session.add(new_user)
