@@ -191,8 +191,39 @@
                 checkUnreadReports(); setInterval(checkUnreadReports, 30000);
             }
         }
+                // ▼▼▼ [إضافة] آلية تسجيل الخروج التلقائي عند عدم النشاط ▼▼▼
+        (function() {
+            let inactivityTimer;
+            const timeoutDuration = 10 * 60 * 1000; // 10 دقائق بالمللي ثانية
+
+            function logoutUser() {
+                // توجيه المستخدم إلى صفحة تسجيل الخروج
+                window.location.href = "{{ url_for('logout') }}";
+            }
+
+            function resetTimer() {
+                // مسح المؤقت القديم
+                clearTimeout(inactivityTimer);
+                // بدء مؤقت جديد
+                inactivityTimer = setTimeout(logoutUser, timeoutDuration);
+            }
+
+            // قائمة الأحداث التي تدل على نشاط المستخدم
+            const userActivityEvents = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'];
+
+            // إضافة مستمع لكل حدث لإعادة تعيين المؤقت
+            userActivityEvents.forEach(function(eventName) {
+                document.addEventListener(eventName, resetTimer, true);
+            });
+
+            // بدء المؤقت لأول مرة عند تحميل الصفحة
+            resetTimer();
+        })();
+        // ▲▲▲ نهاية الإضافة ▲▲▲
+
     </script>
     
     {% block scripts %}{% endblock %}
 </body>
 </html>
+
