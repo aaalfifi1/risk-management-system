@@ -155,20 +155,24 @@
         isDataLoaded: false
     };
 
-    document.addEventListener('DOMContentLoaded', function() {
-        const riskModalElement = document.getElementById('riskModal');
-        if (riskModalElement) {
-            AppState.riskModalInstance = new bootstrap.Modal(riskModalElement);
-        }
-        initializeStaticEventListeners();
-        if (userRole !== "Reporter") {
-            loadInitialDataAndSetupUI();
-        } else {
-            const addRiskBtn = document.getElementById('add-risk-btn');
-            addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> الإبلاغ عن خطر`;
-            addRiskBtn.disabled = false;
-        }
-    });
+   document.addEventListener('DOMContentLoaded', function () {
+    const riskModalElement = document.getElementById('riskModal');
+    if (riskModalElement) {
+        AppState.riskModalInstance = new bootstrap.Modal(riskModalElement);
+    }
+
+    initializeStaticEventListeners();
+
+    // ▼▼▼ هذا هو المنطق الصحيح ▼▼▼
+    if (userRole === "Admin" || userRole === "Pioneer") {
+        loadInitialDataAndSetupUI();
+    } else if (userRole === "Reporter") {
+        const addRiskBtn = document.getElementById('add-risk-btn');
+        addRiskBtn.innerHTML = `<i class="bi bi-plus-circle-fill"></i> الإبلاغ عن خطر`;
+        addRiskBtn.disabled = false;
+    }
+});
+
 
     async function loadInitialDataAndSetupUI() {
         try {
@@ -652,3 +656,4 @@
     }
 </script>
 {% endblock %}
+
