@@ -500,7 +500,7 @@ def get_risks():
     
     query = Risk.query.filter_by(is_deleted=False)
     
-    # --- [هذا هو المنطق الجديد والصحيح] ---
+    # --- [هذا هو المنطق الصحيح والنهائي] ---
     # إذا لم يكن المستخدم مديراً، قم بفلترة المخاطر لتعرض فقط تلك التي أضافها هو
     if current_user.role.name != 'Admin':
         query = query.filter_by(user_id=current_user.id)
@@ -540,7 +540,9 @@ def get_risks():
         }
         risk_list.append(risk_data)
         
-    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes})
+    status_options = ['جديد', 'تحت المراجعة', 'نشط', 'مُراقب', 'مُصعَّد', 'مغلق']
+    return jsonify({'success': True, 'risks': risk_list, 'all_risk_codes': all_risk_codes, 'status_options': status_options})
+
 
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
@@ -938,6 +940,7 @@ if __name__ == '__main__':
         db.session.commit()
 
     app.run(debug=True, port=5001)
+
 
 
 
