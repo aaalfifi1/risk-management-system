@@ -807,27 +807,46 @@ def delete_user(user_id):
     return jsonify({'success': True, 'message': 'تم حذف المستخدم بنجاح.'})
 
 # --- قسم التشغيل (للبيئة المحلية فقط) ---
+# --- قسم التشغيل (للبيئة المحلية فقط) ---
 if __name__ == '__main__':
     with app.app_context():
+        # الخطوة 1: تأكد من إنشاء الجداول أولاً
         db.create_all()
-        roles = ['Admin', 'Pioneer', 'Reporter']
-        for r_name in roles:
+
+        # الخطوة 2: إنشاء الأدوار إذا لم تكن موجودة
+        roles_to_create = ['Admin', 'Pioneer', 'Reporter']
+        for r_name in roles_to_create:
             if not Role.query.filter_by(name=r_name).first():
                 db.session.add(Role(name=r_name))
+        # حفظ الأدوار في قاعدة البيانات لتكون متاحة للاستعلام في الخطوة التالية
         db.session.commit()
+
+        # الخطوة 3: جلب الأدوار من قاعدة البيانات بعد التأكد من وجودها
         admin_role = Role.query.filter_by(name='Admin').first()
         pioneer_role = Role.query.filter_by(name='Pioneer').first()
         reporter_role = Role.query.filter_by(name='Reporter').first()
-        users_to_create = {
-            'admin': ('Admin@2025', 'twag1212@gmail.com', admin_role),
-            'pioneer': ('Pioneer@1234', 'pioneer@example.com', pioneer_role),
-            'reporter': ('Reporter@123', 'reporter@example.com', reporter_role)
-        }
-        for username, (password, email, role) in users_to_create.items():
-            if not User.query.filter_by(username=username).first():
-                new_user = User(username=username, email=email, role_id=role.id)
-                new_user.set_password(password)
-                db.session.add(new_user)
+
+        # الخطوة 4: إنشاء المستخدمين وربطهم بالأدوار الصحيحة
+        # التأكد من أن الأدوار ليست فارغة قبل استخدامها
+        if admin_role and not User.query.filter_by(username='admin').first():
+            admin_user = User(username='admin', email='twag1212@gmail.com', role_id=admin_role.id)
+            admin_user.set_password('Admin@2025')
+            db.session.add(admin_user)
+
+        if pioneer_role and not User.query.filter_by(username='pioneer').first():
+            pioneer_user = User(username='pioneer', email='pioneer@example.com', role_id=pioneer_role.id)
+            pioneer_user.set_password('Pioneer@1234')
+            db.session.add(pioneer_user)
+
+        if reporter_role and not User.query.filter_by(username='reporter').first():
+            reporter_user = User(username='reporter', email='reporter@example.com', role_id=reporter_role.id)
+            reporter_user.set_password('Reporter@123')
+            db.session.add(reporter_user)
+
+        # الخطوة 5: حفظ المستخدمين الجدد في قاعدة البيانات
         db.session.commit()
+
     app.run(debug=True, port=5001)
+
+
 
