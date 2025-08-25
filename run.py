@@ -1,24 +1,20 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
+import json
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime, timedelta
-import pytz
-import uuid
-from itsdangerous import URLSafeTimedSerializer as Serializer
+from functools import wraps
 
-# =============================================================================
-# App Configuration
-# =============================================================================
+# --- إعدادات التطبيق الأساسية ---
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a_very_secret_and_strong_key_12345')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///risk_management.db')
+app.config['SECRET_KEY'] = 'a_very_secret_key_that_should_be_changed'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///risk_management.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
 app.config['REPORTS_UPLOAD_FOLDER'] = os.path.join(app.root_path, 'reports_uploads')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=10)
 
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -26,12 +22,7 @@ login_manager.login_view = 'login'
 login_manager.login_message = "الرجاء تسجيل الدخول للوصول إلى هذه الصفحة."
 login_manager.login_message_category = "info"
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'], exist_ok=True)
-
-# =============================================================================
-# Database Models
-# =============================================================================
+# --- نماذج قاعدة البيانات (مع الأدوار) ---
 class Role(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
@@ -39,87 +30,83 @@ class Role(db.Model):
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
+    username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    full_name = db.Column(db.String(150), nullable=True)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False)
-    failed_login_attempts = db.Column(db.Integer, default=0)
-    locked_until = db.Column(db.DateTime, nullable=True)
-    
+    role_id = db.Column(db.Integer, db.Column(db.Integer, db.ForeignKey('role.id'), nullable=False))
+    risks = db.relationship('Risk', backref='reporter_user', lazy=True)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
-    def get_reset_token(self):
-        s = Serializer(app.config['SECRET_KEY'])
-        return s.dumps({'user_id': self.id})
-
-    @staticmethod
-    def verify_reset_token(token, max_age_seconds=1800):
-        s = Serializer(app.config['SECRET_KEY'])
-        try:
-            user_id = s.loads(token, max_age=max_age_seconds)['user_id']
-        except:
-            return None
-        return User.query.get(user_id)
-
 class Risk(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     risk_code = db.Column(db.String(50), unique=True, nullable=True)
-    title = db.Column(db.String(200))
-    description = db.Column(db.Text)
-    category = db.Column(db.String(100))
-    owner = db.Column(db.String(100))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    category = db.Column(db.String(100), nullable=True)
+    risk_level = db.Column(db.String(50), nullable=True)
+    owner = db.Column(db.String(100), nullable=True)
+    status = db.Column(db.String(50), default='جديد')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    source = db.Column(db.String(100))
-    risk_type = db.Column(db.String(50))
-    risk_location = db.Column(db.String(200))
-    risk_level = db.Column(db.String(50))
-    proactive_actions = db.Column(db.Text)
-    immediate_actions = db.Column(db.Text)
-    target_completion_date = db.Column(db.String(50))
-    action_effectiveness = db.Column(db.String(50))
-    linked_risk_id = db.Column(db.String(50))
-    status = db.Column(db.String(50))
-    attachment_filename = db.Column(db.String(300))
-    business_continuity_plan = db.Column(db.Text)
-    lessons_learned = db.Column(db.Text)
-    was_modified = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     is_read = db.Column(db.Boolean, default=False)
-    def to_dict(self): return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+    was_modified = db.Column(db.Boolean, default=False)
+    probability = db.Column(db.Integer, nullable=True)
+    impact = db.Column(db.Integer, nullable=True)
+    risk_location = db.Column(db.String(200), nullable=True)
+    proactive_actions = db.Column(db.Text, nullable=True)
+    immediate_actions = db.Column(db.Text, nullable=True)
+    target_completion_date = db.Column(db.String(20), nullable=True)
+    action_effectiveness = db.Column(db.String(50), nullable=True)
+    linked_risk_id = db.Column(db.String(50), nullable=True)
+    business_continuity_plan = db.Column(db.Text, nullable=True)
+    lessons_learned = db.Column(db.Text, nullable=True)
+    attachment_filename = db.Column(db.String(255), nullable=True)
+    risk_type = db.Column(db.String(50), default='تهديد')
 
-class Report(db.Model):
+class ReportFile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(300), nullable=False)
-    report_type = db.Column(db.String(50), nullable=False)
-    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    name = db.Column(db.String(255), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    modified_date = db.Column(db.DateTime, default=datetime.utcnow)
     is_archived = db.Column(db.Boolean, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-class StatusOption(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-
-# =============================================================================
-# Login Manager & Hooks
-# =============================================================================
+# --- دوال مساعدة ومزخرفات الصلاحيات ---
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-@app.before_request
-def before_request():
-    session.permanent = True
-    if current_user.is_authenticated:
-        session.modified = True
+def role_required(role_name):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role.name != role_name:
+                return redirect(url_for('unauthorized'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
-# =============================================================================
-# Authentication & Password Reset Routes
-# =============================================================================
+def roles_required(roles):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role.name not in roles:
+                return redirect(url_for('unauthorized'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# --- طرق العرض (Routes) ---
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -128,75 +115,18 @@ def login():
         username = request.form['username']
         password = request.form['password']
         user = User.query.filter_by(username=username).first()
-        if user and user.locked_until and user.locked_until > datetime.utcnow():
-            remaining_time = int((user.locked_until - datetime.utcnow()).total_seconds() / 60)
-            flash(f"الحساب مقفل مؤقتاً. الرجاء المحاولة مرة أخرى بعد {remaining_time} دقيقة.", "danger")
-            return redirect(url_for('login'))
         if user and user.check_password(password):
-            user.failed_login_attempts = 0
-            user.locked_until = None
-            db.session.commit()
-            login_user(user, remember=True)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('dashboard'))
+            login_user(user)
+            return redirect(url_for('dashboard'))
         else:
-            if user:
-                user.failed_login_attempts += 1
-                if user.failed_login_attempts >= 5:
-                    user.locked_until = datetime.utcnow() + timedelta(minutes=15)
-                    flash("لقد تجاوزت عدد المحاولات المسموح به. تم قفل الحساب لمدة 15 دقيقة.", "danger")
-                else:
-                    flash("اسم المستخدم أو كلمة المرور غير صحيحة.", "danger")
-                db.session.commit()
-            else:
-                flash("اسم المستخدم أو كلمة المرور غير صحيحة.", "danger")
-            return redirect(url_for('login'))
+            return render_template('login.html', error="اسم المستخدم أو كلمة المرور غير صحيحة")
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash("تم تسجيل خروجك بنجاح.", "success")
     return redirect(url_for('login'))
-
-@app.route("/reset_password", methods=['GET', 'POST'])
-def reset_password_request():
-    if request.method == 'POST':
-        user = User.query.filter_by(email=request.form['email']).first()
-        if user:
-            token = user.get_reset_token()
-            print(f"Password reset link for {user.email}: {url_for('reset_with_token', token=token, _external=True)}")
-            flash('تم إرسال رابط إعادة التعيين إلى بريدك الإلكتروني (تحقق من طرفية الخادم).', 'success')
-        else:
-            flash('البريد الإلكتروني غير مسجل.', 'warning')
-    return render_template('reset_password_request.html')
-
-@app.route("/reset_password/<token>", methods=['GET', 'POST'])
-def reset_with_token(token):
-    user = User.verify_reset_token(token)
-    if not user:
-        flash('الرابط غير صالح أو انتهت صلاحيته.', 'danger')
-        return redirect(url_for('reset_password_request'))
-    if request.method == 'POST':
-        password = request.form['password']
-        confirm_password = request.form['confirm_password']
-        if password != confirm_password:
-            flash('كلمتا المرور غير متطابقتين.', 'danger')
-            return render_template('reset_password.html', token=token)
-        user.set_password(password)
-        db.session.commit()
-        flash('تم تحديث كلمة المرور بنجاح.', 'success')
-        return redirect(url_for('login'))
-    return render_template('reset_password.html', token=token)
-
-# =============================================================================
-# Main Application Routes
-# =============================================================================
-@app.route('/')
-@login_required
-def index():
-    return redirect(url_for('dashboard'))
 
 @app.route('/dashboard')
 @login_required
@@ -205,181 +135,342 @@ def dashboard():
 
 @app.route('/reports')
 @login_required
+@roles_required(['Admin', 'Pioneer'])
 def reports():
     return render_template('reports.html')
 
-@app.route('/manage_users')
-@login_required
-def manage_users():
-    if current_user.role.name != 'Admin':
-        flash("ليس لديك الصلاحية للوصول لهذه الصفحة.", "danger")
-        return redirect(url_for('dashboard'))
-    users = User.query.order_by(User.id).all()
-    roles = Role.query.all()
-    return render_template('manage_users.html', users=users, roles=roles)
+@app.route('/unauthorized')
+def unauthorized():
+    return "<h1>ليس لديك الصلاحية للوصول لهذه الصفحة</h1>"
 
-# =============================================================================
-# API Routes
-# =============================================================================
+@app.context_processor
+def inject_user_info():
+    if current_user.is_authenticated:
+        return dict(
+            userRole=current_user.role.name,
+            isAdmin=current_user.role.name == 'Admin',
+            currentUserId=current_user.id
+        )
+    return dict(userRole='Guest', isAdmin=False, currentUserId=None)
 
-# --- User Management API ---
-@app.route('/api/users', methods=['POST'])
-@login_required
-def add_user():
-    if current_user.role.name != 'Admin': return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
-    data = request.form
-    username, email, password, role_id = data.get('username'), data.get('email'), data.get('password'), data.get('role_id')
-    if not all([username, email, password, role_id]): return jsonify({'success': False, 'message': 'جميع الحقول مطلوبة'}), 400
-    if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
-        return jsonify({'success': False, 'message': 'اسم المستخدم أو البريد الإلكتروني موجود بالفعل'}), 409
-    new_user = User(username=username, email=email, role_id=role_id, full_name=username)
-    new_user.set_password(password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({'success': True, 'message': 'تمت إضافة المستخدم بنجاح'})
+# --- واجهات برمجة التطبيقات (APIs) ---
 
-@app.route('/api/users/<int:user_id>', methods=['PUT'])
-@login_required
-def update_user(user_id):
-    if current_user.role.name != 'Admin': return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
-    user = User.query.get_or_404(user_id)
-    data = request.form
-    user.email = data.get('email', user.email)
-    user.role_id = data.get('role_id', user.role_id)
-    if data.get('password'): user.set_password(data.get('password'))
-    db.session.commit()
-    return jsonify({'success': True, 'message': 'تم تحديث المستخدم بنجاح'})
-
-@app.route('/api/users/<int:user_id>', methods=['DELETE'])
-@login_required
-def delete_user(user_id):
-    if current_user.role.name != 'Admin': return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
-    if user_id == current_user.id: return jsonify({'success': False, 'message': 'لا يمكنك حذف نفسك'}), 400
-    user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    return jsonify({'success': True, 'message': 'تم حذف المستخدم بنجاح'})
-
-# --- Risk Management API ---
+# API للمخاطر
 @app.route('/api/risks', methods=['GET'])
 @login_required
+@roles_required(['Admin', 'Pioneer'])
 def get_risks():
-    try:
-        query = db.session.query(Risk, User.full_name.label('owner_name')).outerjoin(User, Risk.user_id == User.id).order_by(Risk.created_at.desc())
-        risks_data = [dict(r.to_dict(), owner_name=on) for r, on in query.all()]
-        all_risk_codes = [r.risk_code for r in Risk.query.with_entities(Risk.risk_code).filter(Risk.risk_code.isnot(None)).all()]
-        status_options = [s.name for s in StatusOption.query.order_by(StatusOption.id).all()]
-        return jsonify({"success": True, "risks": risks_data, "all_risk_codes": all_risk_codes, "status_options": status_options})
-    except Exception as e: return jsonify({"success": False, "message": f"خطأ في الخادم: {e}"}), 500
+    risks_query = Risk.query.order_by(Risk.created_at.desc()).all()
+    all_risk_codes = [r.risk_code for r in risks_query if r.risk_code]
+    risks_data = [{
+        'id': risk.id, 'risk_code': risk.risk_code, 'title': risk.title, 'description': risk.description,
+        'category': risk.category, 'risk_level': risk.risk_level, 'owner': risk.owner, 'status': risk.status,
+        'created_at': risk.created_at.isoformat(), 'user_id': risk.user_id, 'is_read': risk.is_read,
+        'was_modified': risk.was_modified, 'probability': risk.probability, 'impact': risk.impact,
+        'risk_location': risk.risk_location, 'proactive_actions': risk.proactive_actions,
+        'immediate_actions': risk.immediate_actions, 'target_completion_date': risk.target_completion_date,
+        'action_effectiveness': risk.action_effectiveness, 'linked_risk_id': risk.linked_risk_id,
+        'business_continuity_plan': risk.business_continuity_plan, 'lessons_learned': risk.lessons_learned,
+        'attachment_filename': risk.attachment_filename, 'risk_type': risk.risk_type
+    } for risk in risks_query]
+    return jsonify({'success': True, 'risks': risks_data, 'all_risk_codes': all_risk_codes})
 
 @app.route('/api/risks', methods=['POST'])
 @login_required
-def create_risk():
-    try:
-        data = request.form.to_dict()
-        file = request.files.get('attachment')
-        filename = None
-        if file and file.filename:
+def add_risk():
+    if current_user.role.name not in ['Admin', 'Pioneer', 'Reporter']:
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لإضافة خطر'}), 403
+    
+    data = request.form
+    new_risk = Risk(
+        title=data.get('title', 'بلاغ جديد'),
+        description=data.get('description'),
+        category=data.get('category'),
+        owner=data.get('owner'),
+        risk_location=data.get('risk_location'),
+        user_id=current_user.id,
+        status='جديد',
+        is_read=False,
+        risk_type=data.get('risk_type', 'تهديد')
+    )
+    
+    if current_user.role.name in ['Admin', 'Pioneer']:
+        new_risk.probability = data.get('probability')
+        new_risk.impact = data.get('impact')
+        new_risk.proactive_actions = data.get('proactive_actions')
+        new_risk.immediate_actions = data.get('immediate_actions')
+        new_risk.target_completion_date = data.get('target_completion_date')
+        new_risk.action_effectiveness = data.get('action_effectiveness')
+        new_risk.linked_risk_id = data.get('linked_risk_id')
+        new_risk.business_continuity_plan = data.get('business_continuity_plan')
+        new_risk.lessons_learned = data.get('lessons_learned')
+        
+        # حساب مستوى الخطورة
+        try:
+            prob = int(data.get('probability', 0))
+            imp = int(data.get('impact', 0))
+            matrix_value = prob * imp
+            if matrix_value >= 15: new_risk.risk_level = 'مرتفع جدا / كارثي'
+            elif matrix_value >= 10: new_risk.risk_level = 'مرتفع'
+            elif matrix_value >= 5: new_risk.risk_level = 'متوسط'
+            elif matrix_value >= 3: new_risk.risk_level = 'منخفض'
+            else: new_risk.risk_level = 'منخفض جدا'
+        except (ValueError, TypeError):
+            new_risk.risk_level = 'غير محدد'
+
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file.filename != '':
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        last_risk = Risk.query.order_by(Risk.id.desc()).first()
-        new_risk_code = f"RISK_{datetime.now().year}_{(last_risk.id if last_risk else 0) + 1:04d}"
-        new_risk = Risk(risk_code=new_risk_code, user_id=current_user.id, **data)
-        db.session.add(new_risk)
-        db.session.commit()
-        return jsonify({"success": True, "message": "تم إضافة الخطر بنجاح."})
-    except Exception as e: db.session.rollback(); return jsonify({"success": False, "message": f"خطأ في الخادم: {e}"}), 500
+            new_risk.attachment_filename = filename
+
+    db.session.add(new_risk)
+    db.session.commit()
+
+    # إنشاء كود الخطر بعد الحفظ للحصول على ID
+    new_risk.risk_code = f"RSK_{datetime.now().year}_{new_risk.id:04d}"
+    db.session.commit()
+
+    return jsonify({'success': True, 'message': 'تمت إضافة الخطر بنجاح'})
 
 @app.route('/api/risks/<int:risk_id>', methods=['PUT'])
 @login_required
 def update_risk(risk_id):
+    risk = Risk.query.get_or_404(risk_id)
+    if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لتعديل هذا الخطر'}), 403
+    
+    data = request.form
+    risk.title = data.get('title', risk.title)
+    risk.description = data.get('description', risk.description)
+    risk.category = data.get('category', risk.category)
+    risk.owner = data.get('owner', risk.owner)
+    risk.status = data.get('status', risk.status)
+    risk.risk_location = data.get('risk_location', risk.risk_location)
+    risk.proactive_actions = data.get('proactive_actions', risk.proactive_actions)
+    risk.immediate_actions = data.get('immediate_actions', risk.immediate_actions)
+    risk.target_completion_date = data.get('target_completion_date', risk.target_completion_date)
+    risk.action_effectiveness = data.get('action_effectiveness', risk.action_effectiveness)
+    risk.linked_risk_id = data.get('linked_risk_id', risk.linked_risk_id)
+    risk.business_continuity_plan = data.get('business_continuity_plan', risk.business_continuity_plan)
+    risk.lessons_learned = data.get('lessons_learned', risk.lessons_learned)
+    risk.risk_type = data.get('risk_type', risk.risk_type)
+    risk.was_modified = True
+
     try:
-        risk = Risk.query.get_or_404(risk_id)
-        data = request.form.to_dict()
-        file = request.files.get('attachment')
-        for key, value in data.items():
-            if hasattr(risk, key): setattr(risk, key, value)
-        if file and file.filename:
-            if risk.attachment_filename and os.path.exists(os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename)):
-                os.remove(os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename))
+        risk.probability = int(data.get('probability', risk.probability))
+        risk.impact = int(data.get('impact', risk.impact))
+        matrix_value = risk.probability * risk.impact
+        if matrix_value >= 15: risk.risk_level = 'مرتفع جدا / كارثي'
+        elif matrix_value >= 10: risk.risk_level = 'مرتفع'
+        elif matrix_value >= 5: risk.risk_level = 'متوسط'
+        elif matrix_value >= 3: risk.risk_level = 'منخفض'
+        else: risk.risk_level = 'منخفض جدا'
+    except (ValueError, TypeError):
+        pass
+
+    if 'attachment' in request.files:
+        file = request.files['attachment']
+        if file.filename != '':
+            if risk.attachment_filename:
+                try: os.remove(os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename))
+                except OSError: pass
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             risk.attachment_filename = filename
-        risk.was_modified = True
-        db.session.commit()
-        return jsonify({"success": True, "message": "تم تحديث الخطر بنجاح."})
-    except Exception as e: db.session.rollback(); return jsonify({"success": False, "message": f"خطأ في الخادم: {e}"}), 500
+
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم تحديث الخطر بنجاح'})
 
 @app.route('/api/risks/<int:risk_id>', methods=['DELETE'])
 @login_required
-def delete_risk(risk_id):
-    try:
-        risk = Risk.query.get_or_404(risk_id)
-        db.session.delete(risk)
-        db.session.commit()
-        return jsonify({"success": True, "message": "تم حذف الخطر بنجاح."})
-    except Exception as e: db.session.rollback(); return jsonify({"success": False, "message": f"خطأ في الخادم: {e}"}), 500
+@roles_required(['Admin', 'Pioneer'])
+def archive_risk(risk_id):
+    risk = Risk.query.get_or_404(risk_id)
+    if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لحذف هذا الخطر'}), 403
+    
+    # يمكنك هنا إضافة منطق الأرشفة بدلاً من الحذف الفعلي إذا أردت
+    db.session.delete(risk)
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم حذف (أرشفة) الخطر بنجاح'})
 
-# --- Reports API ---
+@app.route('/api/risks/<int:risk_id>/delete_attachment', methods=['DELETE'])
+@login_required
+def delete_attachment(risk_id):
+    risk = Risk.query.get_or_404(risk_id)
+    if current_user.role.name != 'Admin' and risk.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لحذف المرفق'}), 403
+    
+    if risk.attachment_filename:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], risk.attachment_filename))
+            risk.attachment_filename = None
+            db.session.commit()
+            return jsonify({'success': True, 'message': 'تم حذف المرفق بنجاح'})
+        except OSError as e:
+            return jsonify({'success': False, 'message': f'خطأ في حذف الملف: {e}'}), 500
+    return jsonify({'success': False, 'message': 'لا يوجد مرفق لحذفه'}), 404
+
+@app.route('/api/risks/<int:risk_id>/update_action', methods=['PUT'])
+@login_required
+@roles_required(['Admin', 'Pioneer'])
+def update_action_field(risk_id):
+    risk = Risk.query.get_or_404(risk_id)
+    data = request.get_json()
+    field_name = data.get('field')
+    new_value = data.get('value')
+
+    if field_name not in ['proactive_actions', 'immediate_actions']:
+        return jsonify({'success': False, 'message': 'حقل غير صالح'}), 400
+
+    original_value = getattr(risk, field_name, "").split("||IMPROVEMENT||")[0]
+    updated_full_value = f"{original_value}||IMPROVEMENT||{new_value}"
+    setattr(risk, field_name, updated_full_value)
+    
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تم التحديث', 'newValue': updated_full_value})
+
+# API للتقارير
 @app.route('/api/reports/upload', methods=['POST'])
 @login_required
-def upload_report_file():
-    if current_user.role.name not in ['Admin', 'Pioneer']: return jsonify({'success': False, 'message': 'غير مصرح لك بالرفع'}), 403
-    if 'report_file' not in request.files: return jsonify({'success': False, 'message': 'لم يتم العثور على ملف'})
+@roles_required(['Admin', 'Pioneer'])
+def upload_report():
+    if 'report_file' not in request.files:
+        return jsonify({'success': False, 'message': 'لم يتم إرسال أي ملف'}), 400
     file = request.files['report_file']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': 'لم يتم اختيار أي ملف'}), 400
+    
     report_type = request.form.get('report_type')
-    if file.filename == '' or not report_type: return jsonify({'success': False, 'message': 'بيانات ناقصة'})
-    try:
-        original_filename = secure_filename(file.filename)
-        unique_filename = str(uuid.uuid4()) + os.path.splitext(original_filename)[1]
-        type_folder = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
-        os.makedirs(type_folder, exist_ok=True)
-        file.save(os.path.join(type_folder, unique_filename))
-        new_report = Report(filename=unique_filename, report_type=report_type, uploaded_by=current_user.id)
-        db.session.add(new_report)
-        db.session.commit()
-        return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
-    except Exception as e: db.session.rollback(); return jsonify({'success': False, 'message': f'حدث خطأ أثناء الحفظ: {e}'}), 500
+    if not report_type:
+        return jsonify({'success': False, 'message': 'نوع التقرير مطلوب'}), 400
 
-@app.route('/api/reports/files', methods=['GET'])
+    # صلاحيات الرفع
+    if report_type == 'risk_champion' and current_user.role.name != 'Pioneer':
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لرفع هذا النوع من التقارير'}), 403
+    if report_type != 'risk_champion' and current_user.role.name != 'Admin':
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية لرفع هذا النوع من التقارير'}), 403
+
+    type_folder = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type)
+    os.makedirs(type_folder, exist_ok=True)
+    
+    filename = secure_filename(file.filename)
+    file.save(os.path.join(type_folder, filename))
+    
+    new_report = ReportFile(name=filename, type=report_type, user_id=current_user.id)
+    db.session.add(new_report)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'تم رفع الملف بنجاح'})
+
+@app.route('/api/reports/files')
 @login_required
+@roles_required(['Admin', 'Pioneer'])
 def get_report_files():
-    def file_to_dict(f):
-        ksa_tz = pytz.timezone('Asia/Riyadh')
-        modified_date_ksa = pytz.utc.localize(f.upload_date).astimezone(ksa_tz)
-        return {'id': f.id, 'name': f.filename, 'type': f.report_type, 'modified_date': modified_date_ksa.isoformat()}
+    files_by_type = {'quarterly': [], 'semi_annual': [], 'annual': [], 'risk_champion': []}
+    archived_files = []
+
+    if current_user.role.name == 'Admin':
+        all_files = ReportFile.query.order_by(ReportFile.modified_date.desc()).all()
+    else: # Pioneer
+        all_files = ReportFile.query.filter_by(user_id=current_user.id).order_by(ReportFile.modified_date.desc()).all()
+
+    for file in all_files:
+        file_data = {'id': file.id, 'name': file.name, 'type': file.type, 'modified_date': file.modified_date.isoformat()}
+        if file.is_archived:
+            if current_user.role.name == 'Admin':
+                archived_files.append(file_data)
+        elif file.type in files_by_type:
+            files_by_type[file.type].append(file_data)
+            
+    return jsonify({'success': True, 'files': files_by_type, 'archived_files': archived_files})
+
+@app.route('/api/reports/<int:report_id>/archive', methods=['POST'])
+@login_required
+@roles_required(['Admin', 'Pioneer'])
+def archive_report(report_id):
+    report = ReportFile.query.get_or_404(report_id)
+    if current_user.role.name != 'Admin' and report.user_id != current_user.id:
+        return jsonify({'success': False, 'message': 'ليس لديك الصلاحية'}), 403
+    report.is_archived = True
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تمت أرشفة الملف'})
+
+@app.route('/api/reports/<int:report_id>/restore', methods=['POST'])
+@login_required
+@role_required('Admin')
+def restore_report(report_id):
+    report = ReportFile.query.get_or_404(report_id)
+    report.is_archived = False
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'تمت استعادة الملف'})
+
+@app.route('/api/reports/<int:report_id>/delete', methods=['DELETE'])
+@login_required
+@role_required('Admin')
+def delete_report(report_id):
+    report = ReportFile.query.get_or_404(report_id)
     try:
-        if current_user.role.name == 'Admin':
-            all_files = Report.query.filter_by(is_archived=False).all()
-            archived_files = Report.query.filter_by(is_archived=True).all()
-            files_by_type = {
-                'quarterly': [file_to_dict(f) for f in all_files if f.report_type == 'quarterly'],
-                'semi_annual': [file_to_dict(f) for f in all_files if f.report_type == 'semi_annual'],
-                'annual': [file_to_dict(f) for f in all_files if f.report_type == 'annual'],
-                'risk_champion': [file_to_dict(f) for f in all_files if f.report_type == 'risk_champion'],
-            }
-            return jsonify({'success': True, 'files': files_by_type, 'archived_files': [file_to_dict(f) for f in archived_files]})
-        elif current_user.role.name == 'Pioneer':
-            user_files = Report.query.filter_by(uploaded_by=current_user.id, is_archived=False).all()
-            return jsonify({'success': True, 'files': {'risk_champion': [file_to_dict(f) for f in user_files]}})
-        else: return jsonify({'success': False, 'message': 'غير مصرح لك'}), 403
-    except Exception as e: return jsonify({'success': False, 'message': f'خطأ في الخادم: {e}'}), 500
+        file_path = os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report.type, report.name)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        db.session.delete(report)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'تم حذف الملف نهائياً'})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'خطأ: {e}'}), 500
 
-# ... (Other report actions like archive, restore, delete would go here)
-
-# =============================================================================
-# File Serving Routes
-# =============================================================================
+# طرق عرض لخدمة الملفات المرفوعة
 @app.route('/uploads/<filename>')
+@login_required
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/reports_uploads/<report_type>/<filename>')
+@login_required
 def uploaded_report_file(report_type, filename):
     return send_from_directory(os.path.join(app.config['REPORTS_UPLOAD_FOLDER'], report_type), filename)
 
-# =============================================================================
-# Main Execution
-# =============================================================================
+# --- إعداد قاعدة البيانات والتشغيل ---
+def setup_database(app):
+    with app.app_context():
+        db.create_all()
+        # إنشاء الأدوار إذا لم تكن موجودة
+        if not Role.query.filter_by(name='Admin').first():
+            db.session.add(Role(name='Admin'))
+        if not Role.query.filter_by(name='Pioneer').first():
+            db.session.add(Role(name='Pioneer'))
+        if not Role.query.filter_by(name='Reporter').first():
+            db.session.add(Role(name='Reporter'))
+        db.session.commit()
+
+        # إنشاء المستخدمين الافتراضيين إذا لم يكونوا موجودين
+        if not User.query.filter_by(username='admin').first():
+            admin_role = Role.query.filter_by(name='Admin').first()
+            admin_user = User(username='admin', role_id=admin_role.id)
+            admin_user.set_password('123')
+            db.session.add(admin_user)
+
+        if not User.query.filter_by(username='pioneer').first():
+            pioneer_role = Role.query.filter_by(name='Pioneer').first()
+            pioneer_user = User(username='pioneer', role_id=pioneer_role.id)
+            pioneer_user.set_password('123')
+            db.session.add(pioneer_user)
+
+        if not User.query.filter_by(username='reporter').first():
+            reporter_role = Role.query.filter_by(name='Reporter').first()
+            reporter_user = User(username='reporter', role_id=reporter_role.id)
+            reporter_user.set_password('123')
+            db.session.add(reporter_user)
+        
+        db.session.commit()
+        
+        # إنشاء مجلدات الرفع
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(app.config['REPORTS_UPLOAD_FOLDER'], exist_ok=True)
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    setup_database(app)
+    app.run(debug=True, host='0.0.0.0', port=5001)
