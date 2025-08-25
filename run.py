@@ -151,19 +151,37 @@ def calculate_residual_risk(effectiveness):
     if effectiveness in ['ممتاز', 'جيد']: return 'لا يوجد'
     elif effectiveness in ['متوسط', 'ضعيف', 'غير مرضي']: return 'إجراءات إضافية'
     return ''
+# ▼▼▼ [إضافة] مزخرف للتحقق من صلاحيات الأدوار ▼▼▼
+from functools import wraps
+
+def role_required(*role_names):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated:
+                return login_manager.unauthorized()
+            if current_user.role.name not in role_names:
+                abort(403)  # خطأ: غير مصرح لك
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+# ▲▲▲ نهاية الإضافة ▲▲▲
 
 # --- مسارات الصفحات ---
 @app.route('/')
 @login_required
 def home():
-    if current_user.username == 'reporter': return redirect(url_for('risk_register'))
+    if current_user.role.name == 'Reporter':
+        return redirect(url_for('risk_register'))
     return redirect(url_for('stats'))
+
 
 @app.route('/stats')
 @login_required
+@role_required('Admin', 'Pioneer') # فقط المدير والرائد يمكنهم الوصول
 def stats():
-    if current_user.username == 'reporter': abort(403)
     return render_template('stats.html')
+
 
 @app.route('/risk-register')
 @login_required
@@ -171,9 +189,9 @@ def risk_register(): return render_template('dashboard.html')
 
 @app.route('/reports')
 @login_required
+@role_required('Admin', 'Pioneer') # فقط المدير والرائد يمكنهم الوصول
 def reports():
-    if current_user.username not in ['admin', 'testuser']: abort(403)
-    if current_user.username == 'admin':
+    if current_user.role.name == 'Admin': # الشرط الداخلي يبقى للوظائف الخاصة بالمدير فقط
         try:
             Report.query.filter_by(is_read=False).update({'is_read': True})
             db.session.commit()
@@ -184,9 +202,8 @@ def reports():
 
 @app.route('/audit_log')
 @login_required
+@role_required('Admin') # فقط المدير يمكنه الوصول
 def audit_log():
-    if current_user.username != 'admin':
-        abort(403)
     logs_from_db = AuditLog.query.order_by(AuditLog.timestamp.desc()).all()
     processed_logs = []
     for log in logs_from_db:
@@ -320,11 +337,10 @@ def reset_with_token(token):
 # --- دالة تصدير CSV ---
 @app.route('/download-risk-log')
 @login_required
+@role_required('Admin', 'Pioneer') # فقط المدير والرائد يمكنهم الوصول
 def download_risk_log():
-    if current_user.username not in ['admin', 'testuser']:
-        abort(403)
-    
     query = Risk.query.filter_by(is_deleted=False)
+    # ... (بقية الدالة تبقى كما هي)
 
     if current_user.username != 'admin':
         query = query.filter_by(user_id=current_user.id)
@@ -1035,5 +1051,6 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
