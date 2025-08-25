@@ -1,45 +1,59 @@
-import os
-from run import app, db, User, Role
+from run import app, db, User, Role # استيراد النماذج من ملف run.py
 
-def initialize_database():
-    print("Starting database initialization with RBAC...")
-    with app.app_context():
-        db.drop_all()
-        db.create_all()
-        print("Tables dropped and recreated successfully.")
+# هذا الملف سيقوم بحذف قاعدة البيانات الحالية وإعادة إنشائها
+# استخدمه بحذر في بيئة التطوير فقط، وليس في البيئة الإنتاجية
 
-        # --- 1. إنشاء الأدوار (Roles) ---
-        roles_to_create = ['Admin', 'Pioneer', 'Reporter']
-        for role_name in roles_to_create:
-            if not Role.query.filter_by(name=role_name).first():
-                new_role = Role(name=role_name)
-                db.session.add(new_role)
-        db.session.commit()
-        print("Roles committed to the database.")
+with app.app_context():
+    print("Starting database initialization...")
 
-        # --- 2. إنشاء المستخدمين الافتراضيين وربطهم بالأدوار ---
-        users_to_create = [
-            {'username': 'admin', 'full_name': 'مدير النظام', 'password': 'Admin@2025', 'email': 'twag1212@gmail.com', 'role': 'Admin'},
-            {'username': 'pioneer', 'full_name': 'رائد المخاطر', 'password': 'Pioneer@1234', 'email': 'pioneer@example.com', 'role': 'Pioneer'},
-            {'username': 'reporter', 'full_name': 'المبلغ', 'password': 'Reporter@123', 'email': 'reporter@example.com', 'role': 'Reporter'}
-        ]
+    # حذف جميع الجداول الحالية
+    print("Dropping all tables...")
+    db.drop_all()
+    print("Tables dropped.")
 
-        for user_data in users_to_create:
-            if not User.query.filter_by(username=user_data['username']).first():
-                role = Role.query.filter_by(name=user_data['role']).first()
-                if role:
-                    new_user = User(
-                        username=user_data['username'],
-                        full_name=user_data['full_name'],
-                        email=user_data['email'],
-                        role_id=role.id
-                    )
-                    new_user.set_password(user_data['password'])
-                    db.session.add(new_user)
-        
-        db.session.commit()
-        print("Default users committed to the database.")
-        print("Database initialization complete.")
+    # إنشاء جميع الجداول الجديدة بناءً على النماذج (Models)
+    print("Creating all tables...")
+    db.create_all()
+    print("Tables created.")
 
-if __name__ == '__main__':
-    initialize_database()
+    # --- 1. إنشاء الأدوار (Roles) ---
+    print("Creating roles: Admin, Pioneer, Reporter...")
+    roles_to_create = ['Admin', 'Pioneer', 'Reporter']
+    for role_name in roles_to_create:
+        if not Role.query.filter_by(name=role_name).first():
+            db.session.add(Role(name=role_name))
+    db.session.commit()
+    print("Roles created successfully.")
+
+    # --- 2. إنشاء المستخدمين الافتراضيين وربطهم بالأدوار ---
+    print("Creating default users: admin, pioneer, reporter...")
+    
+    # جلب الأدوار من قاعدة البيانات
+    admin_role = Role.query.filter_by(name='Admin').first()
+    pioneer_role = Role.query.filter_by(name='Pioneer').first()
+    reporter_role = Role.query.filter_by(name='Reporter').first()
+
+    # قاموس المستخدمين لإنشائهم
+    users_to_create = {
+        'admin': ('Admin@2025', 'twag1212@gmail.com', admin_role),
+        'pioneer': ('Pioneer@1234', 'pioneer@example.com', pioneer_role),
+        'reporter': ('Reporter@123', 'reporter@example.com', reporter_role)
+    }
+
+    for username, (password, email, role) in users_to_create.items():
+        # التأكد من عدم وجود المستخدم مسبقًا
+        if not User.query.filter_by(username=username).first():
+            if role: # التأكد من أن الدور موجود
+                # --- [التصحيح الحاسم هنا] ---
+                # تم حذف full_name من هنا لأنه غير موجود في نموذج User
+                new_user = User(username=username, email=email, role_id=role.id)
+                new_user.set_password(password)
+                db.session.add(new_user)
+            else:
+                print(f"Warning: Role for user '{username}' not found. User not created.")
+
+    # حفظ جميع المستخدمين الجدد في قاعدة البيانات
+    db.session.commit()
+    print("Default users created successfully.")
+
+    print("Database has been successfully initialized with new data.")
