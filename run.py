@@ -527,7 +527,7 @@ def update_risk(risk_id):
         linked_risk_value = data.get('linked_risk_id')
         risk.linked_risk_id = linked_risk_value if linked_risk_value and linked_risk_value != 'لا يوجد' else None
 
-      if current_user.role.name != 'Admin':
+        if current_user.role.name != 'Admin':
             risk.is_read = False
             risk.was_modified = True
         else:
@@ -1135,6 +1135,7 @@ if __name__ == '__main__':
         db.session.commit()
         
     app.run(debug=True, port=5001)
+
 
 
 
