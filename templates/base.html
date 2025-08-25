@@ -58,6 +58,16 @@
                     {% endif %}
                     <li class="nav-item"><a class="nav-link" href="{{ url_for('static', filename='risk_management_plan_2025.pdf') }}" target="_blank"><i class="bi bi-file-earmark-text-fill"></i> خطة إدارة المخاطر</a></li>
                     <li class="nav-item"><a class="nav-link" href="mailto:Grc@nu.edu.sa"><i class="bi bi-envelope-fill"></i> تواصل معنا</a></li>
+                                        {# ▼▼▼ [إضافة] إظهار رابط إدارة المستخدمين للمدير فقط ▼▼▼ #}
+                    {% if current_user.role.name == 'Admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'manage_users' %}active{% endif %}" href="{{ url_for('manage_users') }}">
+                            <i class="bi bi-people-fill"></i> إدارة المستخدمين
+                        </a>
+                    </li>
+                    {% endif %}
+                    {# ▲▲▲ نهاية الإضافة ▲▲▲ #}
+
                 </ul>
                 <ul class="navbar-nav">
                     {% if current_user.username == 'admin' %}
@@ -226,4 +236,5 @@
     {% block scripts %}{% endblock %}
 </body>
 </html>
+
 
